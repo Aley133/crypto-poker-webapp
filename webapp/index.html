@@ -95,5 +95,64 @@
     };
   });
   </script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('user_id');
+    let currentMode  = 'cash';
+    let currentLevel = 'Low';
+
+    async function fetchTables() {
+      const res = await fetch(
+        `/api/tables?user_id=${userId}&mode=${currentMode}&level=${currentLevel}`
+      );
+      const tables = await res.json();
+      renderTables(tables);
+    }
+
+    function renderTables(tables) {
+      const info = document.getElementById('info');
+      info.innerHTML = ''; 
+      tables.forEach(t => {
+        const div = document.createElement('div');
+        div.style.margin = '8px 0';
+        div.innerHTML = `
+          <strong>Стол ${t.id}</strong><br/>
+          ${t.small_blind}/${t.big_blind} ― бай-ин ${t.buy_in} ― ${t.players}
+          <button data-id="${t.id}">Играть</button>
+        `;
+        info.append(div);
+      });
+      // Навешиваем события на кнопки
+      info.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const tid = btn.dataset.id;
+          const resp = await fetch(`/api/join?user_id=${userId}&table_id=${tid}`);
+          const json = await resp.json();
+          info.textContent = json.message;
+        });
+      });
+    }
+
+    // Обработчик табов
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Снимаем active, ставим активный
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        if (tab.dataset.tab === 'cash') {
+          currentMode = 'cash';
+          // уровень можно сделать селектом, а пока по дефолту Low
+          currentLevel = 'Low';
+          fetchTables();
+        }
+        // TODO: турниры и «Ещё»
+      });
+    });
+
+    // При старте показываем кэш-столы
+    fetchTables();
+  });
+</script>
 </body>
 </html>
