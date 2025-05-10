@@ -1,1 +1,190 @@
+/* Общие стили */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f0f0f;
+  color: #fff;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-size: 14px;
+}
+
+/* Хедер */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #1f1f1f;
+  border-bottom: 1px solid #333;
+}
+
+header .user {
+  display: flex;
+  align-items: center;
+}
+
+header .avatar {
+  width: 40px;
+  height: 40px;
+  background: #333;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+
+header .name {
+  font-weight: bold;
+  margin-right: 16px;
+}
+
+header .balance {
+  display: flex;
+  align-items: center;
+}
+
+header .balance span {
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+/* Селектор уровня */
+#level-select {
+  background: #1f1f1f;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+/* Блок действий (депозит/вывод/история) */
+.actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+}
+
+.actions button {
+  flex: 1;
+  padding: 10px;
+  background: #ffd700;
+  color: #000;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+/* Табуляция */
+.tabs {
+  display: flex;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+}
+
+.tabs .tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0;
+  color: #888;
+  font-weight: 500;
+}
+
+.tabs .tab.active {
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+}
+
+/* Основная область */
+#info {
+  padding: 16px;
+  min-height: 200px;
+}
+
+/* Одиночный стол (в лобби) */
+.table {
+  background: #1b1b1b;
+  border: 1px solid #333;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+}
+
+.table strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+.table button {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #ffd700;
+  color: #000;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* Стили для страницы game.html */
+#table-area {
+  padding: 16px;
+}
+
+#table-area > div {
+  margin-bottom: 12px;
+}
+
+#community-cards,
+#your-cards,
+#pot {
+  font-size: 16px;
+}
+
+#players-area {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#actions button {
+  padding: 8px 14px;
+  background: #ffd700;
+  color: #000;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#actions input[type="number"] {
+  width: 80px;
+  padding: 6px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #1f1f1f;
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Кнопка назад */
+#back {
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  padding: 6px 10px;
+}
+
+#back:hover {
+  text-decoration: underline;
+}
 
