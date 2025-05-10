@@ -1,1 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Crypto Poker Table</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Добавьте стили столa из index.html -->
+</head>
+<body>
+  <div id="table-container">
+    <!-- Реализация как в index.html -->
+  </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const webapp = Telegram.WebApp;
+  webapp.ready();
+
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get('user_id');
+  const tableId= params.get('table_id');
+
+  let ws;
+
+  async function loadState() {
+    const state = await fetch(`/api/game_state?user_id=${userId}&table_id=${tableId}`).then(r=>r.json());
+    render(state);
+    // открыть WS
+    ws = new WebSocket(`wss://${location.host}/ws/game/${tableId}`);
+    ws.onmessage = e => render(JSON.parse(e.data));
+  }
+
+  function render(state) {
+    // отрисовать карты, игроков, банк
+  }
+
+  document.getElementById('btn-check').onclick = () => ws.send(...);
+  // и т.д.
+
+  loadState();
+});
+</script>
+</body>
+</html>
