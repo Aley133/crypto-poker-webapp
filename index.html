@@ -4,12 +4,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crypto Poker WebApp</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; text-align: center; background: #121212; color: #fff; }
+    body { 
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+      background: #121212;
+      color: #fff;
+    }
     h1 { margin-bottom: 1em; }
-    button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; }
-    #balance { background: #3b82f6; color: #fff; }
-    #info { margin-top: 1em; font-size: 14px; }
+    button { 
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #3b82f6;
+      color: #fff;
+    }
+    #info {
+      margin-top: 1em;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -19,19 +37,37 @@
   <button id="balance">Узнать баланс</button>
   <div id="info"></div>
 
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script>
-  const webapp = window.Telegram.WebApp;
-  webapp.ready();
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Инициализация Telegram WebApp SDK
+      const webapp = Telegram.WebApp;
+      webapp.ready();
 
-  document.getElementById('balance').addEventListener('click', () => {
-    webapp.sendData(JSON.stringify({ action: 'get_balance' }));
-  });
+      // Отправка запроса баланса боту
+      document.getElementById('balance').addEventListener('click', () => {
+        webapp.sendData(JSON.stringify({ action: 'get_balance' }));
+      });
 
-  window.addEventListener('message', (event) => {
-    // event.data — это то, что бот отправил через message.answer()
-    document.getElementById('info').textContent = event.data;
-  });
-</script>
+      // Приём сообщений из бота
+      window.addEventListener('message', (event) => {
+        console.log('WebApp postMessage:', event.data);
+        let text = '';
+        const data = event.data;
+
+        // Разбор полученного объекта
+        if (typeof data === 'string') {
+          text = data;
+        } else if (data && data.text) {
+          text = data.text;
+        } else if (data && data.message && data.message.text) {
+          text = data.message.text;
+        }
+
+        if (text) {
+          document.getElementById('info').textContent = text;
+        }
+      });
+    });
+  </script>
 </body>
 </html>
