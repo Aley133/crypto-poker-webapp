@@ -1,1 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Poker WebApp</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
+    button { margin-top: 1em; padding: 10px 20px; font-size: 16px; border-radius: 4px; border: none; cursor: pointer; }
+    #info { margin-top: 1em; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h1>Добро пожаловать в Crypto Poker</h1>
+  <button id="balance">Узнать баланс</button>
+  <div id="info"></div>
 
+  <script>
+    const webapp = Telegram.WebApp;
+    webapp.ready();
+
+    // Получаем ID юзера из initData
+    const user = webapp.initDataUnsafe.user;
+    const userId = user?.id;
+
+    document.getElementById('balance').addEventListener('click', async () => {
+      if (!userId) {
+        document.getElementById('info').textContent = 'Ошибка: не удалось получить ваш ID';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/balance?user_id=${userId}`);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const json = await res.json();
+        document.getElementById('info').textContent = `💰 Ваш баланс: ${json.balance.toFixed(2)} USDT`;
+      } catch (e) {
+        console.error(e);
+        document.getElementById('info').textContent = 'Не удалось получить баланс';
+      }
+    });
+  </script>
+</body>
+</html>
