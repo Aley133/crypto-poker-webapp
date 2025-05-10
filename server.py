@@ -1,6 +1,6 @@
 import sqlite3
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -11,14 +11,13 @@ from pydantic import BaseModel
 def init_db():
     conn = sqlite3.connect("poker.db")
     cur = conn.cursor()
-
-    # Существующие таблицы
+    # Пользователи
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
         wallet_address TEXT
     )""")
-
+    # Cash-столы не требуют БД (в памяти)
     # Турниры и участники
     cur.execute("""
     CREATE TABLE IF NOT EXISTS tournaments (
@@ -36,12 +35,9 @@ def init_db():
         chips INTEGER NOT NULL,
         eliminated BOOLEAN NOT NULL DEFAULT 0,
         joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (tournament_id, user_id),
-        FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
-        FOREIGN KEY (user_id)       REFERENCES users(user_id)
+        PRIMARY KEY (tournament_id, user_id)
     )""")
-
-    # История раздач и действий (опционально)
+    # Доп. таблицы по истории раздач
     cur.execute("""
     CREATE TABLE IF NOT EXISTS tournament_hands (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,8 +45,7 @@ def init_db():
         round_stage TEXT NOT NULL,
         community TEXT NOT NULL,
         pot REAL NOT NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
     cur.execute("""
     CREATE TABLE IF NOT EXISTS player_actions (
@@ -59,27 +54,98 @@ def init_db():
         user_id INTEGER NOT NULL,
         action TEXT NOT NULL,
         amount REAL DEFAULT 0,
-        action_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (hand_id) REFERENCES tournament_hands(id),
-        FOREIGN KEY (user_id)   REFERENCES users(user_id)
+        action_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
-
     conn.commit()
     conn.close()
 
-# --- Создание приложения ---
+# --- Приложение FastAPI ---
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # в проде можно сузить до домена
+    allow_origins=["*"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
-
-# Инициализируем БД при старте
+# Инициализируем БД
 init_db()
 
-# --- Pydantic модели ---
+# --- Модели для cash-игры ---
+class Table(BaseModel):
+    id: int
+    mode: str        # "cash"
+    level: str       # Low, Mid, VIP
+    small_blind: float
+    big_blind: float
+    buy_in: float
+    players: str     # "occupied/limit"
+
+class JoinResponse(BaseModel):
+    success: bool
+    message: str
+
+# Заглушечные cash-столы
+TABLES = [
+    {"id":1, "mode":"cash","level":"Low","small_blind":0.02,"big_blind":0.05,"buy_in":2.5,"players":"0/6"},
+    {"id":2, "mode":"cash","level":"Low","small_blind":0.05,"big_blind":0.10,"buy_in":7.5,"players":"0/6"},
+    {"id":3, "mode":"cash","level":"Mid","small_blind":0.10,"big_blind":0.20,"buy_in":20.0,"players":"3/6"},
+]
+# Состояние занятости в памяти
+seat_map: Dict[int, Set[int]] = {t["id"]: set() for t in TABLES}
+
+# WebSocket manager для cash-столов
+class CashManager:
+    def __init__(self):
+        self.active: Dict[int, List[WebSocket]] = {}
+    async def connect(self, table_id: int, ws: WebSocket):
+        await ws.accept()
+        self.active.setdefault(table_id, []).append(ws)
+    def disconnect(self, table_id: int, ws: WebSocket):
+        self.active.get(table_id, []).remove(ws)
+    async def broadcast(self, table_id: int, data: dict):
+        for ws in self.active.get(table_id, []):
+            await ws.send_json(data)
+
+cash_manager = CashManager()
+
+@app.get("/api/tables", response_model=List[Table])
+async def api_tables(
+    user_id: int = Query(...),
+    mode: str   = Query("cash"),
+    level: str  = Query("Low")
+):
+    result = []
+    for t in TABLES:
+        if t["mode"]==mode and t["level"]==level:
+            occ = len(seat_map[t["id"]])
+            limit = int(t["players"].split("/")[1])
+            t2 = t.copy()
+            t2["players"] = f"{occ}/{limit}"
+            result.append(t2)
+    return result
+
+@app.get("/api/join", response_model=JoinResponse)
+async def api_join(user_id: int = Query(...), table_id: int = Query(...)):
+    if table_id not in seat_map:
+        raise HTTPException(404, "Стол не найден")
+    limit = int(next(t for t in TABLES if t["id"]==table_id)["players"].split("/")[1])
+    if len(seat_map[table_id]) >= limit:
+        return JoinResponse(success=False, message="Все места заняты")
+    seat_map[table_id].add(user_id)
+    # пушим обновление по WS
+    await cash_manager.broadcast(table_id, {"type":"update","table_id":table_id,"players":f"{len(seat_map[table_id])}/{limit}"})
+    return JoinResponse(success=True, message=f"Вы присоединились к столу {table_id}")
+
+@app.websocket("/ws/tables/{table_id}")
+async def websocket_tables(ws: WebSocket, table_id: int):
+    await cash_manager.connect(table_id, ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        cash_manager.disconnect(table_id, ws)
+
+# --- Модели для турниров ---
 class TournamentStatus(str, Enum):
     registration = "registration"
     running      = "running"
@@ -94,26 +160,20 @@ class Tournament(BaseModel):
     max_players: int
     status: TournamentStatus
 
-class PlayerInGame(BaseModel):
-    user_id: int
-    chips: int
-    bet: float
-    status: str
+# вспомогательная функция
+def _count_players(t_id: int) -> int:
+    conn = sqlite3.connect("poker.db")
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM tournament_players WHERE tournament_id=? AND eliminated=0", (t_id,))
+    cnt = cur.fetchone()[0]
+    conn.close()
+    return cnt
 
-class GameState(BaseModel):
-    tournament_id: int
-    round_stage: str              # registration|preflop|flop|turn|river|showdown
-    community_cards: List[str]
-    pot: float
-    players: Dict[int, PlayerInGame]
-    current_player: int
-
-# --- Endpoints турниров ---
 @app.get("/api/tournaments", response_model=List[Tournament])
 async def api_tournaments():
     conn = sqlite3.connect("poker.db")
     cur = conn.cursor()
-    cur.execute("SELECT id, name, buy_in, prize_pool, max_players, status FROM tournaments")
+    cur.execute("SELECT id,name,buy_in,prize_pool,max_players,status FROM tournaments")
     rows = cur.fetchall()
     conn.close()
     return [
@@ -123,47 +183,25 @@ async def api_tournaments():
         ) for r in rows
     ]
 
-def _count_players(tournament_id: int) -> int:
-    conn = sqlite3.connect("poker.db")
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT COUNT(*) FROM tournament_players WHERE tournament_id = ? AND eliminated = 0", 
-        (tournament_id,)
-    )
-    count = cur.fetchone()[0]
-    conn.close()
-    return count
-
 @app.post("/api/join_tournament", response_model=Tournament)
-async def api_join_tournament(
-    user_id: int = Query(...),
-    tournament_id: int = Query(...)
-):
+async def api_join_tournament(user_id: int = Query(...), tournament_id: int = Query(...)):
     conn = sqlite3.connect("poker.db")
     cur = conn.cursor()
-    # Проверяем статус и вместимость
-    cur.execute("SELECT buy_in, max_players, status FROM tournaments WHERE id=?", (tournament_id,))
+    cur.execute("SELECT buy_in,max_players,status FROM tournaments WHERE id=?", (tournament_id,))
     row = cur.fetchone()
     if not row:
         raise HTTPException(404, "Турнир не найден")
     buy_in, max_p, status = row
     if status != TournamentStatus.registration.value:
         raise HTTPException(400, "Регистрация закрыта")
-    players = _count_players(tournament_id)
-    if players >= max_p:
+    if _count_players(tournament_id) >= max_p:
         raise HTTPException(400, "Мест нет")
-    # Записываем игрока
     start_chips = 1000
-    cur.execute(
-        "INSERT INTO tournament_players (tournament_id, user_id, chips, eliminated) VALUES (?, ?, ?, 0)",
-        (tournament_id, user_id, start_chips)
-    )
-    # Обновляем призовой пул
-    cur.execute(
-        "UPDATE tournaments SET prize_pool = prize_pool + ? WHERE id = ?", (buy_in, tournament_id)
-    )
+    cur.execute("INSERT INTO tournament_players (tournament_id,user_id,chips,eliminated) VALUES(?,?,?,0)",
+                (tournament_id, user_id, start_chips))
+    cur.execute("UPDATE tournaments SET prize_pool=prize_pool+? WHERE id=?", (buy_in, tournament_id))
     conn.commit()
-    cur.execute("SELECT id, name, buy_in, prize_pool, max_players, status FROM tournaments WHERE id=?", (tournament_id,))
+    cur.execute("SELECT id,name,buy_in,prize_pool,max_players,status FROM tournaments WHERE id=?", (tournament_id,))
     r2 = cur.fetchone()
     conn.close()
     return Tournament(
@@ -171,54 +209,5 @@ async def api_join_tournament(
         players=_count_players(r2[0]), max_players=r2[4], status=r2[5]
     )
 
-@app.get("/api/tournament_state", response_model=GameState)
-async def api_tournament_state(user_id: int = Query(...), tournament_id: int = Query(...)):
-    # Заглушка начального состояния
-    state = GameState(
-        tournament_id=tournament_id,
-        round_stage="registration",
-        community_cards=[],
-        pot=0.0,
-        players={},
-        current_player=user_id
-    )
-    return state
-
-# --- WebSocket для игрового стола ---
-class ConnectionManager:
-    def __init__(self):
-        self.active: Dict[int, List[WebSocket]] = {}
-    
-    async def connect(self, tournament_id: int, ws: WebSocket):
-        await ws.accept()
-        self.active.setdefault(tournament_id, []).append(ws)
-    
-    def disconnect(self, tournament_id: int, ws: WebSocket):
-        self.active.get(tournament_id, []).remove(ws)
-    
-    async def broadcast(self, tournament_id: int, data: dict):
-        conns = self.active.get(tournament_id, [])
-        for ws in conns:
-            await ws.send_json(data)
-
-manager = ConnectionManager()
-
-@app.websocket("/ws/game/{tournament_id}")
-async def websocket_game(ws: WebSocket, tournament_id: int):
-    await manager.connect(tournament_id, ws)
-    try:
-        while True:
-            msg = await ws.receive_json()
-            # TODO: process msg and update state
-            new_state = await process_player_action(tournament_id, msg)
-            await manager.broadcast(tournament_id, new_state.dict())
-    except WebSocketDisconnect:
-        manager.disconnect(tournament_id, ws)
-
-async def process_player_action(tournament_id: int, msg: dict) -> GameState:
-    # Здесь будет логика игры: ставки, раунды, определение победителя
-    # Пока возвращаем текущее состояние
-    return await api_tournament_state(user_id=msg.get("user_id"), tournament_id=tournament_id)
-
-# Монтируем статику после всех эндпоинтов
+# --- Статика ---
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
