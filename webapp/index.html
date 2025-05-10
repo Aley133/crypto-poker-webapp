@@ -1,116 +1,182 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crypto Poker WebApp</title>
+  <meta charset="UTF-8">
+  <title>Crypto Poker</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body{margin:0;font-family:Arial,sans-serif;background:#0f0f0f;color:#fff}
-    header{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#1f1f1f}
-    .user{display:flex;align-items:center}
-    .avatar{width:40px;height:40px;border-radius:50%;background:#333;margin-right:10px}
-    .info{display:flex;align-items:center}
-    .balance{margin-left:8px}
-    .actions{display:flex;padding:12px;background:#1a1a1a}
-    .actions button{flex:1;margin:0 6px;padding:10px;background:#ffd700;border:none;border-radius:4px;color:#000;cursor:pointer}
-    .tabs{display:flex;padding:8px 12px;background:#1a1a1a}
-    .tab{flex:1;text-align:center;padding:8px;color:#888;cursor:pointer}
-    .tab.active{color:#fff;border-bottom:2px solid #ffd700}
-    #level-select{margin-left:12px;padding:6px;background:#333;border:none;color:#fff;border-radius:4px}
-    #info{padding:16px;white-space:pre-wrap}
+    body { margin:0; font-family:Arial,sans-serif; background:#0f0f0f; color:#fff; }
+    header { padding:16px; background:#1f1f1f; display:flex; justify-content:space-between; align-items:center; }
+    .user { display:flex; align-items:center; }
+    .user .avatar { width:40px;height:40px;border-radius:50%;background:#333;margin-right:8px; }
+    .user .name { font-weight:bold; margin-right:12px; }
+    .balance { display:flex; align-items:center; }
+    .balance span { margin-left:4px; }
+    .actions { padding:16px; display:flex; gap:12px; background:#1a1a1a; }
+    .actions button { flex:1; padding:12px; border:none;border-radius:4px;background:#ffd700;color:#000;font-weight:bold;cursor:pointer; }
+    .tabs { display:flex; background:#1a1a1a; }
+    .tabs .tab { flex:1; text-align:center; padding:12px; cursor:pointer; color:#888; }
+    .tabs .tab.active { color:#fff; border-bottom:3px solid #ffd700; }
+    #info { padding:16px; min-height:200px; }
+    .table { margin-bottom:16px; }
+    .table button { margin-top:4px; padding:6px 12px; }
   </style>
 </head>
 <body>
   <header>
     <div class="user">
-      <div class="avatar"></div>
-      <div class="info">
-        <div id="username">—</div>
-        <div class="balance">💰 <span id="current-balance">0.00 USDT</span></div>
-      </div>
+      <div class="avatar" id="avatar"></div>
+      <div class="name" id="username">—</div>
+      <div class="balance">💰<span id="current-balance">0.00 USDT</span></div>
     </div>
     <select id="level-select">
-      <option>Low</option>
-      <option>Mid</option>
-      <option>VIP</option>
+      <option value="Low">Low</option>
+      <option value="Mid">Mid</option>
+      <option value="VIP">VIP</option>
     </select>
   </header>
+
   <div class="actions">
     <button id="deposit">Депозит</button>
     <button id="withdraw">Вывести</button>
     <button id="history">История</button>
   </div>
+
   <div class="tabs">
     <div class="tab active" data-tab="cash">Кэш</div>
     <div class="tab" data-tab="tournaments">Турниры</div>
     <div class="tab" data-tab="more">Ещё</div>
   </div>
-  <div id="info">Загрузка...</div>
+
+  <div id="info">Выберите вкладку</div>
 
   <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const info = document.getElementById('info');
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('user_id');
-    document.getElementById('username').textContent = params.get('username') || '—';
+    document.addEventListener('DOMContentLoaded', () => {
+      const params    = new URLSearchParams(window.location.search);
+      const userId    = params.get('user_id');
+      const username  = params.get('username') || '—';
+      document.getElementById('username').textContent = username;
 
-    // Хелпер API
-    async function api(path) {
-      const res = await fetch(`${path}?user_id=${userId}&mode=cash&level=${encodeURIComponent(document.getElementById('level-select').value)}`);
-      return res.json();
-    }
+      const balanceEl = document.getElementById('current-balance');
+      const info      = document.getElementById('info');
+      const levelSel  = document.getElementById('level-select');
 
-    // Загрузка cash-столов
-    document.querySelector('.tab[data-tab="cash"]').onclick = async () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelector('.tab[data-tab="cash"]').classList.add('active');
-      info.innerHTML = 'Загрузка столов...';
-      try {
-        const tables = await api('/api/tables');
-        info.innerHTML = '';
-        // Функция открытия столa
-        window.openGame = (tableId) => {
-          const url = `${location.origin}/game.html?user_id=${userId}&table_id=${tableId}`;
-          if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.openLink(url);
-          } else {
-            window.location.href = url;
-          }
-        };
-        tables.forEach(t => {
-          const div = document.createElement('div');
-          div.innerHTML = `
-            <strong>Стол ${t.id}</strong><br/>
-            ${t.small_blind}/${t.big_blind} — бай-ин ${t.buy_in} — ${t.players}<br/>
-            <button onclick="openGame(${t.id})">Играть</button>
-          `;
-          info.append(div);
-        });
-      } catch {
-        info.textContent = 'Ошибка при загрузке столов';
+      // помощник для вызова API
+      async function api(path, extraParams = {}) {
+        const qs = new URLSearchParams({ user_id: userId, ...extraParams });
+        const res = await fetch(path + '?' + qs.toString());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
       }
-    };
 
+      // вкладки
+      function activateTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+        if (tabName === 'cash')     loadCash();
+        else if (tabName === 'tournaments') loadTournaments();
+        else                         info.textContent = 'Скоро…';
+      }
+      document.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => activateTab(t.dataset.tab));
+      });
 
-    // Загрузка турниров и прочее можно добавить аналогично
+      // Deposit / Withdraw / History
+      document.getElementById('deposit').onclick = async () => {
+        try {
+          const { address } = await api('/api/deposit');
+          info.textContent = `📥 Чтобы пополнить счёт, отправьте монеты на адрес: ${address}`;
+        } catch {
+          info.textContent = 'Ошибка при депозите';
+        }
+      };
+      document.getElementById('withdraw').onclick = async () => {
+        try {
+          const { instructions } = await api('/api/withdraw');
+          info.textContent = `📤 ${instructions}`;
+        } catch {
+          info.textContent = 'Ошибка при выводе';
+        }
+      };
+      document.getElementById('history').onclick = async () => {
+        try {
+          const { history } = await api('/api/history');
+          info.textContent = history.length
+            ? history.join('\\n')
+            : '📜 История пуста';
+        } catch {
+          info.textContent = 'Ошибка при получении истории';
+        }
+      };
 
-    // Actions: депозит, вывод, история
-    document.getElementById('deposit').onclick = async () => {
-      const deposit = await fetch(`/api/deposit?user_id=${userId}`).then(r=>r.json());
-      info.textContent = `📥 Адрес: ${deposit.address}`;
-    };
-    document.getElementById('withdraw').onclick = async () => {
-      const w = await fetch(`/api/withdraw?user_id=${userId}`).then(r=>r.json());
-      info.textContent = `📤 ${w.instructions}`;
-    };
-    document.getElementById('history').onclick = async () => {
-      const h = await fetch(`/api/history?user_id=${userId}`).then(r=>r.json());
-      info.textContent = h.history.length ? h.history.join('\n') : '📜 История пуста';
-    };
+      // Загрузка cash-столов
+      async function loadCash() {
+        info.textContent = 'Загрузка столов…';
+        try {
+          const lvl = levelSel.value;
+          const tables = await api('/api/tables', { level: lvl });
+          info.innerHTML = '';
+          tables.forEach(t => {
+            const d = document.createElement('div');
+            d.className = 'table';
+            d.innerHTML = `
+              <strong>Стол ${t.id}</strong><br>
+              SB/BB: ${t.small_blind}/${t.big_blind}<br>
+              Бай-ин: ${t.buy_in}  |  Игроки: ${t.players}<br>
+              <button data-id="${t.id}">Играть</button>
+            `;
+            info.appendChild(d);
+            d.querySelector('button').addEventListener('click', () => {
+              const url = `${location.origin}/game.html?user_id=${userId}`;
+              if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.openLink(url + `&table_id=${t.id}`);
+              } else {
+                window.location.href = url + `&table_id=${t.id}`;
+              }
+            });
+          });
+        } catch (e) {
+          console.error(e);
+          info.textContent = 'Ошибка при загрузке столов';
+        }
+      }
 
-    // Инициируем первый таб
-    document.querySelector('.tab[data-tab="cash"]').click();
-  });
+      // Загрузка турниров (пример)
+      async function loadTournaments() {
+        info.textContent = 'Загрузка турниров…';
+        try {
+          const list = await api('/api/tournaments');
+          info.innerHTML = '';
+          list.forEach(tr => {
+            const d = document.createElement('div');
+            d.className = 'table';
+            d.innerHTML = `
+              <strong>${tr.name}</strong><br>
+              Бай-ин: ${tr.buy_in}  |  Игроки: ${tr.players}/${tr.max_players}<br>
+              Статус: ${tr.status}<br>
+              <button data-id="${tr.id}">Присоединиться</button>
+            `;
+            info.appendChild(d);
+            d.querySelector('button').addEventListener('click', async () => {
+              try {
+                const j = await api('/api/join_tournament', { tournament_id: tr.id });
+                info.textContent = 'Вы в турнире! 🤞';
+              } catch (err) {
+                info.textContent = err.message || 'Ошибка';
+              }
+            });
+          });
+        } catch (e) {
+          console.error(e);
+          info.textContent = 'Ошибка при загрузке турниров';
+        }
+      }
+
+      // Стартуем
+      api('/api/balance').then(({balance}) => {
+        balanceEl.textContent = balance.toFixed(2) + ' USDT';
+      }).catch(()=>{});
+      activateTab('cash');
+    });
   </script>
 </body>
 </html>
