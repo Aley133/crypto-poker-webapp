@@ -1,34 +1,32 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crypto Poker WebApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     body { font-family: Arial, sans-serif; background: #0f0f0f; color: #fff; margin: 0; }
-    header { padding: 16px; display: flex; justify-content: space-between; background: #1f1f1f; }
+    header { padding: 16px; display: flex; justify-content: space-between; align-items: center; background: #1f1f1f; }
     .user { display: flex; align-items: center; }
     .avatar { width: 40px; height: 40px; background: #333; border-radius: 50%; margin-right: 12px; }
     .name { font-weight: bold; }
-    .balance { display: flex; align-items: center; }
+    .balance { margin-left: 8px; }
     .actions, .tabs { display: flex; padding: 16px; background: #1a1a1a; }
     .actions button, .tabs .tab { flex: 1; margin: 0 8px; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
     .actions button { background: #ffd700; color: #000; }
     .tabs .tab { background: transparent; color: #888; }
     .tabs .tab.active { color: #fff; border-bottom: 2px solid #ffd700; }
-    #info { padding: 16px; }
-    #level-select { margin: 0 16px; padding: 8px; border-radius: 4px; background: #333; color: #fff; border: none; }
+    #info { padding: 16px; white-space: pre-wrap; }
+    #level-select { margin-left: 16px; padding: 8px; border-radius: 4px; background: #333; color: #fff; border: none; }
   </style>
 </head>
 <body>
   <header>
     <div class="user">
       <div class="avatar"></div>
-      <div>
-        <div class="name" id="username">—</div>
-        <div class="balance">💰 <span id="current-balance">0.00 USDT</span></div>
-      </div>
+      <div class="name" id="username">—</div>
+      <div class="balance">💰 <span id="current-balance">0.00 USDT</span></div>
     </div>
     <select id="level-select">
       <option value="Low">Low</option>
@@ -49,124 +47,111 @@
   <div id="info">Информация появится здесь</div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const webapp = Telegram.WebApp;
-      webapp.ready();
+  document.addEventListener('DOMContentLoaded', () => {
+    const webapp = Telegram.WebApp;
+    webapp.ready();
 
-      const params = new URLSearchParams(window.location.search);
-      const userId   = params.get('user_id');
-      const username = params.get('username');
-      let mode       = 'cash';
-      let level      = document.getElementById('level-select').value;
+    const params   = new URLSearchParams(window.location.search);
+    const userId   = params.get('user_id');
+    const username = params.get('username') || params.get('first_name');
+    let mode       = 'cash';
+    let level      = document.getElementById('level-select').value;
 
-      // Display user info
-      document.getElementById('username').textContent = username || '—';
+    document.getElementById('username').textContent = username || '—';
 
-      // Helper to call API
-      async function callApi(path) {
-        const res = await fetch(`${path}?user_id=${userId}&mode=${mode}&level=${level}`);
-        if (!res.ok) throw new Error(res.status);
-        return res.json();
+    async function callApi(path) {
+      const url = `${path}?user_id=${userId}&mode=${mode}&level=${level}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(res.status);
+      return res.json();
+    }
+
+    // Начальная загрузка баланса и столов
+    callApi('/api/balance')
+      .then(data => document.getElementById('current-balance').textContent = `${data.balance.toFixed(2)} USDT`)
+      .catch(console.error);
+    fetchTables();
+
+    // Обработчики действий
+    document.getElementById('deposit').onclick = async () => {
+      try {
+        const { address } = await callApi('/api/deposit');
+        document.getElementById('info').textContent = `📥 Адрес для депозита:\n${address}`;
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при депозите';
       }
-
-      // Update balance
-      fetch(`/api/balance?user_id=${userId}`)
-        .then(res => res.json())
-        .then(data => {
-          document.getElementById('current-balance').textContent = `${data.balance.toFixed(2)} USDT`;
-        })
-        .catch(console.error);
-
-      // Button handlers
-      document.getElementById('deposit').onclick = async () => {
-        try {
-          const { address } = await callApi('/api/deposit');
-          document.getElementById('info').textContent = `📥 Адрес: ${address}`;
-        } catch {
-          document.getElementById('info').textContent = 'Ошибка при депозите';
-        }
-      };
-      document.getElementById('withdraw').onclick = async () => {
-        try {
-          const { instructions } = await callApi('/api/withdraw');
-          document.getElementById('info').textContent = `📤 ${instructions}`;
-        } catch {
-          document.getElementById('info').textContent = 'Ошибка при выводе';
-        }
-      };
-      document.getElementById('history').onclick = async () => {
-        try {
-          const { history } = await callApi('/api/history');
-          document.getElementById('info').textContent = history.length
-            ? history.join('\n')
-            : '📜 История пуста';
-        } catch {
-          document.getElementById('info').textContent = 'Ошибка при получении истории';
-        }
-      };
-
-      // WebSocket for tables update
-      const ws = new WebSocket(`wss://${location.host}/ws/tables`);
-      ws.onmessage = e => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'update') {
-          const span = document.querySelector(`#players-${msg.table_id}`);
-          if (span) span.textContent = msg.players;
-        }
-      };
-
-      // Render tables function
-      async function fetchTables() {
-        try {
-          const tables = await callApi('/api/tables');
-          renderTables(tables);
-        } catch (e) {
-          document.getElementById('info').textContent = 'Ошибка при загрузке столов';
-        }
+    };
+    document.getElementById('withdraw').onclick = async () => {
+      try {
+        const { instructions } = await callApi('/api/withdraw');
+        document.getElementById('info').textContent = `📤 ${instructions}`;
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при выводе';
       }
-      function renderTables(tables) {
-        const info = document.getElementById('info');
-        info.innerHTML = '';
-        tables.forEach(t => {
-          const div = document.createElement('div');
-          div.style.margin = '8px 0';
-          div.innerHTML = `
-            <strong>Стол ${t.id}</strong><br/>
-            ${t.small_blind}/${t.big_blind} — бай-ин ${t.buy_in} — 
-            <span id="players-${t.id}">${t.players}</span>
-            <button data-id="${t.id}">Играть</button>
-          `;
-          info.append(div);
-        });
-        info.querySelectorAll('button').forEach(btn => {
-          btn.onclick = async () => {
-            const tid = btn.dataset.id;
-            const res = await fetch(`/api/join?user_id=${userId}&table_id=${tid}`);
-            const json = await res.json();
-            document.getElementById('info').textContent = json.message;
-          };
-        });
+    };
+    document.getElementById('history').onclick = async () => {
+      try {
+        const { history } = await callApi('/api/history');
+        document.getElementById('info').textContent = history.length
+          ? history.join('\n')
+          : '📜 История пуста';
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при получении истории';
       }
+    };
 
-      // Tab click handler
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.onclick = () => {
-          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-          mode = tab.dataset.tab;
-          fetchTables();
-        };
+    // Таблицы и WebSocket
+    const ws = new WebSocket(`wss://${location.host}/ws/tables`);
+    ws.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'update') {
+        const span = document.getElementById(`players-${msg.table_id}`);
+        if (span) span.textContent = msg.players;
+      }
+    };
+
+    async function fetchTables() {
+      try {
+        const tables = await callApi('/api/tables');
+        renderTables(tables);
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при загрузке столов';
+      }
+    }
+    function renderTables(tables) {
+      const info = document.getElementById('info');
+      info.innerHTML = '';
+      tables.forEach(t => {
+        const div = document.createElement('div');
+        div.style.margin = '8px 0';
+        div.innerHTML = `
+          <strong>Стол ${t.id}</strong><br/>
+          ${t.small_blind}/${t.big_blind} — бай-ин ${t.buy_in} — 
+          <span id="players-${t.id}">${t.players}</span>
+          <button data-id="${t.id}">Играть</button>
+        `;
+        info.append(div);
       });
+      info.querySelectorAll('button').forEach(btn => btn.onclick = async () => {
+        const tid = btn.dataset.id;
+        const res = await fetch(`/api/join?user_id=${userId}&table_id=${tid}`);
+        const { message } = await res.json();
+        document.getElementById('info').textContent = message;
+      });
+    }
 
-      // Level selector change
-      document.getElementById('level-select').onchange = e => {
-        level = e.target.value;
-        fetchTables();
-      };
-
-      // Initial load
+    // Обработчики вкладок и селектора уровня
+    document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      mode = tab.dataset.tab;
       fetchTables();
     });
+    document.getElementById('level-select').onchange = e => {
+      level = e.target.value;
+      fetchTables();
+    };
+  });
   </script>
 </body>
 </html>
