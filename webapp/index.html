@@ -4,67 +4,159 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crypto Poker WebApp</title>
-  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { 
+    body {
+      margin: 0;
       font-family: Arial, sans-serif;
-      padding: 20px;
-      text-align: center;
-      background: #121212;
-      color: #fff;
+      background-color: #0f0f0f;
+      color: #ffffff;
     }
-    h1 { margin-bottom: 1em; }
-    button { 
-      padding: 10px 20px;
+    header {
+      background-color: #1f1f1f;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #333;
+      display: inline-block;
+      margin-right: 12px;
+    }
+    .username {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .balance {
       font-size: 16px;
+      display: flex;
+      align-items: center;
+    }
+    .balance span {
+      margin-left: 8px;
+    }
+    .actions {
+      display: flex;
+      justify-content: space-around;
+      padding: 16px;
+      background-color: #1a1a1a;
+    }
+    .actions button {
+      background-color: #ffd700;
       border: none;
       border-radius: 4px;
+      padding: 10px 20px;
+      font-size: 16px;
       cursor: pointer;
-      background: #3b82f6;
+      color: #000;
+      flex: 1;
+      margin: 0 8px;
+    }
+    .tabs {
+      display: flex;
+      background-color: #1a1a1a;
+      padding: 8px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
+      color: #888;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .tab.active {
       color: #fff;
+      border-bottom: 2px solid #ffd700;
     }
     #info {
-      margin-top: 1em;
-      font-size: 14px;
+      padding: 16px;
+      font-size: 16px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <h1>Добро пожаловать в Crypto Poker</h1>
-  <p>Это ваш WebApp-интерфейс для игры в покер через Telegram.</p>
+  <header>
+    <div class="user-info">
+      <div class="avatar"></div>
+      <div>
+        <div class="username" id="username"></div>
+        <div class="balance">💰 <span id="current-balance">0.00 USDT</span></div>
+      </div>
+    </div>
+  </header>
 
-  <button id="balance">Узнать баланс</button>
+  <div class="actions">
+    <button id="deposit">Депозит</button>
+    <button id="withdraw">Вывести</button>
+    <button id="history">История</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="cash">Кэш</div>
+    <div class="tab" data-tab="tournaments">Турниры</div>
+    <div class="tab" data-tab="more">Ещё</div>
+  </div>
+
   <div id="info"></div>
 
-<script>
-  const webapp = Telegram?.WebApp;         // может быть undefined в браузере
-  webapp?.ready();
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const webapp = Telegram.WebApp;
+      webapp.ready();
 
-  // Пытаемся получить userId из Telegram, иначе читаем из query-параметра ?user_id=1
-  let userId = webapp?.initDataUnsafe?.user?.id;
-  if (!userId) {
-    const params = new URLSearchParams(window.location.search);
-    userId = params.get("user_id");
-  }
+      // Получаем данные юзера
+      const userData = webapp.initDataUnsafe.user;
+      const userId = userData?.id;
+      const usernameEl = document.getElementById('username');
+      usernameEl.textContent = userData?.username || userData?.first_name;
 
-  document.getElementById("balance").addEventListener("click", async () => {
-    if (!userId) {
-      return document.getElementById("info").textContent =
-        "Ошибка: не удалось получить ваш ID";
-    }
-    try {
-      const res = await fetch(`/api/balance?user_id=${userId}`);
-      if (!res.ok) throw new Error(res.status);
-      const { balance } = await res.json();
-      document.getElementById("info").textContent =
-        `💰 Ваш баланс: ${balance.toFixed(2)} USDT`;
-    } catch (e) {
-      console.error(e);
-      document.getElementById("info").textContent =
-        "Не удалось получить баланс";
-    }
-  });
-</script>
+      // Функция запроса баланса
+      async function updateBalance() {
+        if (!userId) return;
+        try {
+          const res = await fetch(`/api/balance?user_id=${userId}`);
+          if (!res.ok) throw new Error(res.status);
+          const { balance } = await res.json();
+          document.getElementById('current-balance').textContent = `${balance.toFixed(2)} USDT`;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      updateBalance();
+
+      // Обработчики кнопок
+      document.getElementById('deposit').addEventListener('click', () => {
+        webapp.sendData(JSON.stringify({ action: 'deposit', user_id: userId }));
+      });
+      document.getElementById('withdraw').addEventListener('click', () => {
+        webapp.sendData(JSON.stringify({ action: 'withdraw', user_id: userId }));
+      });
+      document.getElementById('history').addEventListener('click', () => {
+        webapp.sendData(JSON.stringify({ action: 'history', user_id: userId }));
+      });
+
+      // Вкладки
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          // Здесь можно менять содержимое info по вкладкам
+          const tabName = tab.dataset.tab;
+          document.getElementById('info').textContent = `Вы выбрали: ${tabName}`;
+        });
+      });
+    });
+  </script>
 </body>
 </html>
