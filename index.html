@@ -4,69 +4,40 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Crypto Poker WebApp</title>
-  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { 
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      text-align: center;
-      background: #121212;
-      color: #fff;
-    }
-    h1 { margin-bottom: 1em; }
-    button { 
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      background: #3b82f6;
-      color: #fff;
-    }
-    #info {
-      margin-top: 1em;
-      font-size: 14px;
-    }
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; padding: 20px; }
+    button { margin-top: 1em; padding: 10px 20px; font-size: 16px; border-radius: 4px; border: none; cursor: pointer; }
+    #info { margin-top: 1em; font-size: 18px; }
   </style>
 </head>
 <body>
   <h1>Добро пожаловать в Crypto Poker</h1>
-  <p>Это ваш WebApp-интерфейс для игры в покер через Telegram.</p>
-
   <button id="balance">Узнать баланс</button>
   <div id="info"></div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Инициализация Telegram WebApp SDK
-      const webapp = Telegram.WebApp;
-      webapp.ready();
+    const webapp = Telegram.WebApp;
+    webapp.ready();
 
-      // Отправка запроса баланса боту
-      document.getElementById('balance').addEventListener('click', () => {
-        webapp.sendData(JSON.stringify({ action: 'get_balance' }));
-      });
+    // Получаем ID юзера из initData
+    const user = webapp.initDataUnsafe.user;
+    const userId = user?.id;
 
-      // Приём сообщений из бота
-      window.addEventListener('message', (event) => {
-        console.log('WebApp postMessage:', event.data);
-        let text = '';
-        const data = event.data;
-
-        // Разбор полученного объекта
-        if (typeof data === 'string') {
-          text = data;
-        } else if (data && data.text) {
-          text = data.text;
-        } else if (data && data.message && data.message.text) {
-          text = data.message.text;
-        }
-
-        if (text) {
-          document.getElementById('info').textContent = text;
-        }
-      });
+    document.getElementById('balance').addEventListener('click', async () => {
+      if (!userId) {
+        document.getElementById('info').textContent = 'Ошибка: не удалось получить ваш ID';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/balance?user_id=${userId}`);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const json = await res.json();
+        document.getElementById('info').textContent = `💰 Ваш баланс: ${json.balance.toFixed(2)} USDT`;
+      } catch (e) {
+        console.error(e);
+        document.getElementById('info').textContent = 'Не удалось получить баланс';
+      }
     });
   </script>
 </body>
