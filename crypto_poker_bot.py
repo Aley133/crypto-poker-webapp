@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBAPP_URL = os.getenv("WEBAPP_URL")  # например https://Aley133.github.io/crypto-poker-webapp/
+WEBAPP_URL = os.getenv("WEBAPP_URL")  # URL вашего WebApp без слэша в конце
 
 # Инициализация БД (если нужна регистрация пользователей)
 def init_db():
@@ -34,16 +34,22 @@ dp = Dispatcher()
 # /start — отправляем ReplyKeyboard с WebApp-кнопкой
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    # Кнопка WebApp через ReplyKeyboard
+    # Динамически добавляем user_id в URL, чтобы фронт мог его прочитать
+    url_with_id = f"{WEBAPP_URL}?user_id={message.from_user.id}"
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Играть ♠", web_app=WebAppInfo(url=WEBAPP_URL))]
+            [
+                KeyboardButton(
+                    text="Играть ♠",
+                    web_app=WebAppInfo(url=url_with_id)
+                )
+            ]
         ],
         resize_keyboard=True,
         one_time_keyboard=True
     )
     await message.answer(
-        "🎲 Добро пожаловать в Crypto Poker Bot!\n" \
+        "🎲 Добро пожаловать в Crypto Poker Bot!\n" +
         "Нажмите «Играть ♠» чтобы открыть игру.",
         reply_markup=keyboard
     )
@@ -55,7 +61,7 @@ async def cmd_help(message: types.Message):
         "📋 Доступные команды:\n"
         "/start — начать заново\n"
         "/help — помощь по командам\n"
-        "/balance — проверить баланс (через WebApp)"
+        "/balance — проверить баланс (альтернативно через чат)"
     )
     await message.answer(text)
 
@@ -68,29 +74,20 @@ async def cmd_balance(message: types.Message):
 # Обработчик WebApp callback: ловим web_app_data
 @dp.message(lambda msg: msg.web_app_data is not None)
 async def handle_web_app_data(message: types.Message):
-    # Данные, отправленные из WebApp (JSON string)
-    payload = message.web_app_data.data
+    payload = message.web_app_data.data  # JSON string
     try:
         data = json.loads(payload)
     except json.JSONDecodeError:
         return
 
-    action = data.get("action")
-    if action == "get_balance":
-        # TODO: вместо заглушки получить реальный баланс из БД / blockchain API
-        balance = "0.00 USDT (тестовый)"
-        # Отправляем ответ обратно в WebApp
-        await message.answer(balance)
-    # сюда можно добавить другие действия (action == "...")
+    if data.get("action") == "get_balance":
+        # Здесь ваша реальная логика получения баланса по user_id
+        bal = 0.00  # тестовый
+        await message.answer(f"💰 Ваш баланс: {bal:.2f} USDT")
 
 async def main():
-    # Логирование
     logging.basicConfig(level=logging.INFO)
-
-    # Инициализация БД
     init_db()
-
-    # Запуск polling
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
