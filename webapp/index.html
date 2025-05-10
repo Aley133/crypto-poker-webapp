@@ -42,72 +42,58 @@
   <div id="info">Информация появится здесь</div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const webapp = Telegram.WebApp;
-      webapp.ready();
+  document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const userId   = params.get('user_id');
+    const username = params.get('username');
 
-      // Получаем userId и username из Telegram
-      const user = webapp.initDataUnsafe.user || {};
-      const userId = user.id;
-      document.getElementById('username').textContent = user.username || user.first_name || '—';
+    // Показываем на экране
+    document.getElementById('username').textContent = username || '—';
 
-      // Хелпер для API-запросов
-      async function callApi(path) {
-        const res = await fetch(`${path}?user_id=${userId}`);
-        if (!res.ok) throw new Error(res.status);
-        return res.json();
+    // Хелпер вызова API
+    async function callApi(path) {
+      const res = await fetch(`${path}?user_id=${userId}`);
+      if (!res.ok) throw new Error(res.status);
+      return res.json();
+    }
+
+    // Обновляем баланс
+    callApi('/api/balance')
+      .then(({balance}) => {
+        document.getElementById('current-balance').textContent = `${balance.toFixed(2)} USDT`;
+      })
+      .catch(console.error);
+
+    // Депозит
+    document.getElementById('deposit').onclick = async () => {
+      try {
+        const {address} = await callApi('/api/deposit');
+        document.getElementById('info').textContent = `📥 Адрес: ${address}`;
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при депозите';
       }
-
-      // Обновить баланс
-      async function updateBalance() {
-        try {
-          const { balance } = await callApi('/api/balance');
-          document.getElementById('current-balance').textContent = `${balance.toFixed(2)} USDT`;
-        } catch (e) {
-          console.error(e);
-        }
+    };
+    // Вывод
+    document.getElementById('withdraw').onclick = async () => {
+      try {
+        const {instructions} = await callApi('/api/withdraw');
+        document.getElementById('info').textContent = `📤 ${instructions}`;
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при выводе';
       }
-      updateBalance();
-
-      // Кнопки действий
-      document.getElementById('deposit').onclick = async () => {
-        try {
-          const { address } = await callApi('/api/deposit');
-          document.getElementById('info').textContent =
-            `📥 Пополнение: отправьте монеты на адрес:\n${address}`;
-        } catch (e) {
-          document.getElementById('info').textContent = 'Ошибка при депозите';
-        }
-      };
-      document.getElementById('withdraw').onclick = async () => {
-        try {
-          const { instructions } = await callApi('/api/withdraw');
-          document.getElementById('info').textContent = `📤 ${instructions}`;
-        } catch (e) {
-          document.getElementById('info').textContent = 'Ошибка при выводе';
-        }
-      };
-      document.getElementById('history').onclick = async () => {
-        try {
-          const { history } = await callApi('/api/history');
-          document.getElementById('info').textContent =
-            history.length
-              ? history.join('\n')
-              : '📜 История пуста';
-        } catch (e) {
-          document.getElementById('info').textContent = 'Ошибка при получении истории';
-        }
-      };
-
-      // Вкладки UI (заглушка)
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.onclick = () => {
-          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-          document.getElementById('info').textContent = `Вы выбрали: ${tab.dataset.tab}`;
-        };
-      });
-    });
+    };
+    // История
+    document.getElementById('history').onclick = async () => {
+      try {
+        const {history} = await callApi('/api/history');
+        document.getElementById('info').textContent = history.length
+          ? history.join('\\n')
+          : '📜 История пуста';
+      } catch {
+        document.getElementById('info').textContent = 'Ошибка при получении истории';
+      }
+    };
+  });
   </script>
 </body>
 </html>
