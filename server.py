@@ -33,7 +33,7 @@ TABLES = [
     {"id": 1, "mode":"cash","level":"Low", "small_blind":0.02, "big_blind":0.05, "buy_in":2.5, "players":"1/6"},
     {"id": 2, "mode":"cash","level":"Low", "small_blind":0.05, "big_blind":0.10, "buy_in":7.5, "players":"0/6"},
     {"id": 3, "mode":"cash","level":"Mid", "small_blind":0.10, "big_blind":0.20, "buy_in":20.0,"players":"3/6"},
-    // ... добавьте, сколько нужно
+   # добавьте, сколько нужно
 ]
 
 @app.get("/api/tables", response_model=list[Table])
