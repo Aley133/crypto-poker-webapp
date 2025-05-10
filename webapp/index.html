@@ -3,24 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Crypto Poker</title>
+  <title>Crypto Poker Table</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body {margin:0; font-family:Arial,sans-serif; background:#0f0f0f; color:#fff;}
-    header{display:flex;align-items:center;justify-content:space-between;padding:16px;background:#1f1f1f}
-    .user{display:flex;align-items:center}
-    .avatar{width:40px;height:40px;background:#333;border-radius:50%;margin-right:12px}
-    .info{display:flex;align-items:center}
-    .balance{margin-left:8px}
-    .actions, .tabs{display:flex;padding:16px;background:#1a1a1a}
-    .actions button, .tabs .tab{flex:1;margin:0 8px;padding:10px;border:none;border-radius:4px;cursor:pointer}
-    .actions button{background:#ffd700;color:#000}
-    .tabs .tab{background:transparent;color:#888}
-    .tabs .tab.active{color:#fff;border-bottom:2px solid #ffd700}
-    #level-select{margin-left:16px;padding:6px;border:none;border-radius:4px;background:#333;color:#fff}
-    #info{padding:16px;white-space:pre-wrap}
-    #game-area{padding:16px}
-    .card{display:inline-block;width:40px;height:60px;background:#fff;color:#000;border-radius:4px;margin:0 4px;text-align:center;line-height:60px;font-weight:bold}
+    body { margin:0; background:#0f0f0f; color:#fff; font-family:Arial,sans-serif; }
+    header { display:flex; align-items:center; justify-content:space-between; padding:12px; background:#1f1f1f; }
+    .user { display:flex; align-items:center; }
+    .avatar { width:40px; height:40px; border-radius:50%; background:#333; margin-right:10px; }
+    .info { display:flex; align-items:center; }
+    .balance { margin-left:8px; }
+    .actions { display:flex; padding:12px; background:#1a1a1a; }
+    .actions button { flex:1; margin:0 6px; padding:10px; background:#ffd700; border:none; border-radius:4px; color:#000; cursor:pointer; }
+    .tabs { display:flex; padding:8px 12px; background:#1a1a1a; }
+    .tab { flex:1; text-align:center; padding:8px; color:#888; cursor:pointer; }
+    .tab.active { color:#fff; border-bottom:2px solid #ffd700; }
+    #level-select { margin-left:12px; padding:6px; background:#333; border:none; color:#fff; border-radius:4px; }
+    main { position:relative; width:100%; height:calc(100vh - 136px); overflow:hidden; }
+
+    /* Покерный стол */
+    .table-container { position:relative; width:100%; height:100%; background:url('table_bg.png') center/cover no-repeat; }
+    .community-cards { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:flex; }
+    .community-cards img, .hole-cards img { width:60px; height:90px; margin:0 4px; }
+    .hole-cards { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; }
+    .players { position:absolute; width:100%; height:100%; top:0; left:0; }
+    .player-seat { position:absolute; width:80px; text-align:center; }
+    .player-seat img.avatar { width:60px; height:60px; border-radius:50%; border:2px solid #ffd700; }
+    /* Расположение игроков */
+    .seat-0 { top:10%; left:50%; transform:translateX(-50%); }
+    .seat-1 { top:30%; right:10%; }
+    .seat-2 { bottom:30%; right:10%; }
+    .seat-3 { bottom:10%; left:50%; transform:translateX(-50%); }
+    .seat-4 { bottom:30%; left:10%; }
+    .seat-5 { top:30%; left:10%; }
+
+    .controls { position:absolute; bottom:20px; right:20px; display:flex; align-items:center; }
+    .controls button, .controls input { margin-left:6px; padding:8px; border:none; border-radius:4px; }
+    .controls button { background:#ffd700; color:#000; cursor:pointer; }
+    .controls input { width:80px; }
   </style>
 </head>
 <body>
@@ -46,107 +65,131 @@
     <div class="tab" data-tab="tournaments">Турниры</div>
     <div class="tab" data-tab="more">Ещё</div>
   </div>
-  <div id="info">Информация появится здесь</div>
+  <div id="info" style="padding:12px;">Информация появится здесь</div>
 
-  <!-- Игровая таблица -->
-  <div id="game-area" style="display:none;">
-    <h2>Стол <span id="table-id"></span></h2>
-    <div>Ваши карты: <span id="hole-cards"></span></div>
-    <div>Сторонние карты: <span id="community-cards"></span></div>
-    <div>Банк: <span id="pot"></span></div>
-    <div>Ваш стек: <span id="my-chips"></span></div>
-    <div>Ходит: <span id="current-player"></span></div>
-    <div>
-      <button id="btn-check">Check</button>
-      <button id="btn-fold">Fold</button>
-      <input id="bet-amount" type="number" placeholder="Сумма" style="width:80px"> <button id="btn-bet">Bet</button>
+  <main>
+    <div class="table-container" id="table-container" style="display:none;">
+      <div class="community-cards" id="community-cards">
+        <!-- Общие карты -->
+      </div>
+      <div class="hole-cards" id="hole-cards">
+        <!-- Карты игрока -->
+      </div>
+      <div class="players" id="players">
+        <!-- Слайды игроков -->
+      </div>
+      <div class="controls" id="controls">
+        <button id="btn-check">Check</button>
+        <button id="btn-fold">Fold</button>
+        <input id="bet-amount" type="number" placeholder="Сумма">
+        <button id="btn-bet">Bet</button>
+      </div>
     </div>
-  </div>
+  </main>
 
-  <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const webapp = Telegram.WebApp;
-    webapp.ready();
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const webapp = Telegram.WebApp;
+  webapp.ready();
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get('user_id');
+  document.getElementById('username').textContent = params.get('username') || '—';
+  document.getElementById('current-balance').textContent = '0.00 USDT'; // обновится
+  let currentTable;
+  let ws;
 
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('user_id');
-    const username = params.get('username') || '—';
-    let mode = 'cash', level = document.getElementById('level-select').value;
+  async function api(path, query="") {
+    const url = `${path}${query}&user_id=${userId}&table_id=${currentTable}`;
+    const res = await fetch(url);
+    return res.json();
+  }
 
-    document.getElementById('username').textContent = username;
-
-    async function api(path, method='GET', body=null) {
-      let url = `${path}?user_id=${userId}&mode=${mode}&level=${level}`;
-      if(path.includes('join')||path.includes('game_state')) url = `${path}?user_id=${userId}&table_id=${currentTable}`;
-      const opts = {method, headers:{'Content-Type':'application/json'}};
-      if(body) opts.body = JSON.stringify(body);
-      const res = await fetch(url, opts);
-      return res.json();
-    }
-
-    // Cash UI
-    let currentTable;
-    document.querySelectorAll('.tab').forEach(tab=>tab.onclick = async ()=>{
-      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('game-area').style.display='none';
-      mode = tab.dataset.tab;
-      const info = document.getElementById('info');
-      if(mode==='cash'){
-        level = document.getElementById('level-select').value;
-        try{
-          const tables = await api('/api/tables');
-          info.innerHTML='';
-          tables.forEach(t=>{
-            const div=document.createElement('div');
-            div.innerHTML = `<strong>Стол ${t.id}</strong><br>${t.small_blind}/${t.big_blind} — бай-ин ${t.buy_in} — ${t.players}<br><button data-id="${t.id}">Играть</button>`;
-            info.append(div);
-          });
-          info.querySelectorAll('button').forEach(btn=>btn.onclick=async ()=>{
-            currentTable=btn.dataset.id;
-            const join=await api('/api/join');
-            if(join.success){ loadGame(); } else { info.textContent=join.message; }
-          });
-        }catch{info.textContent='Ошибка при загрузке столов'}
-      }
-      // TODO: tournaments/more
+  // Функция отрисовки стола
+  function renderTable(state) {
+    document.getElementById('info').style.display = 'none';
+    const container = document.getElementById('table-container');
+    container.style.display = 'block';
+    // hole cards
+    const hole = document.getElementById('hole-cards'); hole.innerHTML = '';
+    state.hole_cards.forEach(c=>{
+      const img = document.createElement('img'); img.src = `/cards/${c}.png`;
+      hole.append(img);
     });
-
-    // Инициализация Cash по умолчанию
-    document.querySelector('.tab[data-tab="cash"]').click();
-
-    // Загрузка игры
-    async function loadGame(){
-      const state = await api('/api/game_state');
-      document.getElementById('info').innerHTML='';
-      document.getElementById('game-area').style.display='block';
-      document.getElementById('table-id').textContent=state.table_id;
-      document.getElementById('hole-cards').innerHTML = state.hole_cards.map(c=>`<span class="card">${c}</span>`).join('');
-      document.getElementById('community-cards').innerHTML = state.community.map(c=>c?`<span class="card">${c}</span>`:'').join('');
-      document.getElementById('pot').textContent = state.pot;
-      document.getElementById('my-chips').textContent = state.chips[userId];
-      document.getElementById('current-player').textContent = state.current_player;
-
-      // WebSocket
-      const ws = new WebSocket(`wss://${location.host}/ws/game/${currentTable}`);
-      ws.onmessage = e=>{
-        const st = JSON.parse(e.data);
-        // обновляем UI как выше
-        document.getElementById('pot').textContent = st.pot;
-        document.getElementById('community-cards').innerHTML = st.community.map(c=>c?`<span class="card">${c}</span>`:'').join('');
-        document.getElementById('my-chips').textContent = st.chips[userId];
-        document.getElementById('current-player').textContent = st.current_player;
-      };
-
-      document.getElementById('btn-check').onclick = ()=>ws.send(JSON.stringify({action:'check',user_id:parseInt(userId)}));
-      document.getElementById('btn-fold').onclick = ()=>ws.send(JSON.stringify({action:'fold',user_id:parseInt(userId)}));
-      document.getElementById('btn-bet').onclick = ()=>{
-        const amt = parseFloat(document.getElementById('bet-amount').value);
-        ws.send(JSON.stringify({action:'bet',amount:amt,user_id:parseInt(userId)}));
-      };
+    // community
+    const comm = document.getElementById('community-cards'); comm.innerHTML = '';
+    state.community.forEach(c=>{
+      const img = document.createElement('img'); img.src = c?`/cards/${c}.png`:'/cards/back.png';
+      comm.append(img);
+    });
+    // players avatars
+    const playersDiv = document.getElementById('players'); playersDiv.innerHTML = '';
+    let idx=0;
+    for(const uid in state.chips) {
+      const seat = document.createElement('div');
+      seat.className = `player-seat seat-${idx}`;
+      seat.innerHTML = `
+        <img class="avatar" src="/avatars/${uid}.png" />
+        <div>${state.chips[uid]}</div>
+      `;
+      playersDiv.append(seat);
+      idx = (idx+1)%6;
     }
+    // pot, current
+    document.getElementById('pot').textContent = state.pot;
+    document.getElementById('current-player').textContent = state.current_player;
 
-  });
-  </script>
+    // WS reconnect
+    if(ws) ws.close();
+    ws = new WebSocket(`wss://${location.host}/ws/game/${currentTable}`);
+    ws.onmessage = e=> renderTable(JSON.parse(e.data));
+  }
+
+  // Вход за стол
+  async function joinTable(id) {
+    currentTable = id;
+    const join = await fetch(`/api/join?user_id=${userId}&table_id=${id}`);
+    const j = await join.json();
+    if(j.success) {
+      const state = await fetch(`/api/game_state?user_id=${userId}&table_id=${id}`).then(r=>r.json());
+      renderTable(state);
+    } else {
+      document.getElementById('info').textContent = j.message;
+    }
+  }
+
+  // Листенеры кэш-столов
+  document.querySelector('.tab[data-tab="cash"]').onclick = async ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector('.tab[data-tab="cash"]').classList.add('active');
+    document.getElementById('table-container').style.display='none';
+    document.getElementById('info').style.display='block';
+    const level = document.getElementById('level-select').value;
+    const tables = await fetch(`/api/tables?mode=cash&level=${level}&user_id=${userId}`).then(r=>r.json());
+    const info = document.getElementById('info'); info.innerHTML='';
+    tables.forEach(t=>{
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>Стол ${t.id}</strong><br>${t.small_blind}/${t.big_blind} — бай-ин ${t.buy_in} — ${t.players}<br>`+
+                      `<button onclick="joinTable(${t.id})">Играть</button>`;
+      info.append(div);
+    });
+  };
+
+  // Actions: Deposit/Withdraw/History (аналогично)
+  document.getElementById('deposit').onclick = () => {/* ... */};
+  document.getElementById('withdraw').onclick = () => {/* ... */};
+  document.getElementById('history').onclick = () => {/* ... */};
+
+  // Game controls
+  document.getElementById('btn-check').onclick = () => ws.send(JSON.stringify({action:'check',user_id:+userId}));
+  document.getElementById('btn-fold').onclick  = () => ws.send(JSON.stringify({action:'fold', user_id:+userId}));
+  document.getElementById('btn-bet').onclick   = () => {
+    const amt = +document.getElementById('bet-amount').value;
+    ws.send(JSON.stringify({action:'bet', amount:amt, user_id:+userId}));
+  };
+
+  // Запуск
+  document.querySelector('.tab[data-tab="cash"]').click();
+});
+</script>
 </body>
 </html>
