@@ -37,37 +37,34 @@
   <button id="balance">Узнать баланс</button>
   <div id="info"></div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Инициализация Telegram WebApp SDK
-      const webapp = Telegram.WebApp;
-      webapp.ready();
+<script>
+  const webapp = Telegram?.WebApp;         // может быть undefined в браузере
+  webapp?.ready();
 
-      // Отправка запроса баланса боту
-      document.getElementById('balance').addEventListener('click', () => {
-        webapp.sendData(JSON.stringify({ action: 'get_balance' }));
-      });
+  // Пытаемся получить userId из Telegram, иначе читаем из query-параметра ?user_id=1
+  let userId = webapp?.initDataUnsafe?.user?.id;
+  if (!userId) {
+    const params = new URLSearchParams(window.location.search);
+    userId = params.get("user_id");
+  }
 
-      // Приём сообщений из бота
-      window.addEventListener('message', (event) => {
-        console.log('WebApp postMessage:', event.data);
-        let text = '';
-        const data = event.data;
-
-        // Разбор полученного объекта
-        if (typeof data === 'string') {
-          text = data;
-        } else if (data && data.text) {
-          text = data.text;
-        } else if (data && data.message && data.message.text) {
-          text = data.message.text;
-        }
-
-        if (text) {
-          document.getElementById('info').textContent = text;
-        }
-      });
-    });
-  </script>
+  document.getElementById("balance").addEventListener("click", async () => {
+    if (!userId) {
+      return document.getElementById("info").textContent =
+        "Ошибка: не удалось получить ваш ID";
+    }
+    try {
+      const res = await fetch(`/api/balance?user_id=${userId}`);
+      if (!res.ok) throw new Error(res.status);
+      const { balance } = await res.json();
+      document.getElementById("info").textContent =
+        `💰 Ваш баланс: ${balance.toFixed(2)} USDT`;
+    } catch (e) {
+      console.error(e);
+      document.getElementById("info").textContent =
+        "Не удалось получить баланс";
+    }
+  });
+</script>
 </body>
 </html>
