@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Poker WebApp</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; text-align: center; background: #121212; color: #fff; }
+    h1 { margin-bottom: 1em; }
+    button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; }
+    #balance { background: #3b82f6; color: #fff; }
+    #info { margin-top: 1em; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Добро пожаловать в Crypto Poker</h1>
+  <p>Это ваш WebApp-интерфейс для игры в покер через Telegram.</p>
+
+  <button id="balance">Узнать баланс</button>
+  <div id="info"></div>
+
+  <script>
+    const webapp = window.Telegram.WebApp;
+    webapp.ready();
+
+    document.getElementById('balance').addEventListener('click', () => {
+      webapp.sendData(JSON.stringify({ action: 'get_balance' }));
+    });
+
+    window.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.balance !== undefined) {
+          document.getElementById('info').textContent = `Ваш баланс: ${data.balance}`;
+        }
+      } catch (e) {
+        console.error('Invalid message', e);
+      }
+    });
+  </script>
+</body>
+</html>
