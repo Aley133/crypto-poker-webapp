@@ -68,12 +68,21 @@
       try {
         const tables = await api('/api/tables');
         info.innerHTML = '';
+        // Функция открытия столa
+        window.openGame = (tableId) => {
+          const url = `${location.origin}/game.html?user_id=${userId}&table_id=${tableId}`;
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.openLink(url);
+          } else {
+            window.location.href = url;
+          }
+        };
         tables.forEach(t => {
           const div = document.createElement('div');
           div.innerHTML = `
             <strong>Стол ${t.id}</strong><br/>
             ${t.small_blind}/${t.big_blind} — бай-ин ${t.buy_in} — ${t.players}<br/>
-            <button onclick="window.location.href='game.html?user_id=${userId}&table_id=${t.id}'">Играть</button>
+            <button onclick="openGame(${t.id})">Играть</button>
           `;
           info.append(div);
         });
@@ -81,6 +90,7 @@
         info.textContent = 'Ошибка при загрузке столов';
       }
     };
+
 
     // Загрузка турниров и прочее можно добавить аналогично
 
