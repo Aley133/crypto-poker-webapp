@@ -1,45 +1,87 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crypto Poker Table</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Добавьте стили столa из index.html -->
+  <style>
+    body { margin:0; background:#0f0f0f; color:#fff; font-family:Arial,sans-serif; }
+    #table-container { position:fixed; top:0; left:0; width:100%; height:100%; background:url('table_bg.png') center/cover no-repeat; }
+    .community, .hole { display:flex; justify-content:center; }
+    .community { position:absolute; top:40%; left:50%; transform:translateX(-50%); }
+    .hole { position:absolute; bottom:20%; left:50%; transform:translateX(-50%); }
+    .card { width:60px; height:90px; border-radius:4px; margin:0 4px; }
+    .controls { position:absolute; bottom:5%; left:50%; transform:translateX(-50%); display:flex; align-items:center; }
+    .controls button, .controls input { margin:0 6px; padding:8px; border:none; border-radius:4px; cursor:pointer; }
+    .controls button { background:#ffd700; color:#000; }
+    .players { position:absolute; width:100%; height:100%; top:0; left:0; }
+    .seat { position:absolute; text-align:center; font-size:14px; }
+    .seat img { width:50px; height:50px; border-radius:50%; border:2px solid #ffd700; }
+    .seat0{ top:5%; left:50%; transform:translateX(-50%); }
+    .seat1{ top:25%; right:5%; }
+    .seat2{ bottom:25%; right:5%; }
+    .seat3{ bottom:5%; left:50%; transform:translateX(-50%); }
+    .seat4{ bottom:25%; left:5%; }
+    .seat5{ top:25%; left:5%; }
+  </style>
 </head>
 <body>
   <div id="table-container">
-    <!-- Реализация как в index.html -->
+    <div class="community" id="community"></div>
+    <div class="hole" id="hole"></div>
+    <div class="controls">
+      <button id="btn-check">Check</button>
+      <button id="btn-fold">Fold</button>
+      <input id="bet-amount" type="number" placeholder="Сумма">
+      <button id="btn-bet">Bet</button>
+    </div>
+    <div class="players" id="players"></div>
   </div>
-
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const webapp = Telegram.WebApp;
-  webapp.ready();
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get('user_id');
+    const tableId = params.get('table_id');
+    let ws;
 
-  const params = new URLSearchParams(window.location.search);
-  const userId = params.get('user_id');
-  const tableId= params.get('table_id');
+    async function loadState(){
+      const state = await fetch(`/api/game_state?user_id=${userId}&table_id=${tableId}`).then(r=>r.json());
+      render(state);
+      ws = new WebSocket(`wss://${location.host}/ws/game/${tableId}`);
+      ws.onmessage = e=> render(JSON.parse(e.data));
+    }
 
-  let ws;
+    function render(st){
+      const holeDiv = document.getElementById('hole'); holeDiv.innerHTML='';
+      st.hole_cards.forEach(c=>{
+        const img = document.createElement('img'); img.className='card'; img.src=`/cards/${c}.png`;
+        holeDiv.append(img);
+      });
+      const commDiv = document.getElementById('community'); commDiv.innerHTML='';
+      st.community.forEach(c=>{
+        const img = document.createElement('img'); img.className='card';
+        img.src = c?`/cards/${c}.png`:'/cards/back.png';
+        commDiv.append(img);
+      });
+      const plDiv = document.getElementById('players'); plDiv.innerHTML='';
+      let idx=0;
+      for(const uid in st.chips){
+        const seat = document.createElement('div'); seat.className=`seat seat${idx}`;
+        seat.innerHTML = `<img src='/avatars/${uid}.png'/><div>${st.chips[uid]}</div>`;
+        plDiv.append(seat);
+        idx=(idx+1)%6;
+      }
+    }
 
-  async function loadState() {
-    const state = await fetch(`/api/game_state?user_id=${userId}&table_id=${tableId}`).then(r=>r.json());
-    render(state);
-    // открыть WS
-    ws = new WebSocket(`wss://${location.host}/ws/game/${tableId}`);
-    ws.onmessage = e => render(JSON.parse(e.data));
-  }
+    document.getElementById('btn-check').onclick = ()=> ws.send(JSON.stringify({action:'check',user_id:+userId}));
+    document.getElementById('btn-fold').onclick  = ()=> ws.send(JSON.stringify({action:'fold', user_id:+userId}));
+    document.getElementById('btn-bet').onclick   = ()=>{
+      const amt = +document.getElementById('bet-amount').value;
+      ws.send(JSON.stringify({action:'bet',amount:amt,user_id:+userId}));
+    };
 
-  function render(state) {
-    // отрисовать карты, игроков, банк
-  }
-
-  document.getElementById('btn-check').onclick = () => ws.send(...);
-  // и т.д.
-
-  loadState();
-});
+    loadState();
+  });
 </script>
 </body>
 </html>
