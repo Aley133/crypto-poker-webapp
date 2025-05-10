@@ -51,42 +51,35 @@
   <div id="info">Выберите вкладку</div>
 
   <script>
+  <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Парсим переданные в URL параметры
     const params   = new URLSearchParams(location.search);
     const userId   = params.get('user_id');
-    const username = decodeURIComponent(params.get('username')||'—');
+    const username = decodeURIComponent(params.get('username') || '—');
 
-    // Абсолютный базовый URL вашего API
-    const API_BASE = 'https://crypto-poker-webapp.onrender.com';
-
-    // Заполняем шапку
     document.getElementById('username').textContent = username;
     const balanceEl = document.getElementById('current-balance');
     const info      = document.getElementById('info');
     const levelSel  = document.getElementById('level-select');
 
-    // Универсальная обёртка fetch → JSON
+    // Обработчик запросов к API (относительно current origin)
     async function api(path, extra={}) {
-      const url = new URL(API_BASE + path);
-      url.search = new URLSearchParams({ user_id: userId, ...extra }).toString();
-      console.log('→', url.toString());
-      const res = await fetch(url.toString());
-      console.log('←', res.status, await res.clone().json().catch(()=>res.statusText));
+      const qp = new URLSearchParams({ user_id: userId, ...extra });
+      const res = await fetch(`${path}?${qp}`);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     }
 
-    // Обновление баланса
+    // Обновляем баланс
     api('/api/balance').then(({balance}) => {
       balanceEl.textContent = balance.toFixed(2) + ' USDT';
     }).catch(()=>{});
 
-    // Депозит / Вывести / История
+    // Депозит/Вывести/История
     document.getElementById('deposit').onclick = async () => {
       try {
         const { address } = await api('/api/deposit');
-        info.textContent = `📥 Чтобы пополнить счёт, отправьте монеты на адрес:\n${address}`;
+        info.textContent = `📥 Адрес для депозита:\n${address}`;
       } catch {
         info.textContent = 'Ошибка при депозите';
       }
@@ -110,14 +103,14 @@
       }
     };
 
-    // Переключение вкладок
+    // Вкладки
     document.querySelectorAll('.tab').forEach(tab => {
       tab.onclick = () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        if (tab.dataset.tab === 'cash') loadCash();
+        if (tab.dataset.tab === 'cash')       loadCash();
         else if (tab.dataset.tab === 'tournaments') loadTournaments();
-        else info.textContent = 'Скоро…';
+        else                                  info.textContent = 'Скоро…';
       };
     });
 
@@ -137,33 +130,28 @@
             <button data-id="${t.id}">Играть</button>
           `;
           info.appendChild(d);
-
-          // Нажатие «Играть»
           d.querySelector('button').onclick = async () => {
             try {
-              // сначала join
               const j = await api('/api/join', { table_id: t.id });
               if (!j.success) {
                 info.textContent = j.message;
                 return;
               }
-              // затем редирект на game.html
-              const url = `${API_BASE}/game.html?user_id=${userId}&table_id=${t.id}`;
-              if (window.Telegram && Telegram.WebApp) Telegram.WebApp.openLink(url);
-              else window.location.href = url;
-            } catch (err) {
-              console.error(err);
-              info.textContent = 'Не удалось присоединиться к столу';
+              // редирект в игру
+              const gameUrl = `${location.origin}/game.html?user_id=${userId}&table_id=${t.id}`;
+              if (window.Telegram && Telegram.WebApp) Telegram.WebApp.openLink(gameUrl);
+              else window.location.href = gameUrl;
+            } catch {
+              info.textContent = 'Не удалось присоединиться';
             }
           };
         });
-      } catch (err) {
-        console.error(err);
+      } catch {
         info.textContent = 'Ошибка при загрузке столов';
       }
     }
 
-    // Загрузка турниров
+    // Загрузка турниров (пример)
     async function loadTournaments() {
       info.textContent = 'Загрузка турниров…';
       try {
@@ -174,27 +162,26 @@
           d.className = 'table';
           d.innerHTML = `
             <strong>${tr.name}</strong><br>
-            Бай-ин: ${tr.buy_in}  |  Игроки: ${tr.players}/${tr.max_players}<br>
+            Бай-ин: ${tr.buy_in} | ${tr.players}/${tr.max_players}<br>
             Статус: ${tr.status}<br>
-            <button data-id="${tr.id}">Присоединиться</button>
+            <button>Вступить</button>
           `;
           info.appendChild(d);
           d.querySelector('button').onclick = async () => {
             try {
               await api('/api/join_tournament', { tournament_id: tr.id });
-              info.textContent = 'Вы в турнире! 🎉';
-            } catch (e) {
-              info.textContent = e.message || 'Ошибка при регистрации';
+              info.textContent = 'Вы в турнире!';
+            } catch(e) {
+              info.textContent = e.message || 'Ошибка';
             }
           };
         });
-      } catch (err) {
-        console.error(err);
+      } catch {
         info.textContent = 'Ошибка при загрузке турниров';
       }
     }
 
-    // Авто-старт
+    // Стартуем
     loadCash();
   });
   </script>
