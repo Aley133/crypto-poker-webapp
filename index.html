@@ -20,23 +20,19 @@
   <div id="info"></div>
 
   <script>
-    const webapp = window.Telegram.WebApp;
-    webapp.ready();
+  <script>
+  const webapp = window.Telegram.WebApp;
+  webapp.ready();
 
-    document.getElementById('balance').addEventListener('click', () => {
-      webapp.sendData(JSON.stringify({ action: 'get_balance' }));
-    });
+  document.getElementById('balance').addEventListener('click', () => {
+    webapp.sendData(JSON.stringify({ action: 'get_balance' }));
+  });
 
-    window.addEventListener('message', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.balance !== undefined) {
-          document.getElementById('info').textContent = `Ваш баланс: ${data.balance}`;
-        }
-      } catch (e) {
-        console.error('Invalid message', e);
-      }
-    });
+  window.addEventListener('message', (event) => {
+    // event.data — это уже строка текста из message.answer()
+    document.getElementById('info').textContent = event.data;
+  });
+</script>
   </script>
 </body>
 </html>
