@@ -26,68 +26,75 @@
   </div>
 
   <script>
-    // --- Параметры из URL ---
-    const params  = new URLSearchParams(location.search);
-    const tableId = params.get('table_id');
-    const userId  = params.get('user_id');
-    document.getElementById('table-id').textContent = tableId;
-    document.getElementById('back').onclick = () => history.back();
+    (async () => {
+      // --- Params ---
+      const params  = new URLSearchParams(location.search);
+      const tableId = params.get('table_id');
+      const userId  = params.get('user_id');
+      document.getElementById('table-id').textContent = tableId;
+      document.getElementById('back').onclick = () => history.back();
 
-    // --- WebSocket-клиент ---
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${location.host}/ws/game/${tableId}`);
-
-    ws.onopen = () => {
-      console.log('WS connected');
-      // не нужно явно запрашивать state — сервер пришлет текущие карты
-    };
-
-    ws.onmessage = ev => {
-      const state = JSON.parse(ev.data);
-      renderState(state);
-    };
-
-    ws.onclose = () => console.warn('WS closed');
-
-    // --- Рендеринг состояния ---
-    function renderState(st) {
-      // community
-      document.getElementById('community').textContent =
-        'Комьюнити: ' + (st.community.join(' ') || '—');
-      // your cards
-      const hole = st.hole_cards[userId] || [];
-      document.getElementById('your').innerHTML =
-        'Ваши карты: ' +
-        hole.map(c => `<span class="card">${c}</span>`).join(' ');
-      // pot
-      document.getElementById('pot').textContent = 'Банк: ' + st.pot;
-      // players
-      const pa = document.getElementById('players-area');
-      pa.innerHTML = '';
-      Object.entries(st.stacks).forEach(([uid, stack]) => {
-        const div = document.createElement('div');
-        div.textContent = `#${uid}: ${stack}`;
-        if (uid === String(st.current_player)) div.classList.add('current');
-        pa.appendChild(div);
-      });
-      // adjust bet input
-      const inp = document.getElementById('bet');
-      inp.max = st.stacks[userId] || 0;
-      inp.placeholder = `до ${inp.max}`;
-    }
-
-    // --- Отправка действий ---
-    document.getElementById('actions').onclick = e => {
-      const act = e.target.dataset.act;
-      if (!act || ws.readyState!==WebSocket.OPEN) return;
-      let msg = { user_id: Number(userId), action: act };
-      if (act === 'bet') {
-        const v = Number(document.getElementById('bet').value) || 0;
-        if (v < 1) return alert('Введите сумму ставки');
-        msg.amount = v;
+      // --- Ensure join ---
+      try {
+        const res = await fetch(`/api/join?table_id=${tableId}&user_id=${userId}`, {
+          method: 'POST', credentials: 'same-origin'
+        });
+        if (!res.ok) throw await res.json();
+        console.log('Joined table', tableId, 'as user', userId);
+      } catch (err) {
+        console.warn('Join API failed (maybe already joined):', err);
       }
-      ws.send(JSON.stringify(msg));
-    };
+
+      // --- WebSocket ---
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const ws = new WebSocket(`${proto}://${location.host}/ws/game/${tableId}`);
+
+      ws.onopen = () => console.log('WS connected');
+      ws.onclose = () => console.warn('WS closed');
+
+      ws.onmessage = ev => {
+        const st = JSON.parse(ev.data);
+        if (st.waiting) {
+          document.getElementById('community').textContent = st.message;
+          return;
+        }
+        renderState(st);
+      };
+
+      // --- Render ---
+      function renderState(st) {
+        document.getElementById('community').textContent =
+          'Комьюнити: ' + (st.community.join(' ') || '—');
+        const hole = st.hole_cards[userId] || [];
+        document.getElementById('your').innerHTML =
+          'Ваши карты: ' + hole.map(c => `<span class="card">${c}</span>`).join('');
+        document.getElementById('pot').textContent = 'Банк: ' + st.pot;
+        const pa = document.getElementById('players-area');
+        pa.innerHTML = '';
+        Object.entries(st.stacks).forEach(([uid, stack]) => {
+          const div = document.createElement('div');
+          div.textContent = `#${uid}: ${stack}`;
+          if (uid === String(st.current_player)) div.classList.add('current');
+          pa.appendChild(div);
+        });
+        const inp = document.getElementById('bet');
+        inp.max = st.stacks[userId] || 0;
+        inp.placeholder = `до ${inp.max}`;
+      }
+
+      // --- Actions ---
+      document.getElementById('actions').onclick = e => {
+        const act = e.target.dataset.act;
+        if (!act || ws.readyState !== WebSocket.OPEN) return;
+        const msg = { user_id: Number(userId), action: act };
+        if (act === 'bet') {
+          const v = Number(document.getElementById('bet').value) || 0;
+          if (v < 1) return alert('Введите сумму ставки');
+          msg.amount = v;
+        }
+        ws.send(JSON.stringify(msg));
+      };
+    })();
   </script>
 </body>
 </html>
