@@ -54,5 +54,14 @@ def get_balance(table_id: int = Query(...), user_id: int = Query(...)):
 # Раздача статики
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
+# Отключаем кеширование статики (для разработки)
+from starlette.responses import FileResponse
+@app.middleware("http")
+async def no_cache_middleware(request, call_next):
+    response = await call_next(request)
+    if isinstance(response, FileResponse):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
