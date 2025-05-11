@@ -5,9 +5,14 @@ export async function loadLobby(levelSelect, infoEl, username, userId) {
   infoEl.textContent = 'Загрузка столов…';
   try {
     const lvl = levelSelect?.value || '';
-    const tabs = await api('/api/tables', { level: lvl, user_id: userId });
+    const resp = await api('/api/tables', { level: lvl, user_id: userId });
+    const tables = resp.tables || [];
     infoEl.innerHTML = '';
-    tabs.forEach(t => {
+    if (tables.length === 0) {
+      infoEl.textContent = 'Нет доступных столов.';
+      return;
+    }
+    tables.forEach(t => {
       const d = document.createElement('div');
       d.className = 'table';
       d.innerHTML = `
@@ -17,14 +22,18 @@ export async function loadLobby(levelSelect, infoEl, username, userId) {
         <button data-id="${t.id}">Играть</button>
       `;
       d.querySelector('button').onclick = () => {
-        api('/api/join', { table_id:t.id, user_id:userId })
-          .then(() => location.href = `game.html?user_id=${userId}&username=${encodeURIComponent(username)}&table_id=${t.id}`)
-          .catch(err => infoEl.textContent = err.detail||JSON.stringify(err));
+        api('/api/join', { table_id: t.id, user_id: userId })
+          .then(() => {
+            window.location.href = `/game.html?user_id=${userId}` +
+                                   `&username=${encodeURIComponent(username)}` +
+                                   `&table_id=${t.id}`;
+          })
+          .catch(err => infoEl.textContent = err.detail || JSON.stringify(err));
       };
       infoEl.appendChild(d);
     });
-  } catch(e) {
-    console.error(e);
-    infoEl.textContent = 'Ошибка при загрузке лобби';
+  } catch (e) {
+    console.error('loadLobby error:', e);
+    infoEl.textContent = 'Ошибка при загрузке лобби: ' + (e.detail || e.message);
   }
 }
