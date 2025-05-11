@@ -35,15 +35,20 @@
       document.getElementById('back').onclick = () => history.back();
 
       // --- Ensure join ---
-      try {
-        const res = await fetch(`/api/join?table_id=${tableId}&user_id=${userId}`, {
-          method: 'POST', credentials: 'same-origin'
-        });
-        if (!res.ok) throw await res.json();
-        console.log('Joined table', tableId, 'as user', userId);
-      } catch (err) {
-        console.warn('Join API failed (maybe already joined):', err);
-      }
+      console.log('🔔 [game.html] About to join table', tableId, 'as user', userId);
+    try {
+      const joinUrl = `/api/join?table_id=${tableId}&user_id=${userId}`;
+      console.log('🔔 [game.html] Fetching:', joinUrl);
+      const res = await fetch(joinUrl, {
+        method: 'POST',
+        credentials: 'same-origin'
+      });
+      console.log('🔔 [game.html] join response status:', res.status);
+      if (!res.ok) throw await res.json();
+      console.log('🔔 [game.html] Joined OK');
+    } catch (err) {
+      console.error('❌ [game.html] Join failed:', err);
+    }
 
       // --- WebSocket ---
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
