@@ -1,9 +1,11 @@
 // webapp/js/app.js
+console.log('🔰 app.js загружен');
 import { api }       from './api.js';
 import { loadLobby } from './ui_lobby.js';
 import { initGameUI }from './ui_game.js';
 
 document.addEventListener('DOMContentLoaded', async()=>{
+  console.log('🔰 DOMContentLoaded');
   const p = new URLSearchParams(location.search);
   const userId   = Number(p.get('user_id'));
   const username = p.get('username')||'—';
