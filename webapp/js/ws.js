@@ -6,16 +6,16 @@ export class GameSocket {
     this.ws = new WebSocket(`${proto}://${location.host}/ws/game/${tableId}`);
     this.ws.onmessage = e => {
       try { onState(JSON.parse(e.data)); }
-      catch { console.error('Invalid JSON', e.data); }
+      catch (err) { console.error('Invalid WS JSON', err); }
     };
-    this.ws.onclose = () => setTimeout(()=>this.reconnect(onState), 3000);
+    this.ws.onclose = () => setTimeout(() => this.reconnect(onState), 3000);
   }
   reconnect(onState) {
-    this.constructor(this.tableId, this.userId, onState);
+    new GameSocket(this.tableId, this.userId, onState);
   }
-  send(action, amount=0) {
+  send(action, amount = 0) {
     if (this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ user_id:this.userId, action, amount }));
+      this.ws.send(JSON.stringify({ user_id: this.userId, action, amount }));
     }
   }
 }
