@@ -4,102 +4,10 @@
   <meta charset="UTF-8">
   <title>Crypto Poker Table</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-    body { background:#111; color:#eee; font-family:sans-serif; padding:20px }
-    button { background:#ff0; border:none; padding:5px 10px; margin:5px; cursor:pointer }
-    .card { display:inline-block; margin:0 5px; font-size:1.5em }
-    #players-area div.current { text-decoration: underline; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <button id="back">← Назад</button>
-  <h2>Стол <span id="table-id"></span></h2>
-  <div id="community">Комьюнити: —</div>
-  <div id="your">Ваши карты: —</div>
-  <div id="pot">Банк: 0</div>
-  <div id="players-area">Игроки: —</div>
-  <div id="actions">
-    <button data-act="check">Check</button>
-    <button data-act="fold">Fold</button>
-    <input id="bet" type="number" placeholder="Сумма" style="width:60px">
-    <button data-act="bet">Bet</button>
-  </div>
-
-  <script>
-    (async () => {
-      // --- Params ---
-      const params  = new URLSearchParams(location.search);
-      const tableId = params.get('table_id');
-      const userId  = params.get('user_id');
-      document.getElementById('table-id').textContent = tableId;
-      document.getElementById('back').onclick = () => history.back();
-
-      // --- Ensure join ---
-      console.log('🔔 [game.html] About to join table', tableId, 'as user', userId);
-    try {
-      const joinUrl = `/api/join?table_id=${tableId}&user_id=${userId}`;
-      console.log('🔔 [game.html] Fetching:', joinUrl);
-      const res = await fetch(joinUrl, {
-        method: 'POST',
-        credentials: 'same-origin'
-      });
-      console.log('🔔 [game.html] join response status:', res.status);
-      if (!res.ok) throw await res.json();
-      console.log('🔔 [game.html] Joined OK');
-    } catch (err) {
-      console.error('❌ [game.html] Join failed:', err);
-    }
-
-      // --- WebSocket ---
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws/game/${tableId}`);
-
-      ws.onopen = () => console.log('WS connected');
-      ws.onclose = () => console.warn('WS closed');
-
-      ws.onmessage = ev => {
-        const st = JSON.parse(ev.data);
-        if (st.waiting) {
-          document.getElementById('community').textContent = st.message;
-          return;
-        }
-        renderState(st);
-      };
-
-      // --- Render ---
-      function renderState(st) {
-        document.getElementById('community').textContent =
-          'Комьюнити: ' + (st.community.join(' ') || '—');
-        const hole = st.hole_cards[userId] || [];
-        document.getElementById('your').innerHTML =
-          'Ваши карты: ' + hole.map(c => `<span class="card">${c}</span>`).join('');
-        document.getElementById('pot').textContent = 'Банк: ' + st.pot;
-        const pa = document.getElementById('players-area');
-        pa.innerHTML = '';
-        Object.entries(st.stacks).forEach(([uid, stack]) => {
-          const div = document.createElement('div');
-          div.textContent = `#${uid}: ${stack}`;
-          if (uid === String(st.current_player)) div.classList.add('current');
-          pa.appendChild(div);
-        });
-        const inp = document.getElementById('bet');
-        inp.max = st.stacks[userId] || 0;
-        inp.placeholder = `до ${inp.max}`;
-      }
-
-      // --- Actions ---
-      document.getElementById('actions').onclick = e => {
-        const act = e.target.dataset.act;
-        if (!act || ws.readyState !== WebSocket.OPEN) return;
-        const msg = { user_id: Number(userId), action: act };
-        if (act === 'bet') {
-          const v = Number(document.getElementById('bet').value) || 0;
-          if (v < 1) return alert('Введите сумму ставки');
-          msg.amount = v;
-        }
-        ws.send(JSON.stringify(msg));
-      };
-    })();
-  </script>
+  <div id="table-area"></div>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
