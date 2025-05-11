@@ -67,12 +67,14 @@ def init_db():
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],      # в продакшене ограничьте домен
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-# Инициализируем БД сразу
+# -----------------------------------------------------------------------------
+# Инициализируем БД
+# -----------------------------------------------------------------------------
 init_db()
 
 # -----------------------------------------------------------------------------
@@ -113,7 +115,7 @@ class Tournament(BaseModel):
     status: TournamentStatus
 
 # -----------------------------------------------------------------------------
-# 4) В памяти: кеш-столы
+# 4) In-memory: cash-столы
 # -----------------------------------------------------------------------------
 TABLES = [
     {"id":1, "small_blind":0.02, "big_blind":0.05, "buy_in":2.5, "limit":6},
@@ -123,7 +125,7 @@ seat_map: Dict[int, Set[int]]         = {t["id"]: set() for t in TABLES}
 game_states: Dict[int, CashGameState] = {}
 
 # -----------------------------------------------------------------------------
-# 5) Помощники кеш-игры
+# 5) Помощники для кеш-игры
 # -----------------------------------------------------------------------------
 def _generate_deck() -> List[str]:
     suits = ['s','h','d','c']
@@ -153,17 +155,17 @@ def _init_cash_game(table_id: int):
 # -----------------------------------------------------------------------------
 @app.get("/api/tables", response_model=List[TableInfo])
 async def api_tables(user_id: int = Query(...), level: str = Query("Low")):
-    result = []
+    out = []
     for t in TABLES:
         occ = len(seat_map[t["id"]])
-        result.append(TableInfo(
+        out.append(TableInfo(
             id=t["id"],
             small_blind=t["small_blind"],
             big_blind=t["big_blind"],
             buy_in=t["buy_in"],
             players=f"{occ}/{t['limit']}"
         ))
-    return result
+    return out
 
 @app.get("/api/join", response_model=JoinResponse)
 async def api_join(user_id: int = Query(...), table_id: int = Query(...)):
@@ -178,14 +180,16 @@ async def api_join(user_id: int = Query(...), table_id: int = Query(...)):
 
 @app.get("/api/game_state", response_model=CashGameState)
 async def api_game_state(user_id: int = Query(...), table_id: int = Query(...)):
-    st = game_states.get(table_id)
-    if not st or user_id not in st.hole_cards:
+    state = game_states.get(table_id)
+    if not state or user_id not in state.hole_cards:
         raise HTTPException(404, "Игра не найдена или вы не за столом")
-    return st
+    return state
 
 # -----------------------------------------------------------------------------
 # 7) WebSocket кеш-игры
 # -----------------------------------------------------------------------------
+from fastapi import WebSocket
+
 class ConnectionManager:
     def __init__(self):
         self.active: Dict[int, List[WebSocket]] = {}
@@ -216,13 +220,10 @@ async def websocket_game(ws: WebSocket, table_id: int):
             uid, action, amount = msg.get("user_id"), msg.get("action"), msg.get("amount",0)
             state = game_states.get(table_id)
             if state and uid == state.current_player:
-                if action=="fold":
-                    state.round_stage="showdown"
-                elif action=="check":
-                    pass
+                if action=="fold": state.round_stage="showdown"
+                elif action=="check": pass
                 elif action=="bet" and amount<=state.stacks[uid]:
                     state.stacks[uid]-=amount; state.pot+=amount
-                # advance
                 _advance_round(state)
             await manager.broadcast(table_id)
     except WebSocketDisconnect:
@@ -244,20 +245,22 @@ def _advance_round(state: CashGameState):
 # -----------------------------------------------------------------------------
 # 8) Эндпоинты турниров
 # -----------------------------------------------------------------------------
-def _count_players(tid:int)->int:
-    conn=sqlite3.connect("poker.db"); cur=conn.cursor()
+def _count_players(tid: int) -> int:
+    conn = sqlite3.connect("poker.db"); cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM tournament_players WHERE tournament_id=? AND eliminated=0",(tid,))
     cnt=cur.fetchone()[0]; conn.close(); return cnt
 
 @app.get("/api/tournaments", response_model=List[Tournament])
 async def api_tournaments():
-    conn=sqlite3.connect("poker.db"); cur=conn.cursor()
+    conn = sqlite3.connect("poker.db"); cur=conn.cursor()
     cur.execute("SELECT id,name,buy_in,prize_pool,max_players,status FROM tournaments")
     rows=cur.fetchall(); conn.close()
-    return [Tournament(
-        id=r[0], name=r[1], buy_in=r[2], prize_pool=r[3],
-        players=_count_players(r[0]), max_players=r[4], status=r[5]
-    ) for r in rows]
+    return [
+        Tournament(
+            id=r[0], name=r[1], buy_in=r[2], prize_pool=r[3],
+            players=_count_players(r[0]), max_players=r[4], status=r[5]
+        ) for r in rows
+    ]
 
 @app.post("/api/join_tournament", response_model=Tournament)
 async def api_join_tournament(user_id: int = Query(...), tournament_id: int = Query(...)):
