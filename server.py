@@ -17,13 +17,31 @@ app.add_middleware(
 # Подключаем WS- и /api/game_state из game_ws.py
 app.include_router(game_router)
 
-# --- Пример простых REST-маршрутов для работы со столами и балансом ---
+# === Статический список столов ===
+DEFAULT_TABLES = [
+    {"id": 1, "small_blind": 1, "big_blind": 2, "buy_in": 100},
+    {"id": 2, "small_blind": 2, "big_blind": 4, "buy_in": 200},
+    {"id": 3, "small_blind": 5, "big_blind": 10, "buy_in": 500},
+    # Добавьте здесь другие столы по необходимости
+]
 
 @app.get("/api/tables")
 def get_tables():
-    """Список доступных table_id."""
-    # Просто возвращаем все столы, где кто-то сел
-    return {"tables": list(seat_map.keys())}
+    """
+    Возвращает список всех столов с их SB/BB, бай-ином и числом игроков.
+    """
+    tables = []
+    for t in DEFAULT_TABLES:
+        tid = t["id"]
+        players = len(seat_map.get(tid, []))
+        tables.append({
+            "id": tid,
+            "small_blind": t["small_blind"],
+            "big_blind": t["big_blind"],
+            "buy_in": t["buy_in"],
+            "players": players
+        })
+    return {"tables": tables}
 
 @app.post("/api/join")
 def join_table(table_id: int = Query(...), user_id: int = Query(...)):
