@@ -54,6 +54,49 @@ async def api_tables(
         ))
     return out
 
+# --- Новый игровой стейт и подключения ---
+# Храним состояние текущей раздачи по столам
+game_states: dict[int, dict] = {}
+# Храним открытые WebSocket-подключения по столам
+connections: dict[int, list[WebSocket]] = {}
+
+# --- Функции для раздачи карт ---
+def new_deck() -> list[str]:
+    """Создает и перемешивает новую колоду из 52 карт."""
+    ranks = [str(x) for x in range(2, 11)] + list("JQKA")
+    suits = ["♠", "♥", "♦", "♣"]
+    deck = [rank + suit for rank in ranks for suit in suits]
+    random.shuffle(deck)
+    return deck
+
+
+def start_hand(table_id: int):
+    """Инициализирует новую раздачу: раздает по две карты, сбрасывает ставки."""
+    # Получаем список игроков за столом
+    players = list(seat_map.get(table_id, []))
+    if not players:
+        return
+
+    # Создаем и перемешиваем колоду
+    deck = new_deck()
+
+    # Раздаем игрокам по две карты
+    hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
+
+    # Начальные стеки (можно вынести в константу)
+    starting_stack = 1000
+    stacks = {uid: starting_stack for uid in players}
+
+    # Инициализация состояния
+    game_states[table_id] = {
+        "hole_cards": hole_cards,
+        "community": [],
+        "stacks": stacks,
+        "pot": 0,
+        "current_player": players[0],  # первый ходитель
+        # "deck": deck  # можно сохранить остаток колоды, если нужно
+    }
+
 @app.get("/api/join")
 async def api_join(
     user_id: int = Query(..., description="Ваш Telegram user_id"),
