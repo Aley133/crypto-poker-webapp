@@ -4,69 +4,32 @@
   <meta charset="UTF-8">
   <title>Crypto Poker Lobby</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-    body { background:#111; color:#eee; font-family:sans-serif; padding:20px }
-    .table { border:1px solid #333; padding:10px; margin:10px 0; }
-    button { background:#ff0; border:none; padding:5px 10px; cursor:pointer }
-    .tabs { margin-bottom:10px }
-    .tab { background:#222; color:#ccc; border:none; padding:5px 10px; margin-right:5px; cursor:pointer }
-    .tab.active { background:#fff; color:#000 }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Crypto Poker</h1>
-  <div>Пользователь: <span id="username">Игрок</span> | Баланс: <span id="balance">0</span> USDT</div>
+  <header>
+    <div class="user-info">
+      <div id="avatar" class="avatar"></div>
+      <span id="username">—</span>
+      <span id="current-balance">0 USDT</span>
+    </div>
+  </header>
 
-  <div class="tabs">
+  <nav class="tabs">
     <button class="tab" data-tab="cash">Кэш</button>
-    <button class="tab" data-tab="tourn">Турниры</button>
-  </div>
+    <button class="tab" data-tab="tournaments">Турниры</button>
+  </nav>
 
-  <div id="lobby">
-    <!-- Сюда подгрузятся столы -->
-  </div>
+  <main id="info"></main>
 
-  <script>
-    // статический список столов
-    const TABLES = [
-      {id:1, sb:1, bb:2, buy_in:100},
-      {id:2, sb:2, bb:4, buy_in:200},
-      {id:3, sb:5, bb:10, buy_in:500}
-    ];
-    const userId = 1;
-    document.getElementById('username').textContent = 'Игрок#'+userId;
+  <section id="lobby-controls">
+    <select id="level-select">
+      <option value="Low">Low</option>
+      <option value="Medium">Medium</option>
+      <option value="High">High</option>
+    </select>
+  </section>
 
-    async function loadCash() {
-      const lobby = document.getElementById('lobby');
-      lobby.innerHTML = '<p>Загрузка…</p>';
-      // имитируем API-запрос
-      await new Promise(r=>setTimeout(r,200));
-      lobby.innerHTML = '';
-      TABLES.forEach(t=>{
-        const div = document.createElement('div');
-        div.className = 'table';
-        div.innerHTML = `
-          <strong>Стол ${t.id}</strong><br>
-          SB/BB: ${t.sb}/${t.bb}<br>
-          Бай-ин: ${t.buy_in}<br>
-          <button data-id="${t.id}">Играть</button>
-        `;
-        div.querySelector('button').onclick = () => {
-          location.href = `/game.html?table_id=${t.id}&user_id=${userId}`;
-        };
-        lobby.append(div);
-      });
-    }
-
-    document.querySelectorAll('.tab').forEach(tab=>{
-      tab.onclick = ()=> {
-        document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t===tab));
-        if(tab.dataset.tab==='cash') loadCash();
-        else document.getElementById('lobby').innerHTML='<p>Скоро турниры…</p>';
-      };
-    });
-    // старт
-    document.querySelector('.tab[data-tab="cash"]').click();
-  </script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
