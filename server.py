@@ -1,10 +1,12 @@
-import random
-from typing import List
+# server.py
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from game_ws import router as game_router
+from fastapi.staticfiles import StaticFiles
+from typing import Dict, List
+import uvicorn
+
+from game_data import seat_map
+from game_ws import router as game_router, game_states
 
 app = FastAPI()
 app.add_middleware(
@@ -12,77 +14,40 @@ app.add_middleware(
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
-# Импорт и подключение роутера с ws/game и api/game_state
+# Подключаем WS- и /api/game_state из game_ws.py
 app.include_router(game_router)
 
-# Модель одного кеш-стола
-class Table(BaseModel):
-    id: int
-    small_blind: float
-    big_blind: float
-    buy_in: float
-    players: str   # "занято/лимит"
+# --- Пример простых REST-маршрутов для работы со столами и балансом ---
 
-# Заглушечный список столов
-TABLES = [
-    {"id": 1, "small_blind": 0.02, "big_blind": 0.05, "buy_in": 2.5, "limit": 6},
-    {"id": 2, "small_blind": 0.05, "big_blind": 0.10, "buy_in": 7.5, "limit": 6},
-    {"id": 3, "small_blind": 0.10, "big_blind": 0.20, "buy_in": 15.0, "limit": 6},
-]
+@app.get("/api/tables")
+def get_tables():
+    """Список доступных table_id."""
+    # Просто возвращаем все столы, где кто-то сел
+    return {"tables": list(seat_map.keys())}
 
-# Просто хранение занятых мест (в памяти)
-seat_map = {t["id"]: set() for t in TABLES}
-
-@app.get("/api/tables", response_model=List[Table])
-async def api_tables(
-    user_id: int = Query(..., description="Ваш Telegram user_id"),
-    level: str = Query("Low", description="Уровень стола (Low/Mid/VIP)")
-):
+@app.post("/api/join")
+def join_table(table_id: int = Query(...), user_id: int = Query(...)):
     """
-    Возвращает список кеш-столов.
-    Параметр level пока не действует, всегда возвращаем все.
+    Игрок user_id садится за стол table_id.
+    Возвращает status=ok или ошибку, если уже за столом.
     """
-    out = []
-    for t in TABLES:
-        occ = len(seat_map[t["id"]])
-        out.append(Table(
-            id=t["id"],
-            small_blind=t["small_blind"],
-            big_blind=t["big_blind"],
-            buy_in=t["buy_in"],
-            players=f"{occ}/{t['limit']}"
-        ))
-    return out
-
-@app.get("/api/join")
-async def api_join(
-    user_id: int = Query(..., description="Ваш Telegram user_id"),
-    table_id: int = Query(..., description="ID стола")
-):
-    """
-    Присоединяет пользователя к столу. 
-    Возвращает success/message.
-    """
-    # Проверяем, что стол существует
-    table = next((t for t in TABLES if t["id"] == table_id), None)
-    if not table:
-        raise HTTPException(404, "Стол не найден")
-    # Проверяем лимит
-    if len(seat_map[table_id]) >= table["limit"]:
-        return {"success": False, "message": "Все места заняты"}
-    # Добавляем
-    seat_map[table_id].add(user_id)
-    return {"success": True, "message": f"Вы присоединились к столу {table_id}"}
+    users = seat_map.setdefault(table_id, [])
+    if user_id in users:
+        raise HTTPException(status_code=400, detail="User already at table")
+    users.append(user_id)
+    return {"status": "ok", "players": users}
 
 @app.get("/api/balance")
-async def api_balance(
-    user_id: int = Query(..., description="Ваш Telegram user_id")
-):
+def get_balance(table_id: int = Query(...), user_id: int = Query(...)):
     """
-    Заглушка: всегда возвращаем 0.0
+    Возвращает стек игрока из game_states (если рука идёт),
+    иначе 0.
     """
-    return {"balance": 0.0}
+    stacks = game_states.get(table_id, {}).get("stacks", {})
+    return {"balance": stacks.get(user_id, 0)}
 
-# Монтируем папку webapp/ как статический фронт
-# В ней должны лежать ваши index.html, game.html и всё остальное.
+# Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
+
+if __name__ == "__main__":
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
