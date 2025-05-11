@@ -51,6 +51,19 @@ def get_balance(table_id: int = Query(...), user_id: int = Query(...)):
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
 
+from fastapi.responses import FileResponse
+
+@app.get("/game.html")
+async def no_cache_game_html():
+    """
+    Всегда отдаём свежий game.html без кеша.
+    """
+    return FileResponse(
+        "webapp/game.html",
+        media_type="text/html",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+    )
+
 # Раздача статики
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
