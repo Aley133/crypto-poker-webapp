@@ -22,27 +22,30 @@ export async function loadLobby(levelSelect, infoEl, username, userId) {
         <button data-id="${t.id}">Играть</button>
       `;
       const btn = card.querySelector('button');
-      btn.onclick = () => {
-        api('/api/join', { table_id: t.id, user_id: userId })
-          .then(() => {
-            // Формируем абсолютный URL и логируем его
-            const url = `${location.origin}/game.html` +
-                        `?user_id=${userId}` +
-                        `&username=${encodeURIComponent(username)}` +
-                        `&table_id=${t.id}`;
-            console.log('Navigate to:', url);
-            // Переходим
-            window.location.assign(url);
-          })
-          .catch(err => {
-            console.error('Join error:', err);
-            infoEl.textContent = err.detail || JSON.stringify(err);
+      btn.onclick = async () => {
+        try {
+          // POST /api/join
+          const q = new URLSearchParams({ table_id: t.id, user_id });
+          const res = await fetch(`/api/join?${q.toString()}`, {
+            method: 'POST',
+            credentials: 'same-origin'
           });
+          if (!res.ok) throw await res.json();
+
+          // После успешного join — идём в игру
+          const url = `${location.origin}/game.html` +
+                      `?user_id=${userId}` +
+                      `&username=${encodeURIComponent(username)}` +
+                      `&table_id=${t.id}`;
+          console.log('Navigate to:', url);
+          window.location.assign(url);
+        } catch (err) {
+          console.error('Join error:', err);
+          infoEl.textContent = err.detail || JSON.stringify(err);
+        }
       };
       infoEl.appendChild(card);
     });
   } catch (e) {
     console.error('loadLobby error:', e);
-    infoEl.textContent = 'Ошибка при загрузке лобби: ' + (e.detail || e.message);
-  }
-}
+    infoEl.textContent = 'Ошибка при загрузке
