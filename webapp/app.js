@@ -239,3 +239,123 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
+function getParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+const tableId = getParam('table_id');
+const userId  = parseInt(getParam('user_id'), 10);
+if (!tableId || !userId) {
+  alert('Не задан table_id или user_id в URL, например ?table_id=1&user_id=123');
+  throw new Error('Missing table_id/user_id');
+}
+
+// --- Селекторы DOM ---
+const communityEl   = document.getElementById('community');
+const playersEl     = document.getElementById('players');
+const holeCardsEl   = document.getElementById('your-cards');
+const potEl         = document.getElementById('pot');
+const btnCheck      = document.getElementById('btn-check');
+const btnFold       = document.getElementById('btn-fold');
+const inputAmount   = document.getElementById('bet-amount');
+const btnBet        = document.getElementById('btn-bet');
+
+// --- Функция join + WS init ---
+async function joinAndConnect() {
+  // 1) присоединиться к столу
+  const resp = await fetch(`/api/join?table_id=${tableId}&user_id=${userId}`, {
+    method: 'POST'
+  });
+  if (!resp.ok) {
+    const err = await resp.json();
+    console.error('Join error:', err.detail || err);
+    alert('Не удалось присоединиться к столу: ' + (err.detail||JSON.stringify(err)));
+    return;
+  }
+
+  // 2) открыть WS
+  initWebSocket();
+}
+
+// --- WebSocket ---
+let ws;
+function initWebSocket() {
+  ws = new WebSocket(`${location.protocol.replace('http','ws')}//${location.host}/ws/game/${tableId}`);
+
+  ws.onopen = () => {
+    console.log('WS connected');
+  };
+
+  ws.onmessage = ev => {
+    const state = JSON.parse(ev.data);
+    console.log('WS state:', state);
+    renderState(state);
+  };
+
+  ws.onclose = () => {
+    console.warn('WS closed, попробуем переподключиться через 3 сек');
+    setTimeout(initWebSocket, 3000);
+  };
+
+  ws.onerror = err => {
+    console.error('WS error', err);
+    ws.close();
+  };
+}
+
+// --- Рендеринг стейта ---
+function renderState(state) {
+  // Community
+  communityEl.innerHTML = state.community.length
+    ? state.community.map(c => `<span class="card">${c}</span>`).join(' ')
+    : '—';
+
+  // Players (список user_id и их стеков; можно добавить имена)
+  playersEl.innerHTML = Object.entries(state.stacks)
+    .map(([uid, stack]) => {
+      const cls = (parseInt(uid) === state.current_player)
+        ? 'player current'
+        : 'player';
+      return `<div class="${cls}">Игрок ${uid}: ${stack}</div>`;
+    }).join('');
+
+  // Ваши карты
+  const hole = state.hole_cards[userId] || [];
+  holeCardsEl.innerHTML = hole.length
+    ? hole.map(c => `<span class="card">${c}</span>`).join(' ')
+    : '—';
+
+  // Pot
+  potEl.textContent = state.pot;
+
+  // Блокировка кнопки Bet, если amount > ваш стек
+  const myStack = state.stacks[userId] || 0;
+  inputAmount.max = myStack;
+  if (parseInt(inputAmount.value,10) > myStack) {
+    inputAmount.value = myStack;
+  }
+}
+
+// --- Отправка действий ---
+function sendAction(action, amount=0) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ user_id: userId, action, amount }));
+}
+
+// --- Привязка кнопок ---
+btnCheck.addEventListener('click', () => sendAction('check'));
+btnFold .addEventListener('click', () => sendAction('fold'));
+btnBet  .addEventListener('click', () => {
+  const amt = parseInt(inputAmount.value, 10);
+  if (isNaN(amt) || amt <= 0) {
+    alert('Введите корректную сумму для ставки');
+    return;
+  }
+  sendAction('bet', amt);
+});
+
+// --- Стартуем всё после загрузки ---
+window.addEventListener('DOMContentLoaded', () => {
+  joinAndConnect();
+});
