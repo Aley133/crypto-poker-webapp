@@ -1,77 +1,63 @@
 // webapp/js/ui_game.js
-import { api }        from './api.js';
+import { api } from './api.js';
 import { GameSocket } from './ws.js';
 
 export function initGameUI({ tableId, userId }) {
   const area = document.getElementById('table-area');
-  area.innerHTML = `
-    <button id="back">← Назад</button>
-    <h2>Стол ${tableId}</h2>
-    <div id="community">Ждем второго игрока…</div>
-  `;
-  document.getElementById('back').onclick = () => Telegram.WebApp.close();
+  area.innerHTML = `<p>Ждём второго игрока…</p>`;
 
-  (async () => {
-    // 1) join
-    await fetch(`/api/join?table_id=${tableId}&user_id=${userId}`, {
-      method: 'POST', credentials: 'same-origin'
-    });
+  (async()=>{
+    // join
+    await fetch(`/api/join?table_id=${tableId}&user_id=${userId}`, { method:'POST', credentials:'same-origin' }).catch(()=>{});
 
-    // 2) WS
+    // WS
     const socket = new GameSocket(tableId, userId, payload => {
       if (payload.waiting) {
-        area.querySelector('#community').textContent = payload.message;
+        area.innerHTML = `<p>${payload.message}</p>`;
         return;
       }
-      // рисуем стол полностью
+      // отрисовать каркас и стейт
       area.innerHTML = `
         <button id="back">← Назад</button>
         <h2>Стол ${tableId}</h2>
-        <div id="community">—</div>
-        <div id="your">—</div>
-        <div id="pot">0</div>
-        <div id="players-area"></div>
+        <div id="community">Комьюнити: —</div>
+        <div id="your">Ваши карты: —</div>
+        <div id="pot">Банк: 0</div>
+        <div id="players-area">Игроки: —</div>
         <div id="actions">
           <button data-act="check">Check</button>
           <button data-act="fold">Fold</button>
-          <input id="bet-amount" type="number" min="1" placeholder="Сумма"/>
+          <input type="number" id="bet-amount" placeholder="Сумма" min="1" />
           <button data-act="bet">Bet</button>
         </div>
       `;
-      document.getElementById('back').onclick = () => Telegram.WebApp.close();
+      document.getElementById('back').onclick = ()=> window.history.back();
 
-      // рендер стейта
       render(payload);
-
-      // биндим кнопки
       document.getElementById('actions').onclick = e => {
         const act = e.target.dataset.act;
         if (!act) return;
-        const msg = { user_id: userId, action: act };
-        if (act === 'bet') msg.amount = Number(document.getElementById('bet-amount').value);
-        socket.send(msg.action, msg.amount);
+        const amt = act==='bet' ? Number(document.getElementById('bet-amount').value) : 0;
+        if (act==='bet' && amt<1) return alert('Введите ставку');
+        socket.send(act, amt);
       };
-
-      function render(st) {
-        document.getElementById('community').textContent = 'Комьюнити: ' + (st.community.join(' ')||'—');
-        document.getElementById('your').innerHTML = 'Ваши карты: ' + (st.hole_cards[userId]||[]).map(c=>`<span class="card">${c}</span>`).join(' ');
-        document.getElementById('pot').textContent = 'Банк: '+st.pot;
-        const pa = document.getElementById('players-area');
-        pa.innerHTML = '';
-        Object.entries(st.stacks).forEach(([uid,stk])=>{
-          const div = document.createElement('div');
-          div.textContent = `#${uid}: ${stk}` + (uid===st.current_player?' ← ход':'');
-          pa.append(div);
-        });
-        const inp = document.getElementById('bet-amount');
-        inp.max = st.stacks[userId] || 0;
-      }
     });
 
-    // 3) initial state
-    try {
-      const st = await api('/api/game_state',{ table_id:tableId });
-      socket.onmessage({ data: JSON.stringify(st) });
-    } catch {}
+    // initial state
+    const st = await api('/api/game_state',{ table_id:tableId }).catch(()=>null);
+    if (st) socket.ws.onmessage({ data:JSON.stringify(st) });
   })();
+
+  function render(st) {
+    document.getElementById('community').textContent = 'Комьюнити: ' + (st.community.join(' ')||'—');
+    document.getElementById('your').innerHTML = 'Ваши карты: ' + (st.hole_cards[userId]||[]).map(c=>`<span class="card">${c}</span>`).join(' ');
+    document.getElementById('pot').textContent = 'Банк: '+st.pot;
+    const pa = document.getElementById('players-area'); pa.innerHTML = '';
+    Object.entries(st.stacks).forEach(([uid,stk])=>{
+      const div = document.createElement('div');
+      div.textContent = `#${uid}: ${stk}` + (uid===st.current_player?' ← ход':'');
+      pa.append(div);
+    });
+    const inp = document.getElementById('bet-amount'); inp.max = st.stacks[userId]||0;
+  }
 }
