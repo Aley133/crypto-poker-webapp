@@ -12,7 +12,7 @@ export async function loadLobby(levelSelect, infoEl, userId) {
     }
     tables.forEach(t => {
       const d = document.createElement('div');
-      d.className = 'table';
+      d.className='table';
       d.innerHTML = `
         <strong>Стол ${t.id}</strong><br>
         SB/BB: ${t.small_blind}/${t.big_blind}<br>
@@ -20,9 +20,13 @@ export async function loadLobby(levelSelect, infoEl, userId) {
         <button data-id="${t.id}">Играть</button>
       `;
       d.querySelector('button').onclick = () => {
-        window.Telegram.WebApp.openLink(
-          `${location.origin}/game.html?table_id=${t.id}`
-        );
+        if (window.Telegram?.WebApp) {
+          Telegram.WebApp.openLink(
+            `${location.origin}/game.html?table_id=${t.id}`
+          );
+        } else {
+          location.href = `/game.html?table_id=${t.id}`;
+        }
       };
       infoEl.appendChild(d);
     });
