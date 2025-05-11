@@ -4,10 +4,68 @@
   <meta charset="UTF-8">
   <title>Crypto Poker Table</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#111; color:#eee; font-family:sans-serif; padding:20px }
+    button { background:#ff0; border:none; padding:5px 10px; cursor:pointer }
+    .card { display:inline-block; margin:0 5px; font-size:1.2em }
+  </style>
 </head>
 <body>
-  <main id="table-area"></main>
-  <script type="module" src="js/app.js"></script>
+  <button id="back">← Назад</button>
+  <h2>Стол <span id="table-id"></span></h2>
+  <div id="community">Комьюнити: —</div>
+  <div id="your">Ваши карты: —</div>
+  <div id="pot">Банк: 0</div>
+  <div id="players">Игроки: —</div>
+  <div>
+    <button data-act="check">Check</button>
+    <button data-act="fold">Fold</button>
+    <input id="bet" type="number" placeholder="Сумма" style="width:60px">
+    <button data-act="bet">Bet</button>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const tableId = params.get('table_id');
+    const userId  = params.get('user_id');
+    document.getElementById('table-id').textContent = tableId;
+    document.getElementById('back').onclick = ()=>history.back();
+
+    // имитация WebSocket/раздачи
+    let state = {
+      holes: { [userId]: ['Ah','Kd'] },
+      comm: [],
+      pot: 0,
+      players: { [userId]: 1000 },
+      turn: userId
+    };
+
+    function render() {
+      document.getElementById('community').textContent =
+        'Комьюнити: ' + (state.comm.join(' ')||'—');
+      document.getElementById('your').textContent =
+        'Ваши карты: ' + (state.holes[userId]||[]).join(' ');
+      document.getElementById('pot').textContent =
+        'Банк: ' + state.pot;
+      document.getElementById('players').textContent =
+        'Игроки: ' + Object.entries(state.players)
+          .map(([u,s]) => `#${u}:${s}` + (u===state.turn?'←':''))
+          .join(' ');
+    }
+    render();
+
+    document.querySelectorAll('[data-act]').forEach(btn=>{
+      btn.onclick = () => {
+        const act = btn.dataset.act;
+        if(act==='bet') {
+          const v=Number(document.getElementById('bet').value)||0;
+          state.players[userId]-=v;
+          state.pot+=v;
+        }
+        // TODO: fold/check, смена состояния
+        render();
+      };
+    });
+  </script>
 </body>
 </html>
