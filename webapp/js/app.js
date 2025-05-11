@@ -4,7 +4,7 @@ import { loadLobby }  from './ui_lobby.js';
 import { initGameUI } from './ui_game.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1) Получаем userId из Telegram WebApp (или fallback из URL/localStorage)
+  // 1) Получаем userId
   let userId;
   if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
     userId = window.Telegram.WebApp.initDataUnsafe.user.id;
@@ -19,32 +19,42 @@ document.addEventListener('DOMContentLoaded', () => {
       })();
   }
 
-  // 2) Спрячем нативный back в WebApp
+  // 2) Спрячем кнопку назад, если WebApp
   if (window.Telegram?.WebApp) {
     Telegram.WebApp.expand();
-    document.getElementById('back')?.remove();
+    const backBtn = document.getElementById('back');
+    if (backBtn) backBtn.style.display = 'none';
   }
 
   // 3) Показать имя/баланс
-  document.getElementById('username')!.textContent = userId;
+  const nameEl = document.getElementById('username');
+  if (nameEl) nameEl.textContent = String(userId);
   api('/api/balance', { user_id: userId })
-    .then(d => document.getElementById('current-balance')!.textContent = d.balance + ' USDT')
+    .then(d => {
+      const balEl = document.getElementById('current-balance');
+      if (balEl) balEl.textContent = d.balance + ' USDT';
+    })
     .catch(()=>{});
 
   // 4) Решаем: лобби или игра
-  const p       = new URLSearchParams(location.search);
+  const p = new URLSearchParams(location.search);
   const tableId = p.get('table_id');
+
   if (tableId) {
     initGameUI({ tableId, userId });
   } else {
-    const infoEl      = document.getElementById('info')!;
-    const levelSelect = document.getElementById('level-select') as HTMLSelectElement;
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
-        loadLobby(levelSelect, infoEl, userId);
+    const infoEl      = document.getElementById('info');
+    const levelSelect = document.getElementById('level-select');
+    if (infoEl && levelSelect) {
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab')
+            .forEach(t => t.classList.toggle('active', t === tab));
+          loadLobby(levelSelect, infoEl, userId);
+        });
       });
-    });
-    document.querySelector('.tab[data-tab="cash"]')?.click();
+      const cashTab = document.querySelector('.tab[data-tab="cash"]');
+      if (cashTab) cashTab.click();
+    }
   }
 });
