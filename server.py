@@ -18,19 +18,10 @@ app.include_router(game_router)
 
 @app.get("/api/tables")
 def get_tables(level: str = Query(...)):
-    """
-    Возвращает список столов вида:
-    [
-      {"id": 1, "small_blind": 1, "big_blind": 2, "buy_in": 100, "players": 0},
-      {"id": 2, "small_blind": 2, "big_blind": 4, "buy_in": 200, "players": 0},
-      {"id": 3, "small_blind": 5, "big_blind":10, "buy_in": 500, "players": 0},
-    ]
-    """
-    # Пример жёстко прописанных лимитов
     blinds = {
-      1: (1,2,100),
-      2: (2,4,200),
-      3: (5,10,500),
+      1: (1, 2, 100),
+      2: (2, 4, 200),
+      3: (5,10, 500),
     }
     out = []
     for tid, (sb, bb, bi) in blinds.items():
