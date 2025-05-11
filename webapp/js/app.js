@@ -10,13 +10,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const tableId  = p.get('table_id');
 
   // Показать имя и баланс
-  document.getElementById('username').textContent = username;
-  api('/api/balance', { table_id: tableId, user_id: userId })
-    .then(d => document.getElementById('current-balance').textContent = d.balance + ' USDT')
-    .catch(()=>{});
+  const nameEl = document.getElementById('username');
+  const balEl  = document.getElementById('current-balance');
+  if (nameEl) nameEl.textContent = username;
+  if (balEl) {
+    api('/api/balance', { table_id: tableId, user_id: userId })
+      .then(d => balEl.textContent = d.balance + ' USDT')
+      .catch(()=>{/*silent*/});
+  }
 
   if (tableId) {
-    // Игра
+    // Играем
     initGameUI({ tableId, userId });
   } else {
     // Лобби
@@ -30,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     });
     // Стартуем с Cash вкладки
-    document.querySelector('.tab[data-tab="cash"]').click();
+    const cashTab = document.querySelector('.tab[data-tab="cash"]');
+    if (cashTab) cashTab.click();
   }
 });
