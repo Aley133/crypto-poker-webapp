@@ -8,31 +8,29 @@
 </head>
 <body>
   <header>
-    <div class="user">
-      <div class="avatar" id="avatar"></div>
-      <div class="name" id="username">—</div>
-      <div class="balance">💰<span id="current-balance">0.00 USDT</span></div>
+    <div class="user-info">
+      <div id="avatar" class="avatar"></div>
+      <span id="username">—</span>
+      <span id="current-balance">0 USDT</span>
     </div>
-    <select id="level-select">
-      <option value="Low">Low</option>
-      <option value="Mid">Mid</option>
-      <option value="VIP">VIP</option>
-    </select>
   </header>
 
-  <div class="actions">
-    <button id="deposit">Депозит</button>
-    <button id="withdraw">Вывести</button>
-    <button id="history">История</button>
-  </div>
+  <nav class="tabs">
+    <button class="tab" data-tab="cash">Кэш</button>
+    <button class="tab" data-tab="tournaments">Турниры</button>
+  </nav>
 
-  <div class="tabs">
-    <div class="tab active" data-tab="cash">Кэш</div>
-    <div class="tab" data-tab="tournaments">Турниры</div>
-    <div class="tab" data-tab="more">Ещё</div>
-  </div>
+  <section id="lobby-controls">
+    <select id="level-select">
+      <option value="Low">Low</option>
+      <option value="Medium">Medium</option>
+      <option value="High">High</option>
+    </select>
+  </section>
 
-  <div id="info">Загрузка...</div>
+  <main id="info">
+    <!-- Список столов или турниров загрузится сюда -->
+  </main>
 
   <script type="module" src="js/app.js"></script>
 </body>
