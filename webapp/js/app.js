@@ -20,21 +20,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (tableId) {
-    // Играем
-    initGameUI({ tableId, userId });
-  } else {
-    // Лобби
-    const infoEl      = document.getElementById('info');
-    const levelSelect = document.getElementById('level-select');
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.onclick = () => {
-        document.querySelectorAll('.tab')
-          .forEach(t => t.classList.toggle('active', t === tab));
-        loadLobby(levelSelect, infoEl, username, userId);
-      };
-    });
-    // Стартуем с Cash вкладки
-    const cashTab = document.querySelector('.tab[data-tab="cash"]');
-    if (cashTab) cashTab.click();
-  }
+  // игра
+  initGameUI({ tableId, userId });
+} else {
+  // лобби
+  const infoEl      = document.getElementById('info');
+  const levelSelect = document.getElementById('level-select');
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.tab')
+        .forEach(t => t.classList.toggle('active', t === tab));
+      loadLobby(levelSelect, infoEl, username, userId);
+    };
+  });
+  // Стартуем с Cash вкладки
+  const cashTab = document.querySelector('.tab[data-tab="cash"]');
+  if (cashTab) cashTab.click();
+}
 });
