@@ -35,9 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
     infoEl.innerHTML = 'Загрузка столов…';
     try {
       const lvl = levelSelect ? levelSelect.value : '';
-      const tabs = await api('/api/tables', { level: lvl });
+      // Получаем объект { tables: [...] }
+      const resp = await api('/api/tables', { level: lvl });
+      const tabsList = resp.tables || [];  // здесь массив столов
       infoEl.innerHTML = '';
-      tabs.forEach(t => {
+      tabsList.forEach(t => {
         const d = document.createElement('div');
         d.className = 'table';
         d.innerHTML = `
@@ -49,9 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
         d.querySelector('button').onclick = () => joinTable(t.id);
         infoEl.appendChild(d);
       });
+
+      if (tabsList.length === 0) {
+        infoEl.textContent = 'Нет доступных столов.';
+      }
     } catch (e) {
-      console.error(e);
-      infoEl.textContent = 'Ошибка при загрузке лобби';
+      console.error('loadLobby error:', e);
+      infoEl.textContent = 'Ошибка при загрузке лобби: ' + (e.detail || e.message || JSON.stringify(e));
     }
   }
 
