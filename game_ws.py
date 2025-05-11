@@ -1,10 +1,14 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from typing import Dict, List
-import json, random
+import json
+import random
+
+from game_data import seat_map
 
 router = APIRouter()
 
 # --- Game state and WebSocket connections ---
+# Для каждого table_id — список WS-коннекшенов и текущее состояние руки
 connections: Dict[int, List[WebSocket]] = {}
 game_states: Dict[int, dict] = {}
 
@@ -17,7 +21,6 @@ def new_deck() -> List[str]:
     random.shuffle(deck)
     return deck
 
-
 def start_hand(table_id: int):
     """Initialize a new hand: deal two cards, reset bets and stacks."""
     players = list(seat_map.get(table_id, []))
@@ -26,7 +29,6 @@ def start_hand(table_id: int):
 
     deck = new_deck()
     hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
-
     starting_stack = 1000
     stacks = {uid: starting_stack for uid in players}
 
@@ -36,7 +38,7 @@ def start_hand(table_id: int):
         "stacks": stacks,
         "pot": 0,
         "current_player": players[0],
-        # Optionally: store remaining deck
+        # Если нужно, можно сохранить остаток колоды в state:
         # "deck": deck
     }
 
@@ -91,4 +93,3 @@ async def ws_game(websocket: WebSocket, table_id: int):
 async def api_game_state(table_id: int = Query(...)):
     """Return current hand state or empty dict if no hand."""
     return game_states.get(table_id, {})
-
