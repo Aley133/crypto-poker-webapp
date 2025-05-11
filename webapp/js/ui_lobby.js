@@ -24,11 +24,17 @@ export async function loadLobby(levelSelect, infoEl, username, userId) {
       d.querySelector('button').onclick = () => {
         api('/api/join', { table_id: t.id, user_id: userId })
           .then(() => {
-            window.location.href = `/game.html?user_id=${userId}` +
-                                   `&username=${encodeURIComponent(username)}` +
-                                   `&table_id=${t.id}`;
+            // переход на игру по абсолютному URL
+            const base = location.origin;
+            window.location.href =
+              `${base}/game.html?user_id=${userId}` +
+              `&username=${encodeURIComponent(username)}` +
+              `&table_id=${t.id}`;
           })
-          .catch(err => infoEl.textContent = err.detail || JSON.stringify(err));
+          .catch(err => {
+            console.error('Join error:', err);
+            infoEl.textContent = err.detail || JSON.stringify(err);
+          });
       };
       infoEl.appendChild(d);
     });
