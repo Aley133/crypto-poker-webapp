@@ -14,13 +14,18 @@
       <span id="current-balance">0 USDT</span>
     </div>
   </header>
-<main id="info">
-  <p>💡 Здесь будет лобби</p>
-</main>
+
+  <!-- вот этот nav важен: data-tab="cash" и data-tab="tournaments" -->
   <nav class="tabs">
     <button class="tab" data-tab="cash">Кэш</button>
     <button class="tab" data-tab="tournaments">Турниры</button>
   </nav>
+
+  <!-- это место, куда придёт лобби -->
+  <main id="info">
+    <!-- Это временный текст уберите после проверки -->
+    <p>💡 Здесь будет лобби</p>
+  </main>
 
   <section id="lobby-controls">
     <select id="level-select">
@@ -30,10 +35,7 @@
     </select>
   </section>
 
-  <main id="info">
-    <!-- Список столов или турниров загрузится сюда -->
-  </main>
-
+  <!-- точка входа в скрипты -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
