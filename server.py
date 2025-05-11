@@ -7,14 +7,13 @@ from pydantic import BaseModel
 from game_ws import router as game_router
 
 app = FastAPI()
-
-# Разрешаем все CORS, чтобы WebApp всегда достучался
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
+
+# Импорт и подключение роутера с ws/game и api/game_state
+app.include_router(game_router)
 
 # Модель одного кеш-стола
 class Table(BaseModel):
