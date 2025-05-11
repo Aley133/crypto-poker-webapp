@@ -24,19 +24,11 @@ export async function loadLobby(levelSelect, infoEl, username, userId) {
       infoEl.appendChild(card);
     });
 
+    // Навешиваем переход без user_id
     infoEl.querySelectorAll('.btn-join').forEach(btn => {
-      btn.onclick = async () => {
+      btn.onclick = () => {
         const tid = btn.dataset.id;
-        try {
-          const res = await fetch(`/api/join?table_id=${tid}&user_id=${userId}`, {
-            method: 'POST', credentials: 'same-origin'
-          });
-          if (!res.ok) throw await res.json();
-          window.location.href = `${location.origin}/game.html?table_id=${tid}`;
-        } catch (err) {
-          console.error('Join failed:', err);
-          infoEl.textContent = 'Ошибка при входе: ' + (err.detail||err.message);
-        }
+        window.location.href = `${location.origin}/game.html?table_id=${tid}`;
       };
     });
   } catch (e) {
