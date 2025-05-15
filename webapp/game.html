@@ -1,31 +1,38 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <title>Crypto Poker</title>
-  <link rel="stylesheet" href="styles.css">
+  <!-- Стили приложения -->
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>Стол <span id="table-id"></span></h1>
-  <div id="waiting-message">Ожидаем игроков...</div>
+  <!-- Заголовок с номером стола -->
+  <h1>Стол <span id="status"></span></h1>
+
+  <!-- Статус ожидания или начала игры -->
+  <div id="status"></div>
+
+  <!-- Контейнер для общих карт -->
+  <div id="community-cards" class="cards-container"></div>
+
+  <!-- Пот и текущая ставка -->
+  <div id="pot">Пот: 0</div>
+  <div id="current-bet">Текущая ставка: 0</div>
 
   <!-- Список игроков -->
-  <div id="players"></div>
+  <div id="players" class="players-list"></div>
 
-  <!-- Карты на столе -->
-  <div id="community-cards"></div>
+  <!-- Контролы игрока -->
+  <div id="actions" class="actions-container" style="display: none;"></div>
 
-  <!-- Кнопки действий -->
-  <div id="controls" style="display:none;">
-    <button data-action="fold">Fold</button>
-    <button data-action="check">Check</button>
-    <button data-action="call">Call</button>
-    <input type="number" id="bet-amount" placeholder="Сумма">
-    <button data-action="bet">Bet</button>
-    <button data-action="raise">Raise</button>
-  </div>
+  <!-- Кнопка выхода -->
+  <button id="leave-btn">Покинуть стол</button>
 
-  <script src="ws.js"></script>
-  <script src="ui_game.js"></script>
+  <!-- Подключаем скрипты -->
+  <script type="module" src="/js/api.js"></script>
+  <script type="module" src="/js/ui_game.js"></script>
 </body>
 </html>
+```
