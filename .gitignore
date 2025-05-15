@@ -1,9 +1,0 @@
-# Python
-__pycache__/
-*.pyc
-
-# Environment
-.env
-
-# SQLite database
-poker.db
