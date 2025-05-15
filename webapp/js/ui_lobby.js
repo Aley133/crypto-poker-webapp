@@ -1,19 +1,20 @@
+// webapp/js/ui_lobby.js
 import { listTables, joinTable } from './api.js';
 
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
 
-// Генератор «авто-ID» на случай, если нет user_id
+// Генератор «авто-ID»
 function generateId() {
   return 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Получаем user_id и username из URL или sessionStorage
+// Получаем/сохраняем userId и username в sessionStorage
 function getUserInfo() {
   const params = new URLSearchParams(window.location.search);
-  let uid   = params.get('user_id') || sessionStorage.getItem('user_id');
+  let uid = params.get('user_id') || sessionStorage.getItem('user_id');
   let uname = params.get('username') || sessionStorage.getItem('username');
 
   if (params.has('user_id')) sessionStorage.setItem('user_id', uid);
@@ -32,10 +33,8 @@ function getUserInfo() {
   return { uid, uname };
 }
 
-// Инициализируем user
 const { uid: userId, uname: username } = getUserInfo();
 
-// Загрузка списка столов
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
@@ -52,10 +51,10 @@ async function loadTables() {
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
         await joinTable(t.id, userId);
-        window.location.href =
-          `/game.html?table_id=${t.id}` +
-          `&user_id=${encodeURIComponent(userId)}` +
-          `&username=${encodeURIComponent(username)}`;
+        const url = `/game.html?table_id=${t.id}` +
+                    `&user_id=${encodeURIComponent(userId)}` +
+                    `&username=${encodeURIComponent(username)}`;
+        window.location.href = url;
       });
       infoContainer.appendChild(card);
     }
