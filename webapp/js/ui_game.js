@@ -1,73 +1,87 @@
 import { getGameState } from './api.js';
 
-// Извлекаем параметры из URL
-const params = new URLSearchParams(window.location.search);
-const tableId = params.get('table_id');
-const userId  = params.get('user_id');
-const username = params.get('username') || userId;
+// URL-параметры
+const params    = new URLSearchParams(window.location.search);
+const tableId   = params.get('table_id');
+const userId    = params.get('user_id');
+const username  = params.get('username') || userId;
 
-// Минимальное число игроков для старта
+// Минимальное число игроков
 const MIN_PLAYERS = 2;
 
-// DOM-элементы (должны быть в game.html)
-const statusEl   = document.getElementById('status');
-const cardsEl    = document.getElementById('cards');
-const playersEl  = document.getElementById('players');
-const actionsEl  = document.getElementById('actions');
-const leaveBtn   = document.getElementById('leave-btn');
+// DOM-элементы
+const tableIdEl      = document.getElementById('table-id');
+const statusEl       = document.getElementById('status');
+const holeCardsEl    = document.getElementById('hole-cards');
+const communityEl    = document.getElementById('community-cards');
+const potEl          = document.getElementById('pot');
+const currentBetEl   = document.getElementById('current-bet');
+const playersEl      = document.getElementById('players');
+const actionsEl      = document.getElementById('actions');
+const leaveBtn       = document.getElementById('leave-btn');
+
+// Отображаем номер стола
+if (tableIdEl) tableIdEl.textContent = tableId;
 
 let ws;
 
-/**
- * Устанавливаем WebSocket и хендлеры сообщений
- */
+// Устанавливаем WebSocket
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
-              `?user_id=${encodeURIComponent(userId)}` +
-              `&username=${encodeURIComponent(username)}`;
-
-  ws = new WebSocket(url);
-  ws.onopen = () => console.log('WS connected');
+  const wsUrl = `${protocol}://${window.location.host}/ws/game/${tableId}` +
+                `?user_id=${encodeURIComponent(userId)}` +
+                `&username=${encodeURIComponent(username)}`;
+  ws = new WebSocket(wsUrl);
   ws.onmessage = e => renderGameState(JSON.parse(e.data));
-  ws.onclose = () => console.log('WS closed');
-  ws.onerror = err => console.error('WS error', err);
+  ws.onopen    = () => console.log('WS connected');
+  ws.onclose   = () => console.log('WS closed');
+  ws.onerror   = err => console.error('WS error', err);
 }
 
-/**
- * Рендерим состояние игры
- */
+// Рендерим состояние игры
 function renderGameState(state) {
-  // Ожидание игроков
+  // Ожидание или старт
   if (!state.started) {
-    const count = state.players_count || 0;
-    statusEl.textContent = `Ожидание игроков… (${count}/${MIN_PLAYERS})`;
+    const cnt = state.players_count || 0;
+    statusEl.textContent = `Ожидаем игроков… (${cnt}/${MIN_PLAYERS})`;
     actionsEl.style.display = 'none';
   } else {
     statusEl.textContent = 'Игра началась';
     actionsEl.style.display = 'block';
   }
 
-  // Общие карты
-  cardsEl.innerHTML = (state.community_cards || [])
-    .map(card => `<span class="card">${card}</span>`)
+  // Ваши карты
+  const hole = state.hole_cards?.[userId] || [];
+  holeCardsEl.innerHTML = hole
+    .map(c => `<span class="card">${c}</span>`)
     .join('');
+
+  // Общие карты
+  const community = state.community_cards || state.community || [];
+  communityEl.innerHTML = community
+    .map(c => `<span class="card">${c}</span>`)
+    .join('');
+
+  // Пот и текущая ставка
+  potEl.textContent        = `Пот: ${state.pot || 0}`;
+  currentBetEl.textContent = `Текущая ставка: ${state.current_bet || state.currentBet || 0}`;
 
   // Список игроков
   playersEl.innerHTML = '';
   (state.players || []).forEach(p => {
-    const isSelf = p.user_id === userId;
     const div = document.createElement('div');
-    div.className = `player${isSelf ? ' self' : ''}`;
+    div.className = `player-card${p.user_id == userId ? ' self' : ''}`;
     const stack = state.stacks?.[p.user_id] ?? 0;
-    const bet   = state.bets?.[p.user_id] ?? 0;
+    const bet   = state.bets?.[p.user_id] ?? state.current_bet ?? 0;
     div.innerHTML = `
-      <strong>${p.username}</strong> — Стек: ${stack} | Ставка: ${bet}
+      <div class="player-name">${p.username}</div>
+      <div class="player-stack">Stack: ${stack}</div>
+      <div class="player-bet">Bet: ${bet}</div>
     `;
     playersEl.appendChild(div);
   });
 
-  // Действия текущего игрока
+  // Кнопки действий для текущего игрока
   actionsEl.innerHTML = '';
   if (state.current_player == userId) {
     ['fold','check','call','bet','raise'].forEach(act => {
@@ -86,21 +100,13 @@ function renderGameState(state) {
   }
 }
 
-// Кнопка выхода со стола
+// Выход со стола
 leaveBtn.addEventListener('click', async () => {
-  try {
-    await fetch(
-      `/api/leave?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`,
-      { method: 'POST' }
-    );
-    window.location.href = '/index.html';
-  } catch (err) {
-    console.error('Leave error', err);
-    alert('Не удалось покинуть стол');
-  }
+  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
+  window.location.href = '/index.html';
 });
 
-// Инициализация: получаем состояние и подключаем WS
+// Инициализация: HTTP + WS
 (async () => {
   try {
     const state = await getGameState(tableId);
