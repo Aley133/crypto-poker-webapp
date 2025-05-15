@@ -72,3 +72,6 @@ def get_balance(table_id: int, user_id: str) -> dict:
     """
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
+    
+    
+def leave_table(table_id: int, user_id: str) -> dict:
