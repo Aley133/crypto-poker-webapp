@@ -1,5 +1,6 @@
 // webapp/js/ws.js
 import { getGameState } from './api.js';
+import { renderGameState } from './ui_game.js';
 
 function getParam(name) {
   return new URLSearchParams(window.location.search).get(name);
@@ -12,8 +13,9 @@ if (!tableId || !userId) {
 }
 
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const ws = new WebSocket(`${protocol}://${window.location.host}/ws/game/${tableId}`);
-
+const ws = new WebSocket(
+  `${protocol}://${location.host}/ws/game/${tableId}/${userId}`
+);
 ws.onopen = () => {
   console.log('WebSocket connected:', tableId);
 };
