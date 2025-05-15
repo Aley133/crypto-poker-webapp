@@ -4,30 +4,23 @@ const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
 
-// Генератор «авто-ID» на случай, если не залогинились через Telegram
+// Генератор «авто-ID» на случай, если нет user_id
 function generateId() {
   return 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Получаем user_id и username из URL, localStorage или генерим новые
+// Получаем user_id и username из URL или sessionStorage
 function getUserInfo() {
   const params = new URLSearchParams(window.location.search);
-  let uid   = params.get('user_id')   || sessionStorage.getItem('user_id');
-  let uname = params.get('username')  || sessionStorage.getItem('username');
+  let uid   = params.get('user_id') || sessionStorage.getItem('user_id');
+  let uname = params.get('username') || sessionStorage.getItem('username');
 
-  // Если пришло из URL — кладём в sessionStorage
-  if (params.has('user_id')) {
-    sessionStorage.setItem('user_id', uid);
-  }
-  if (params.has('username')) {
-    sessionStorage.setItem('username', uname);
-  }
+  if (params.has('user_id')) sessionStorage.setItem('user_id', uid);
+  if (params.has('username')) sessionStorage.setItem('username', uname);
 
-  // Генерим, если нет
   if (!uid) {
-    uid = 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
-      .map(b => b.toString(16).padStart(2, '0')).join('');
+    uid = generateId();
     sessionStorage.setItem('user_id', uid);
   }
   if (!uname) {
@@ -35,10 +28,12 @@ function getUserInfo() {
     sessionStorage.setItem('username', uname);
   }
 
-  // Показываем в UI
-  document.getElementById('username').textContent = uname;
+  usernameEl.textContent = uname;
   return { uid, uname };
 }
+
+// Инициализируем user
+const { uid: userId, uname: username } = getUserInfo();
 
 // Загрузка списка столов
 async function loadTables() {
@@ -46,7 +41,7 @@ async function loadTables() {
   try {
     const { tables } = await listTables(levelSelect.value);
     infoContainer.innerHTML = '';
-    tables.forEach(t => {
+    for (const t of tables) {
       const card = document.createElement('div');
       card.className = 'table-card';
       card.innerHTML = `
@@ -57,13 +52,13 @@ async function loadTables() {
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
         await joinTable(t.id, userId);
-        const uidParam = encodeURIComponent(userId);
-        const unameParam = encodeURIComponent(username);
         window.location.href =
-          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`;
+          `/game.html?table_id=${t.id}` +
+          `&user_id=${encodeURIComponent(userId)}` +
+          `&username=${encodeURIComponent(username)}`;
       });
       infoContainer.appendChild(card);
-    });
+    }
   } catch (err) {
     console.error(err);
     infoContainer.textContent = 'Ошибка загрузки столов';
