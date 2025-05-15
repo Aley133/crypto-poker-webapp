@@ -1,7 +1,8 @@
+# tables.py
 from fastapi import HTTPException
 
 from game_data import seat_map
-from game_ws import game_states
+from game_engine import game_states  # напрямую из движка, чтобы избежать циклических импортов
 
 # Глобальный словарь с настройками блайндов по уровням
 BLINDS = {
@@ -9,6 +10,12 @@ BLINDS = {
     2: (2, 4, 200),
     3: (5, 10, 500),
 }
+
+# Инициализируем состояния для предзаданных столов
+# Позволит WebSocket-роутеру принять подключения и запустить первую раздачу
+for tid in BLINDS.keys():
+    game_states.setdefault(tid, {})
+
 
 def list_tables() -> list:
     """
@@ -33,11 +40,12 @@ def create_table(level: int) -> dict:
     """
     if level not in BLINDS:
         raise HTTPException(status_code=400, detail="Invalid level")
-    new_id = max(BLINDS.keys()) + 1 if BLINDS else 1
+    new_id = max(BLINDS.keys(), default=0) + 1
     sb, bb, bi = BLINDS[level]
     BLINDS[new_id] = (sb, bb, bi)
     seat_map[new_id] = []
-    game_states[new_id] = {"stacks": {}}
+    # Инициализируем состояние для нового стола
+    game_states[new_id] = {}
     return {
         "id": new_id,
         "small_blind": sb,
