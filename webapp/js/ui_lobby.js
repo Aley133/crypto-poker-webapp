@@ -6,75 +6,54 @@ const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
 
 /**
- * Получаем информацию о пользователе:
- * 1) Если запущено как Telegram WebApp и доступен Telegram.WebApp.initDataUnsafe.user
- * 2) Иначе — из URL-параметров
+ * Извлекает текущего пользователя:
+ * 1) В Telegram WebApp — из Telegram.WebApp.initDataUnsafe.user
+ * 2) Иначе — из URL-параметров ?user_id=&username=
+ * Если и там нет — генерит новый ID и имя по нему.
  */
 function getUserInfo() {
-  const params = new URLSearchParams(window.location.search);
-  let uid = params.get('user_id');
-  let uname = params.get('username');
-
-  // 1) Если приходит из URL, сохраняем в sessionStorage
-  if (uid) {
-    sessionStorage.setItem('user_id', uid);
-  } else {
-    // 2) Если нет в URL, пробуем из sessionStorage
-    uid = sessionStorage.getItem('user_id');
-  }
-  if (uname) {
-    sessionStorage.setItem('username', uname);
-  } else {
-    uname = sessionStorage.getItem('username');
-  }
-
-  // 3) Если все еще нет, пробуем из Telegram WebApp
-  if (!uid && window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) {
+  // 1) Telegram WebApp
+  if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) {
+    Telegram.WebApp.init();
     const user = Telegram.WebApp.initDataUnsafe.user;
     if (user && user.id) {
-      uid = String(user.id);
-      uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ');
-      sessionStorage.setItem('user_id', uid);
-      sessionStorage.setItem('username', uname);
+      const uid = String(user.id);
+      const uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ');
+      usernameEl.textContent = uname;
+      return { uid, uname };
     }
   }
 
-  // 4) В крайнем случае генерим новый
+  // 2) URL-параметры
+  const params = new URLSearchParams(window.location.search);
+  let uid   = params.get('user_id');
+  let uname = params.get('username');
+
+  // 3) Если всё ещё нет — генерируем «авто-ID»
   if (!uid) {
-    uid = generateId();
-    sessionStorage.setItem('user_id', uid);
+    uid = 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
+      .map(b => b.toString(16).padStart(2, '0')).join('');
   }
   if (!uname) {
     uname = uid;
-    sessionStorage.setItem('username', uname);
   }
 
   usernameEl.textContent = uname;
   return { uid, uname };
 }
-    }
-  }
 
-  // 2) Fallback: из URL-параметров
-  const params = new URLSearchParams(window.location.search);
-  uid = params.get('user_id');
-  uname = params.get('username') || uid;
-  usernameEl.textContent = uname;
-  return { uid, uname };
-}
-
-// Инициализация
+// Инициализация пользователя
 const { uid: userId, uname: username } = getUserInfo();
 
 /**
- * Загружает и рендерит список столов
+ * Загрузка и отображение списка столов
  */
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
     const { tables } = await listTables(levelSelect.value);
     infoContainer.innerHTML = '';
-    for (const t of tables) {
+    tables.forEach(t => {
       const card = document.createElement('div');
       card.className = 'table-card';
       card.innerHTML = `
@@ -91,7 +70,7 @@ async function loadTables() {
         window.location.href = url;
       });
       infoContainer.appendChild(card);
-    }
+    });
   } catch (err) {
     console.error(err);
     infoContainer.textContent = 'Ошибка загрузки столов';
