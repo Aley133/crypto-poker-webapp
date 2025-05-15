@@ -1,6 +1,5 @@
 import { getGameState } from './api.js';
 
-// Утилита для получения параметров из URL
 function getParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
@@ -11,26 +10,35 @@ if (!tableId || !userId) {
   console.error('Missing table_id or user_id in URL');
 }
 
-// Без контекстных параметров WS создадим соединение сразу
+// Единственное подключение WebSocket без username
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const ws = new WebSocket(
-  `${protocol}://${window.location.host}/ws/game/${tableId}` +
-  `?user_id=${encodeURIComponent(userId)}`
+  `${protocol}://${window.location.host}/ws/game/${tableId}`
 );
 
-ws.onopen = () => console.log('WebSocket connected:', tableId);
+ws.onopen = () => {
+  console.log('WebSocket connected:', tableId);
+};
+
 ws.onmessage = evt => {
   const state = JSON.parse(evt.data);
-  // renderGameState должна быть глобально доступна
-  if (typeof renderGameState === 'function') {
-    renderGameState(state, userId);
-  }
+  renderGameState(state, userId);
 };
-ws.onclose = () => console.log('WebSocket closed');
-ws.onerror = err => console.error('WebSocket error', err);
+
+ws.onclose = () => {
+  console.log('WebSocket closed');
+};
+
+ws.onerror = err => {
+  console.error('WebSocket error', err);
+};
 
 /**
- * Создаёт WebSocket с параметрами и колбэком onMessage
+ * Инициализирует WebSocket и возвращает объект ws
+ * @param {string} tableId
+ * @param {string} userId
+ * @param {string} username
+ * @param {(event: MessageEvent) => void} onMessage
  */
 export function createWebSocket(tableId, userId, username, onMessage) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -45,14 +53,12 @@ export function createWebSocket(tableId, userId, username, onMessage) {
   return socket;
 }
 
-// Fallback: поллинг через HTTP на случай задержек WS
+// Fallback: если WS не успевает, можно подхватывать через HTTP
 (async function pollState(){
   try {
     const state = await getGameState(tableId);
-    if (typeof renderGameState === 'function') {
-      renderGameState(state, userId);
-    }
-  } catch(e) {
+    renderGameState(state, userId);
+  } catch(e){
     console.error('Poll error', e);
   }
   setTimeout(pollState, 2000);
