@@ -57,25 +57,18 @@ def create_table(level: int) -> dict:
 
 
 def join_table(table_id: int, user_id: str) -> dict:
-    """
-    Добавляет пользователя за стол. Возвращает статус и список игроков.
-    """
     users = seat_map.setdefault(table_id, [])
     if user_id in users:
         raise HTTPException(status_code=400, detail="User already at table")
     users.append(user_id)
     return {"status": "ok", "players": users}
 
-
 def leave_table(table_id: int, user_id: str) -> dict:
-    """
-    Убирает пользователя со стола. Возвращает статус и список оставшихся игроков.
-    """
     users = seat_map.get(table_id, [])
     if user_id not in users:
         raise HTTPException(status_code=400, detail="User not at table")
     users.remove(user_id)
-    # Если игроков стало меньше минимума — сбрасываем флаг started
+    # Если после ухода игроков стало меньше минимума — сбрасываем флаг started
     if len(users) < MIN_PLAYERS:
         game_states.get(table_id, {}).pop("started", None)
     return {"status": "ok", "players": users}
