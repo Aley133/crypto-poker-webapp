@@ -16,17 +16,15 @@ app.add_middleware(
 # WebSocket-роут и /api/game_state из game_ws.py
 app.include_router(game_router)
 
-# Глобальный словарь с настройками блайндов по уровням
-BLINDS = {
-    1: (1, 2, 100),
-    2: (2, 4, 200),
-    3: (5, 10, 500),
-}
-
 @app.get("/api/tables")
 def get_tables(level: str = Query(...)):
+    blinds = {
+      1: (1, 2, 100),
+      2: (2, 4, 200),
+      3: (5,10, 500),
+    }
     out = []
-    for tid, (sb, bb, bi) in BLINDS.items():
+    for tid, (sb, bb, bi) in blinds.items():
         users = seat_map.get(tid, [])
         out.append({
             "id": tid,
@@ -36,7 +34,7 @@ def get_tables(level: str = Query(...)):
             "players": len(users)
         })
     return {"tables": out}
-
+    
 @app.post("/api/join")
 def join_table(
     table_id: int = Query(...),
