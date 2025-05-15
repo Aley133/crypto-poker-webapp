@@ -2,11 +2,6 @@ import { getGameState } from './api.js';
 
 /**
  * Создаёт и настраивает WebSocket для игры
- * @param {string} tableId
- * @param {string} userId
- * @param {string} username
- * @param {function(MessageEvent):void} onMessage
- * @returns {WebSocket}
  */
 export function createWebSocket(tableId, userId, username, onMessage) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -22,7 +17,9 @@ export function createWebSocket(tableId, userId, username, onMessage) {
   return ws;
 }
 
-// Fallback-поллинг через HTTP: обновление состояния каждые 2 секунды
+/**
+ * Поллинг через HTTP, если WS недоступен
+ */
 export function startPolling(tableId, userId, onState) {
   async function poll() {
     try {
