@@ -13,7 +13,7 @@ app.add_middleware(
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
 
-# WebSocket-роут и /api/game_state из game_ws.py
+# WebSocket роут и /api/game_state из game_ws.py
 app.include_router(game_router)
 
 # Глобальный словарь с настройками блайндов по уровням
@@ -36,6 +36,26 @@ def get_tables(level: str = Query(...)):
             "players": len(users)
         })
     return {"tables": out}
+
+@app.post("/api/tables")
+def create_table(level: int = Query(...)):
+    # Уровень должен существовать в настройках блайндов
+    if level not in BLINDS:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    # Новый ID — максимальный + 1
+    new_id = max(BLINDS.keys()) + 1
+    sb, bb, bi = BLINDS[level]
+    # Добавляем новую комнату
+    BLINDS[new_id] = (sb, bb, bi)
+    seat_map[new_id] = []
+    game_states[new_id] = {"stacks": {}}
+    return {
+        "id": new_id,
+        "small_blind": sb,
+        "big_blind": bb,
+        "buy_in": bi,
+        "players": 0
+    }
 
 @app.post("/api/join")
 def join_table(
