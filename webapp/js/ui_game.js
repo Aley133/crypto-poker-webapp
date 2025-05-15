@@ -8,66 +8,83 @@ const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
 // DOM-элементы
-const tableIdEl    = document.getElementById('table-id');
-const statusEl     = document.getElementById('status');
-const holeCardsEl  = document.getElementById('player-self');
-const oppCardsEl   = document.getElementById('player-opp');
-const communityEl  = document.getElementById('community-cards');
-const potEl        = document.getElementById('pot');
-const currentBetEl = document.getElementById('current-bet');
-const actionsEl    = document.getElementById('actions');
-const leaveBtn     = document.getElementById('leave-btn');
+const tableIdEl     = document.getElementById('table-id');
+const statusEl      = document.getElementById('status');
+const phaseEl       = document.getElementById('phase');
+const holeEl        = document.getElementById('player-self');
+const oppEl         = document.getElementById('player-opp');
+const communityEl   = document.getElementById('community-cards');
+const potEl         = document.getElementById('pot');
+const currentBetEl  = document.getElementById('current-bet');
+const actionsEl     = document.getElementById('actions');
+const leaveBtn      = document.getElementById('leave-btn');
 
-// Отображаем номер стола
+// Выводим номер стола
 tableIdEl.textContent = tableId;
 
 /**
- * Рендерит интерфейс двух игроков и стол с фазами
+ * Блокировка/разблокировка кнопок в зависимости от фазы
+ */
+function updateControls(state) {
+  const phase = state.phase || 'preflop';
+  // В preflop и flop разрешим делать ставки, на turn/river тоже
+  // Для примера блокируем все, если не ваш ход
+  const isMyTurn = state.current_player == userId;
+  Array.from(actionsEl.children).forEach(btn => {
+    btn.disabled = !isMyTurn;
+  });
+}
+
+/**
+ * Рендер состояния игры с фазами
  */
 function renderGameState(state) {
-  // Статус
+  // Статус ожидания / старта
   if (!state.started) {
     statusEl.textContent = `Ожидаем игроков… (${state.players_count || 0}/2)`;
+    phaseEl.textContent = '';
     actionsEl.style.display = 'none';
     communityEl.innerHTML = '';
-    holeCardsEl.innerHTML = '';
-    oppCardsEl.innerHTML = '';
+    holeEl.innerHTML = '';
+    oppEl.innerHTML = '';
     return;
   }
   statusEl.textContent = 'Игра началась';
   actionsEl.style.display = 'block';
 
-  // Найдём оппонента
+  // Фаза
+  const phase = state.phase || 'preflop';
+  phaseEl.textContent = 'Фаза: ' + phase;
+
+  // Оппонент
   const players = state.players || [];
-  const opp = players.find(p => p.user_id != userId);
+  const opp = players.find(p => p.user_id != userId) || {};
+  oppEl.innerHTML = `<div>${opp.username || 'Оппонент'}</div><div>🂠 🂠</div>`;
 
-  // Рендер карманных карт
+  // Ваши карты
   const hole = state.hole_cards?.[userId] || [];
-  holeCardsEl.innerHTML = `
-    <div>Вы: ${username}</div>
-    ${hole.map(c => `<span class="card">${c}</span>`).join('')}
-  `;
+  holeEl.innerHTML = `<div>Вы: ${username}</div>` +
+    hole.map(c => `<span class="card">${c}</span>`).join('');
 
-  // Оппонент без раскрытия карт
-  oppCardsEl.innerHTML = `
-    <div>${opp?.username || 'Оппонент'}</div>
-    ${opp ? '🂠 🂠' : ''}
-  `;
+  // Общие карты: показываем по фазам
+  const community = state.community_cards || [];
+  let toShow = [];
+  if (phase === 'preflop') toShow = [];
+  else if (phase === 'flop') toShow = community.slice(0,3);
+  else if (phase === 'turn') toShow = community.slice(0,4);
+  else if (phase === 'river') toShow = community;
+  communityEl.innerHTML = toShow.map(c => `<span class="card">${c}</span>`).join('');
 
-  // Общие карты (флоп, терн, ривер)
-  communityEl.innerHTML = (state.community_cards || []).
-    map(c => `<span class="card">${c}</span>`).
-    join('');
-
-  // Пот и текущая ставка
+  // Пот и ставка
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
 
-  // Кнопки действий
+  // Кнопки действий (показываем всегда, но блокируем не в ваш ход)
   actionsEl.innerHTML = '';
   ['fold','check','call','bet','raise'].forEach(act => {
     const btn = document.createElement('button');
     btn.textContent = act;
+    btn.dataset.action = act;
     btn.addEventListener('click', () => {
       let amount = 0;
       if (act === 'bet' || act === 'raise') {
@@ -77,9 +94,10 @@ function renderGameState(state) {
     });
     actionsEl.appendChild(btn);
   });
+  updateControls(state);
 }
 
-// Подключаем WS и HTTP-поллинг
+// Инициализация
 let ws;
 (async () => {
   try {
@@ -91,7 +109,7 @@ let ws;
   ws = createWebSocket(tableId, userId, username, e => renderGameState(JSON.parse(e.data)));
 })();
 
-// Кнопка выхода
+// Выход со стола
 leaveBtn.addEventListener('click', async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = '/index.html';
