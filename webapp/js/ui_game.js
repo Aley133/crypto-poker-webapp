@@ -1,5 +1,5 @@
 import { getGameState } from './api.js';
-
+import { renderGameState } from './ui_game.js';
 // Извлечь параметры из URL
 const params = new URLSearchParams(window.location.search);
 const tableId = params.get('table_id');
@@ -16,7 +16,7 @@ const actionsEl = document.getElementById('actions');
 const leaveBtn  = document.getElementById('leave-btn');
 
 // Функция рендера состояния игры
-function renderGameState(state) {
+export function renderGameState(state) {
   // Ожидание игроков
   if (!state.started) {
     const count = state.players_count || 0;
