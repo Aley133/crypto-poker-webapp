@@ -7,18 +7,19 @@ from game_data import seat_map
 
 router = APIRouter()
 
-# Минимальное число игроков для старта и максимальное число WS-подключений
+# Минимальное число игроков для старта и максимальных WS-подключений
 MIN_PLAYERS = 2
 MAX_CONNECTIONS = 6
 
 async def broadcast(table_id: int):
     """
-    Отправляет текущее состояние игры всем подключённым WS-клиентам.
-    Добавляет поле players_count по числу игроков из seat_map.
+    Отправляем состояние игры всем подключённым WS.
+    Используем seat_map для подсчёта игроков.
     """
     state = game_states.get(table_id)
     if state is None:
         return
+    # Копируем, чтобы не менять оригинал
     payload = state.copy()
     payload['players_count'] = len(seat_map.get(table_id, []))
     for ws in list(connections.get(table_id, [])):
@@ -29,24 +30,25 @@ async def broadcast(table_id: int):
 
 @router.websocket("/ws/game/{table_id}/{user_id}")
 async def ws_game(websocket: WebSocket, table_id: int, user_id: str):
-    # Проверяем, что пользователь уже нажал JOIN и есть в seat_map
+    # Проверяем, что пользователь действительно в seat_map
     if user_id not in seat_map.get(table_id, []):
         await websocket.close(code=1008)
         return
 
-    # Ограничиваем общее число WS-подключений
     conns = connections.setdefault(table_id, [])
+    # Ограничиваем WS-подключения
     if len(conns) >= MAX_CONNECTIONS:
         await websocket.close(code=1013)
         return
 
-    # Принимаем соединение и регистрируем
+    # Принимаем WS
     await websocket.accept()
     conns.append(websocket)
 
-    # И сразу рассылаем состояние (ожидание или уже старт)
+    # Сразу рассылаем текущее состояние (ожидание или уже старт)
     await broadcast(table_id)
-    # Авто-старт при достижении порога JOIN
+
+    # Стартуем при достижении MIN_PLAYERS и флаге start = False
     if len(seat_map.get(table_id, [])) >= MIN_PLAYERS and not game_states[table_id].get('started', False):
         start_hand(table_id)
         game_states[table_id]['started'] = True
@@ -54,29 +56,24 @@ async def ws_game(websocket: WebSocket, table_id: int, user_id: str):
 
     try:
         while True:
-            data = await websocket.receive_text()
-            msg = json.loads(data)
-            # Передаём действие в движок
+            msg = await websocket.receive_text()
+            data = json.loads(msg)
             apply_action(
                 table_id,
                 user_id,
-                msg.get('action'),
-                int(msg.get('amount', 0))
+                data.get('action'),
+                int(data.get('amount', 0))
             )
             await broadcast(table_id)
     except WebSocketDisconnect:
-        # Убираем ws при дисконнекте
+        # При отключении убираем WS, но не трогаем seat_map
         if websocket in conns:
             conns.remove(websocket)
-        # При отключении не трогаем seat_map — leave API отвечает за выход
-        # Но если игроков стало меньше порога, сбросим флаг start
+        # Если после дисконнекта игроков стало меньше минимума, сбрасываем "started"
         if len(seat_map.get(table_id, [])) < MIN_PLAYERS:
             game_states.get(table_id, {}).pop('started', None)
         await broadcast(table_id)
 
 @router.get("/api/game_state")
 async def api_game_state(table_id: int):
-    """
-    HTTP API для получения текущего состояния игры.
-    """
     return game_states.get(table_id, {}) or {}
