@@ -40,6 +40,22 @@ function getUserInfo() {
 
 const { uid: userId } = getUserInfo();
 
+// 1. Берём username из DOM-элемента <span id="username">—</span>
+const usernameSpan = document.getElementById('username');
+let username = usernameSpan ? usernameSpan.textContent.trim() : '';
+// 2. Если спан пустой (например, ещё не подгрузили профиль) — падаём обратно на userId
+if (!username) {
+  username = userId;
+}
+
+// 3. При клике на кнопку «Играть» формируем URL с username
+playButton.addEventListener('click', () => {
+  const url = `/game.html?table_id=${tableId}` +
+              `&user_id=${encodeURIComponent(userId)}` +
+              `&username=${encodeURIComponent(username)}`;
+  window.location.href = url;
+});
+
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
