@@ -35,6 +35,23 @@
   </div>
 
   <!-- Загружаем только логику лобби -->
+  <script async src="https://telegram.org/js/telegram-widget.js?15"
+        data-telegram-login="YourBotUsername"
+        data-size="large"
+        data-userpic="false"
+        data-request-access="write"
+        data-userpic="false"
+        data-on-auth="onTelegramAuth(user)"
+></script>
+<script>
+  function onTelegramAuth(user) {
+    // user.id — реальный Telegram user_id
+    localStorage.setItem('user_id', user.id);
+    localStorage.setItem('username', user.username);
+    // Перезагрузим лобби, чтобы использовать сохранённый ID
+    window.location.reload();
+  }
+</script>
   <script type="module" src="js/ui_lobby.js"></script>
 </body>
 </html>
