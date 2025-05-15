@@ -8,13 +8,6 @@ export function createWebSocket(tableId, userId, username, onMessage) {
   const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
               `?user_id=${encodeURIComponent(userId)}` +
               `&username=${encodeURIComponent(username)}`;
-
-  const ws = new WebSocket(url);
-  ws.onopen    = () => console.log('WS connected:', url);
-  ws.onmessage = onMessage;
-  ws.onclose   = () => console.log('WS closed');
-  ws.onerror   = err => console.error('WS error', err);
-  return ws;
 }
 
 /**
