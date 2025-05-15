@@ -1,10 +1,11 @@
 // webapp/js/ui_lobby.js
 import { listTables, joinTable } from './api.js';
 
-const tablesContainer = document.getElementById('tablesContainer');
-const levelSelect = document.getElementById('levelSelect');
+// Основные DOM-элементы
+const infoContainer = document.getElementById('info');
+const levelSelect   = document.getElementById('level-select');
 
-// Сохраняем user_id в localStorage, если ещё нет
+// Получаем или запрашиваем user_id
 function getUserId() {
   let uid = localStorage.getItem('user_id');
   if (!uid) {
@@ -14,12 +15,13 @@ function getUserId() {
   return uid;
 }
 
+// Рендерим список столов
 async function loadTables() {
-  tablesContainer.innerHTML = 'Загрузка...';
+  infoContainer.textContent = 'Загрузка…';
   try {
     const { tables } = await listTables(levelSelect.value);
-    tablesContainer.innerHTML = '';
-    for (const t of tables) {
+    infoContainer.innerHTML = '';  // очищаем перед отрисовкой
+    tables.forEach(t => {
       const card = document.createElement('div');
       card.className = 'table-card';
       card.innerHTML = `
@@ -31,15 +33,19 @@ async function loadTables() {
       card.querySelector('.join-btn').addEventListener('click', async () => {
         const uid = getUserId();
         await joinTable(t.id, uid);
+        // Переходим на страницу игры, передавая и table_id, и user_id
         window.location.href = `game.html?table_id=${t.id}&user_id=${encodeURIComponent(uid)}`;
       });
-      tablesContainer.appendChild(card);
-    }
-  } catch (e) {
-    tablesContainer.innerHTML = 'Ошибка загрузки таблиц';
-    console.error(e);
+      infoContainer.appendChild(card);
+    });
+  } catch (err) {
+    console.error(err);
+    infoContainer.textContent = 'Ошибка загрузки столов';
   }
 }
 
+// Перезагружаем при смене уровня
 levelSelect.addEventListener('change', loadTables);
+
+// Инициалная загрузка
 loadTables();
