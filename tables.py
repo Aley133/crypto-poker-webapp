@@ -2,7 +2,7 @@
 from fastapi import HTTPException
 
 from game_data import seat_map
-from game_engine import game_states  # напрямую из движка, чтобы избежать циклических импортов
+from game_engine import game_states
 
 # Глобальный словарь с настройками блайндов по уровням
 BLINDS = {
@@ -11,8 +11,10 @@ BLINDS = {
     3: (5, 10, 500),
 }
 
+# Минимальное число игроков для старта
+MIN_PLAYERS = 2
+
 # Инициализируем состояния для предзаданных столов
-# Позволит WebSocket-роутеру принять подключения и запустить первую раздачу
 for tid in BLINDS.keys():
     game_states.setdefault(tid, {})
 
@@ -44,7 +46,6 @@ def create_table(level: int) -> dict:
     sb, bb, bi = BLINDS[level]
     BLINDS[new_id] = (sb, bb, bi)
     seat_map[new_id] = []
-    # Инициализируем состояние для нового стола
     game_states[new_id] = {}
     return {
         "id": new_id,
@@ -66,12 +67,23 @@ def join_table(table_id: int, user_id: str) -> dict:
     return {"status": "ok", "players": users}
 
 
+def leave_table(table_id: int, user_id: str) -> dict:
+    """
+    Убирает пользователя со стола. Возвращает статус и список оставшихся игроков.
+    """
+    users = seat_map.get(table_id, [])
+    if user_id not in users:
+        raise HTTPException(status_code=400, detail="User not at table")
+    users.remove(user_id)
+    # Если игроков стало меньше минимума — сбрасываем флаг started
+    if len(users) < MIN_PLAYERS:
+        game_states.get(table_id, {}).pop("started", None)
+    return {"status": "ok", "players": users}
+
+
 def get_balance(table_id: int, user_id: str) -> dict:
     """
     Возвращает баланс (стек) пользователя на столе.
     """
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
-    
-    
-def leave_table(table_id: int, user_id: str) -> dict:
