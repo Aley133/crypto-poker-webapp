@@ -1,20 +1,21 @@
-```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <title>Crypto Poker</title>
-  <!-- Стили приложения -->
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <!-- Заголовок с номером стола -->
-  <h1>Стол <span id="status"></span></h1>
+  <h1>Стол <span id="table-id"></span></h1>
 
-  <!-- Статус ожидания или начала игры -->
-  <div id="status"></div>
+  <!-- Общий статус: ожидание или начало -->
+  <div id="status">Ожидаем игроков…</div>
 
-  <!-- Контейнер для общих карт -->
+  <!-- Ваши карты -->
+  <div id="hole-cards" class="cards-container"></div>
+
+  <!-- Карты на столе -->
   <div id="community-cards" class="cards-container"></div>
 
   <!-- Пот и текущая ставка -->
@@ -24,15 +25,14 @@
   <!-- Список игроков -->
   <div id="players" class="players-list"></div>
 
-  <!-- Контролы игрока -->
+  <!-- Контролы вашего хода -->
   <div id="actions" class="actions-container" style="display: none;"></div>
 
   <!-- Кнопка выхода -->
   <button id="leave-btn">Покинуть стол</button>
 
-  <!-- Подключаем скрипты -->
+  <!-- Подключаем модули -->
   <script type="module" src="/js/api.js"></script>
   <script type="module" src="/js/ui_game.js"></script>
 </body>
 </html>
-```
