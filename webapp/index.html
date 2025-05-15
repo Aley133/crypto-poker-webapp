@@ -9,8 +9,18 @@
 <body>
   <header>
     <div class="user-info">
-      <div id="avatar" class="avatar"></div>
+      <!-- Telegram-виджет для входа -->
+      <script async src="https://telegram.org/js/telegram-widget.js?15"
+              data-telegram-login="CryptoPoker"
+              data-size="medium"
+              data-userpic="false"
+              data-request-access="write"
+              data-on-auth="onTelegramAuth"
+      ></script>
+
+      <!-- Если виджет не отработал, там просто будет дефолтная «—» -->
       <span id="username">—</span>
+      &nbsp;|&nbsp;
       <span id="current-balance">0 USDT</span>
     </div>
   </header>
@@ -20,7 +30,6 @@
     <button class="tab" data-tab="tournaments">Турниры</button>
   </nav>
 
-  <!-- Здесь мы будем рендерить список столов -->
   <main id="info" class="lobby-info">Загрузка…</main>
 
   <div class="controls">
@@ -34,24 +43,27 @@
     </label>
   </div>
 
-  <!-- Загружаем только логику лобби -->
-  <script async src="https://telegram.org/js/telegram-widget.js?15"
-        data-telegram-login="YourBotUsername"
-        data-size="large"
-        data-userpic="false"
-        data-request-access="write"
-        data-userpic="false"
-        data-on-auth="onTelegramAuth(user)"
-></script>
-<script>
-  function onTelegramAuth(user) {
-    // user.id — реальный Telegram user_id
-    localStorage.setItem('user_id', user.id);
-    localStorage.setItem('username', user.username);
-    // Перезагрузим лобби, чтобы использовать сохранённый ID
-    window.location.reload();
-  }
-</script>
+  <script>
+    // Функция-колбэк для Telegram Login Widget
+    function onTelegramAuth(user) {
+      // сохраняем в localStorage
+      localStorage.setItem('user_id', user.id);
+      localStorage.setItem('username', user.username || user.first_name);
+      // обновляем на странице
+      document.getElementById('username').textContent = user.username || user.first_name;
+      // и перезагружаем лобби, чтобы загрузились столы под вашим ID
+      window.location.reload();
+    }
+
+    // При загрузке страницы, если в localStorage уже есть имя — сразу показываем
+    document.addEventListener('DOMContentLoaded', () => {
+      const storedName = localStorage.getItem('username');
+      if (storedName) {
+        document.getElementById('username').textContent = storedName;
+      }
+    });
+  </script>
+
   <script type="module" src="js/ui_lobby.js"></script>
 </body>
 </html>
