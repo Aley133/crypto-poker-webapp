@@ -13,35 +13,32 @@ function generateId() {
 // Получаем user_id и username из URL, localStorage или генерим новые
 function getUserInfo() {
   const params = new URLSearchParams(window.location.search);
-  let uid = params.get('user_id') || localStorage.getItem('user_id');
-  let uname = params.get('username') || localStorage.getItem('username');
+  let uid   = params.get('user_id')   || sessionStorage.getItem('user_id');
+  let uname = params.get('username')  || sessionStorage.getItem('username');
 
-  // Сохраняем в localStorage, если пришло из URL
-  if (params.get('user_id')) {
-    localStorage.setItem('user_id', uid);
+  // Если пришло из URL — кладём в sessionStorage
+  if (params.has('user_id')) {
+    sessionStorage.setItem('user_id', uid);
   }
-  if (params.get('username')) {
-    localStorage.setItem('username', uname);
+  if (params.has('username')) {
+    sessionStorage.setItem('username', uname);
   }
 
-  // Генерируем ID, если нет
+  // Генерим, если нет
   if (!uid) {
-    uid = generateId();
-    localStorage.setItem('user_id', uid);
+    uid = 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    sessionStorage.setItem('user_id', uid);
   }
-  // Дефолт для username — это uid
   if (!uname) {
     uname = uid;
-    localStorage.setItem('username', uname);
+    sessionStorage.setItem('username', uname);
   }
 
-  // Отображаем в UI
-  usernameEl.textContent = uname;
-
+  // Показываем в UI
+  document.getElementById('username').textContent = uname;
   return { uid, uname };
 }
-
-const { uid: userId, uname: username } = getUserInfo();
 
 // Загрузка списка столов
 async function loadTables() {
