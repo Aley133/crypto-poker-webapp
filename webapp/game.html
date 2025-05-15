@@ -5,18 +5,21 @@
   <title>Crypto Poker</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    /* Таблица: оппонент слева, стол по центру, вы справа */
+    /* Основной макет */
     #table-area { display: flex; justify-content: center; align-items: center; margin: 20px; }
     .player-area { width: 150px; text-align: center; }
     #community-cards { display: flex; gap: 10px; margin: 0 20px; }
-    .cards-container span.card { display: inline-block; width: 50px; height: 70px; border: 1px solid #fff; border-radius: 4px; text-align: center; line-height: 70px; background: #222; color: #fff; }
+    .card { display: inline-block; width: 50px; height: 70px; border: 1px solid #fff; border-radius: 4px; text-align: center; line-height: 70px; background: #222; color: #fff; }
     #actions { margin-top: 20px; }
-    #actions button { margin-right: 5px; background: yellow; border: none; padding: 10px; }
+    #actions button { margin-right: 5px; background: yellow; border: none; padding: 10px; cursor: pointer; }
+    #actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #phase { font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
   <h1>Стол <span id="table-id"></span></h1>
   <div id="status">Ожидаем игроков…</div>
+  <div id="phase"></div>
 
   <div id="table-area">
     <!-- Оппонент -->
@@ -32,7 +35,6 @@
 
   <!-- Контролы хода -->
   <div id="actions" style="display:none;"></div>
-
   <button id="leave-btn">Покинуть стол</button>
 
   <script type="module" src="/js/ui_game.js"></script>
