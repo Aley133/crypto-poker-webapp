@@ -6,10 +6,10 @@ import uvicorn
 from game_ws import router as game_router
 from tables import (
     list_tables,
-    create_table as create_table_service,
-    join_table as join_table_service,
-    leave_table as leave_table_service,
-    get_balance as get_balance_service,
+    create_table,
+    join_table,
+    leave_table,
+    get_balance
 )
 
 app = FastAPI()
@@ -18,44 +18,44 @@ app.add_middleware(
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
 
-# WebSocket роутер и эндпоинт /api/game_state из game_ws.py
+# Подключаем WebSocket-роутер (ws/game и /api/game_state)
 app.include_router(game_router)
 
 @app.get("/api/tables")
 def get_tables(level: str = Query(...)):
-    tables = list_tables()
-    return {"tables": tables}
+    """Список столов с параметрами и числом игроков"""
+    return {"tables": list_tables()}
 
 @app.post("/api/tables")
-def create_table(level: int = Query(...)):
-    table_info = create_table_service(level)
-    return table_info
+def create_table_endpoint(level: int = Query(...)):
+    """Создание нового стола по уровню"""
+    return create_table(level)
 
 @app.post("/api/join")
-def join_table(
+def join_table_endpoint(
     table_id: int = Query(...),
-    user_id: str = Query(...),
+    user_id: str = Query(...)
 ):
-    result = join_table_service(table_id, user_id)
-    return result
+    """Игрок заходит за стол"""
+    return join_table(table_id, user_id)
 
 @app.post("/api/leave")
-def leave_table(
+def leave_table_endpoint(
     table_id: int = Query(...),
-    user_id: str = Query(...),
+    user_id: str = Query(...)
 ):
-    result = leave_table_service(table_id, user_id)
-    return result
+    """Игрок покидает стол"""
+    return leave_table(table_id, user_id)
 
 @app.get("/api/balance")
-def get_balance(
+def get_balance_endpoint(
     table_id: int = Query(...),
-    user_id: str = Query(...),
+    user_id: str = Query(...)
 ):
-    balance = get_balance_service(table_id, user_id)
-    return balance
+    """Баланс игрока на столе"""
+    return get_balance(table_id, user_id)
 
-# Отдаём фронтенд как статические файлы
+# Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
 if __name__ == "__main__":
