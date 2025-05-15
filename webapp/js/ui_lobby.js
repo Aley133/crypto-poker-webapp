@@ -5,36 +5,40 @@ const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
 
-// Генератор «авто-ID»
-function generateId() {
-  return 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Получаем/сохраняем userId и username в sessionStorage
+/**
+ * Получаем информацию о пользователе:
+ * 1) Если запущено как Telegram WebApp и доступен Telegram.WebApp.initDataUnsafe.user
+ * 2) Иначе — из URL-параметров
+ */
 function getUserInfo() {
+  let uid, uname;
+
+  // 1) Telegram WebApp
+  if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) {
+    const user = Telegram.WebApp.initDataUnsafe.user;
+    if (user && user.id) {
+      uid = String(user.id);
+      // Используем username или комбинацию first_name + last_name
+      uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ');
+      usernameEl.textContent = uname;
+      return { uid, uname };
+    }
+  }
+
+  // 2) Fallback: из URL-параметров
   const params = new URLSearchParams(window.location.search);
-  let uid = params.get('user_id') || sessionStorage.getItem('user_id');
-  let uname = params.get('username') || sessionStorage.getItem('username');
-
-  if (params.has('user_id')) sessionStorage.setItem('user_id', uid);
-  if (params.has('username')) sessionStorage.setItem('username', uname);
-
-  if (!uid) {
-    uid = generateId();
-    sessionStorage.setItem('user_id', uid);
-  }
-  if (!uname) {
-    uname = uid;
-    sessionStorage.setItem('username', uname);
-  }
-
+  uid = params.get('user_id');
+  uname = params.get('username') || uid;
   usernameEl.textContent = uname;
   return { uid, uname };
 }
 
+// Инициализация
 const { uid: userId, uname: username } = getUserInfo();
 
+/**
+ * Загружает и рендерит список столов
+ */
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
