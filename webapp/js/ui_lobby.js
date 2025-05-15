@@ -1,36 +1,45 @@
-// webapp/js/ui_lobby.js
+
 import { listTables, joinTable } from './api.js';
 
-// DOM-элементы
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
+const usernameEl    = document.getElementById('username');
 
-// Функция-генератор простого UUID (для demo-пользователя)
+// Генератор «авто-ID» на случай, если не залогинились через Telegram
 function generateId() {
-  // пример: 'user_' + 8 знаков hex
   return 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Берём user_id из URL или localStorage, либо создаём новый
-function getUserId() {
+// Получаем user_id (и username) либо из Telegram-виджета, либо из localStorage, либо генерим
+function getUserInfo() {
+  // 1) если из URL приходит user_id (например, после первой авторизации) – подхватываем
   const params = new URLSearchParams(window.location.search);
   const urlUid = params.get('user_id');
+  const urlName = params.get('username');
   if (urlUid) {
     localStorage.setItem('user_id', urlUid);
-    return urlUid;
+  }
+  if (urlName) {
+    localStorage.setItem('username', urlName);
+    usernameEl.textContent = urlName;
   }
 
+  // 2) иначе – берём из localStorage
   let uid = localStorage.getItem('user_id');
+  let uname = localStorage.getItem('username');
   if (!uid) {
     uid = generateId();
     localStorage.setItem('user_id', uid);
-    console.log('Generated new user_id:', uid);
   }
-  return uid;
+  if (uname) {
+    usernameEl.textContent = uname;
+  }
+  return { uid, uname };
 }
 
-// Основная функция подгрузки и отрисовки столов
+const { uid: userId } = getUserInfo();
+
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
@@ -46,9 +55,10 @@ async function loadTables() {
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
-        const uid = getUserId();
-        await joinTable(t.id, uid);
-        window.location.href = `game.html?table_id=${t.id}&user_id=${encodeURIComponent(uid)}`;
+        await joinTable(t.id, userId);
+        window.location.href =
+          `game.html?table_id=${t.id}&user_id=${encodeURIComponent(userId)}` +
+          `&username=${encodeURIComponent(localStorage.getItem('username')||'')}`;
       });
       infoContainer.appendChild(card);
     });
@@ -58,8 +68,5 @@ async function loadTables() {
   }
 }
 
-// Перезагрузка при смене уровня
 levelSelect.addEventListener('change', loadTables);
-
-// Запуск
 loadTables();
