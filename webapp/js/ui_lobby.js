@@ -11,17 +11,47 @@ const usernameEl    = document.getElementById('username');
  * 2) Иначе — из URL-параметров
  */
 function getUserInfo() {
-  let uid, uname;
+  const params = new URLSearchParams(window.location.search);
+  let uid = params.get('user_id');
+  let uname = params.get('username');
 
-  // 1) Telegram WebApp
-  if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) {
+  // 1) Если приходит из URL, сохраняем в sessionStorage
+  if (uid) {
+    sessionStorage.setItem('user_id', uid);
+  } else {
+    // 2) Если нет в URL, пробуем из sessionStorage
+    uid = sessionStorage.getItem('user_id');
+  }
+  if (uname) {
+    sessionStorage.setItem('username', uname);
+  } else {
+    uname = sessionStorage.getItem('username');
+  }
+
+  // 3) Если все еще нет, пробуем из Telegram WebApp
+  if (!uid && window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) {
     const user = Telegram.WebApp.initDataUnsafe.user;
     if (user && user.id) {
       uid = String(user.id);
-      // Используем username или комбинацию first_name + last_name
       uname = user.username || [user.first_name, user.last_name].filter(Boolean).join(' ');
-      usernameEl.textContent = uname;
-      return { uid, uname };
+      sessionStorage.setItem('user_id', uid);
+      sessionStorage.setItem('username', uname);
+    }
+  }
+
+  // 4) В крайнем случае генерим новый
+  if (!uid) {
+    uid = generateId();
+    sessionStorage.setItem('user_id', uid);
+  }
+  if (!uname) {
+    uname = uid;
+    sessionStorage.setItem('username', uname);
+  }
+
+  usernameEl.textContent = uname;
+  return { uid, uname };
+}
     }
   }
 
