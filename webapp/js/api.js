@@ -1,87 +1,36 @@
-// webapp/js/ui_lobby.js
-import { listTables, joinTable } from './api.js';
+// webapp/js/api.js
+const BASE = '';
 
-const infoContainer = document.getElementById('info');
-const levelSelect   = document.getElementById('level-select');
-const usernameEl    = document.getElementById('username');
-
-/**
- * Извлекает текущего пользователя:
- * 1) В Telegram WebApp — из Telegram.WebApp.initDataUnsafe.user
- * 2) Иначе — из URL-параметров ?user_id=&username=
- * 3) Если и там нет — генерирует гостевой ID «guest_xxx»
- */
-function getUserInfo() {
-  // 1) Telegram WebApp
-  if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe) {
-    Telegram.WebApp.init();
-    const user = Telegram.WebApp.initDataUnsafe.user;
-    if (user && user.id) {
-      const uid = String(user.id);
-      const uname = user.username ||
-        [user.first_name, user.last_name].filter(Boolean).join(' ');
-      return { uid, uname };
-    }
-  }
-
-  // 2) URL-параметры
-  const params = new URLSearchParams(window.location.search);
-  let uid   = params.get('user_id');
-  let uname = params.get('username');
-
-  // 3) Гость
-  if (!uid) {
-    uid = 'guest_' + Math.random().toString(36).substr(2,8);
-  }
-  if (!uname) {
-    uname = uid;
-  }
-
-  return { uid, uname };
+export async function listTables(level) {
+  const res = await fetch(${BASE}/api/tables?level=${encodeURIComponent(level)});
+  if (!res.ok) throw new Error(listTables error ${res.status});
+  return await res.json();
 }
 
-// Инициализация пользователя
-const { uid: userId, uname: username } = getUserInfo();
-usernameEl.textContent = username;
-
-/**
- * Загрузка и отображение карточек столов в лобби
- */
-async function loadTables() {
-  infoContainer.textContent = 'Загрузка…';
-  try {
-    const { tables } = await listTables(levelSelect.value);
-    infoContainer.innerHTML = '';
-
-    tables.forEach(t => {
-      const card = document.createElement('div');
-      card.className = 'table-card';
-      card.innerHTML = `
-        <h3>Стол ${t.id}</h3>
-        <p>SB/BB: ${t.small_blind}/${t.big_blind}</p>
-        <p>Бай-ин: ${t.buy_in} | Игроки: ${t.players}</p>
-        <button class="join-btn">Играть</button>
-      `;
-      card.querySelector('.join-btn').addEventListener('click', async () => {
-        try {
-          await joinTable(t.id, userId);
-          const nextUrl =
-            `/game.html?table_id=${t.id}` +
-            `&user_id=${encodeURIComponent(userId)}` +
-            `&username=${encodeURIComponent(username)}`;
-          window.location.href = nextUrl;
-        } catch (err) {
-          console.error('joinTable error:', err);
-          alert('Не удалось присоединиться к столу');
-        }
-      });
-      infoContainer.appendChild(card);
-    });
-  } catch (err) {
-    console.error('listTables error:', err);
-    infoContainer.textContent = 'Ошибка загрузки столов';
-  }
+export async function createTable(level) {
+  const res = await fetch(${BASE}/api/tables?level=${encodeURIComponent(level)}, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(createTable error ${res.status});
+  return await res.json();
 }
 
-levelSelect.addEventListener('change', loadTables);
-loadTables();
+export async function joinTable(tableId, userId) {
+  const res = await fetch(${BASE}/api/join?table_id=${tableId}&user_id=${encodeURIComponent(userId)}, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(joinTable error ${res.status});
+  return await res.json();
+}
+
+export async function getBalance(tableId, userId) {
+  const res = await fetch(${BASE}/api/balance?table_id=${tableId}&user_id=${encodeURIComponent(userId)});
+  if (!res.ok) throw new Error(getBalance error ${res.status});
+  return await res.json();
+}
+
+export async function getGameState(tableId) {
+  const res = await fetch(${BASE}/api/game_state?table_id=${tableId});
+  if (!res.ok) throw new Error(getGameState error ${res.status});
+  return await res.json();
+}
