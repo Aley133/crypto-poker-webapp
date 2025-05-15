@@ -1,46 +1,67 @@
-from fastapi import FastAPI, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import uvicorn
+from fastapi import HTTPException
 
-from game_ws import router as game_router
-from tables import (
-    list_tables,
-    create_table,
-    join_table,
-    leave_table,
-    get_balance,
-)
+from game_data import seat_map
+from game_engine import game_states
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Глобальный словарь с настройками блайндов по уровням
+BLINDS = {
+    1: (1, 2, 100),
+    2: (2, 4, 200),
+    3: (5, 10, 500),
+}
 
-# WebSocket-роутер и HTTP эндпоинт /api/game_state
-app.include_router(game_router)
+# Минимальное число игроков для старта
+MIN_PLAYERS = 2
 
-@app.get("/api/tables")
-def get_tables(level: str = Query(...)):
-    """Получить список столов"""
-    return {"tables": list_tables()}
+# Инициализируем состояния для предустановленных столов
+for tid in BLINDS.keys():
+    game_states.setdefault(tid, {})
 
-@app.post("/api/tables")
-def create_table_endpoint(level: int = Query(...)):
-    """Создать новый стол"""
-    return create_table(level)
 
-@app.post("/api/join")
+def list_tables() -> list:
+    """
+    Возвращает список всех столов с параметрами и числом игроков.
+    """
+    out = []
+    for tid, (sb, bb, bi) in BLINDS.items():
+        users = seat_map.get(tid, [])
+        out.append({
+            "id": tid,
+            "small_blind": sb,
+            "big_blind": bb,
+            "buy_in": bi,
+            "players": len(users)
+        })
+    return out
+
+
+def create_table(level: int) -> dict:
+    """
+    Создает новый стол по заданному уровню. Возвращает его параметры.
+    """
+    if level not in BLINDS:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    new_id = max(BLINDS.keys(), default=0) + 1
+    sb, bb, bi = BLINDS[level]
+    BLINDS[new_id] = (sb, bb, bi)
+    seat_map[new_id] = []
+    game_states[new_id] = {}
+    return {
+        "id": new_id,
+        "small_blind": sb,
+        "big_blind": bb,
+        "buy_in": bi,
+        "players": 0
+    }
+
+
 def join_table(table_id: int, user_id: str) -> dict:
     """
     Добавляет пользователя за стол или обновляет его присутствие.
     Возвращает статус и список игроков.
     """
     users = seat_map.setdefault(table_id, [])
-    # Если пользователь уже за столом, удаляем старую запись, чтобы избежать ошибок
+    # Если пользователь уже за столом, удаляем старую запись для переподключения
     if user_id in users:
         users.remove(user_id)
     users.append(user_id)
@@ -59,20 +80,11 @@ def leave_table(table_id: int, user_id: str) -> dict:
     if len(users) < MIN_PLAYERS:
         game_states.get(table_id, {}).pop("started", None)
     return {"status": "ok", "players": users}
-"status": "ok", "players": users} join_table(table_id, user_id)
 
-@app.post("/api/leave")
-def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок покидает стол"""
-    return leave_table(table_id, user_id)
 
-@app.get("/api/balance")
-def get_balance_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Получить баланс игрока"""
-    return get_balance(table_id, user_id)
-
-# Статика фронтенда
-app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
-
-if __name__ == "__main__":
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+def get_balance(table_id: int, user_id: str) -> dict:
+    """
+    Возвращает баланс (стек) пользователя на столе.
+    """
+    stacks = game_states.get(table_id, {}).get("stacks", {})
+    return {"balance": stacks.get(user_id, 0)}
