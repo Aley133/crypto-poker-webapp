@@ -40,33 +40,27 @@ function connectWebSocket() {
 
 // Рендерим состояние игры
 function renderGameState(state) {
-  // Ожидание или старт
+  // Обновляем статус
   if (!state.started) {
     const cnt = state.players_count || 0;
     statusEl.textContent = `Ожидаем игроков… (${cnt}/${MIN_PLAYERS})`;
-    actionsEl.style.display = 'none';
   } else {
     statusEl.textContent = 'Игра началась';
-    actionsEl.style.display = 'block';
   }
 
   // Ваши карты
   const hole = state.hole_cards?.[userId] || [];
-  holeCardsEl.innerHTML = hole
-    .map(c => `<span class="card">${c}</span>`)
-    .join('');
+  holeCardsEl.innerHTML = hole.map(c => `<span class="card">${c}</span>`).join('');
 
   // Общие карты
   const community = state.community_cards || state.community || [];
-  communityEl.innerHTML = community
-    .map(c => `<span class="card">${c}</span>`)
-    .join('');
+  communityEl.innerHTML = community.map(c => `<span class="card">${c}</span>`).join('');
 
   // Пот и текущая ставка
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || state.currentBet || 0}`;
 
-  // Список игроков
+  // Рендер списка игроков
   playersEl.innerHTML = '';
   (state.players || []).forEach(p => {
     const div = document.createElement('div');
@@ -81,23 +75,22 @@ function renderGameState(state) {
     playersEl.appendChild(div);
   });
 
-  // Кнопки действий для текущего игрока
+  // Всегда показываем контролы действий
+  actionsEl.style.display = 'block';
   actionsEl.innerHTML = '';
-  if (state.current_player == userId) {
-    ['fold','check','call','bet','raise'].forEach(act => {
-      const btn = document.createElement('button');
-      btn.textContent = act;
-      btn.dataset.action = act;
-      btn.addEventListener('click', () => {
-        let amount = 0;
-        if (act === 'bet' || act === 'raise') {
-          amount = parseInt(prompt('Введите сумму')) || 0;
-        }
-        ws.send(JSON.stringify({ user_id: userId, action: act, amount }));
-      });
-      actionsEl.appendChild(btn);
+  ['fold','check','call','bet','raise'].forEach(act => {
+    const btn = document.createElement('button');
+    btn.textContent = act;
+    btn.dataset.action = act;
+    btn.addEventListener('click', () => {
+      let amount = 0;
+      if (act === 'bet' || act === 'raise') {
+        amount = parseInt(prompt('Введите сумму')) || 0;
+      }
+      ws.send(JSON.stringify({ user_id: userId, action: act, amount }));
     });
-  }
+    actionsEl.appendChild(btn);
+  });
 }
 
 // Выход со стола
@@ -116,4 +109,5 @@ leaveBtn.addEventListener('click', async () => {
     statusEl.textContent = 'Ошибка получения состояния';
   }
   connectWebSocket();
+})();
 })();
