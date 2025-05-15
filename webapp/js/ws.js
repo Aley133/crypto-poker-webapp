@@ -1,65 +1,37 @@
 import { getGameState } from './api.js';
 
-function getParam(name) {
-  return new URLSearchParams(window.location.search).get(name);
-}
-
-const tableId = getParam('table_id');
-const userId  = getParam('user_id');
-if (!tableId || !userId) {
-  console.error('Missing table_id or user_id in URL');
-}
-
-// Единственное подключение WebSocket без username
-const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const ws = new WebSocket(
-  `${protocol}://${window.location.host}/ws/game/${tableId}`
-);
-
-ws.onopen = () => {
-  console.log('WebSocket connected:', tableId);
-};
-
-ws.onmessage = evt => {
-  const state = JSON.parse(evt.data);
-  renderGameState(state, userId);
-};
-
-ws.onclose = () => {
-  console.log('WebSocket closed');
-};
-
-ws.onerror = err => {
-  console.error('WebSocket error', err);
-};
-
 /**
- * Инициализирует WebSocket и возвращает объект ws
+ * Создаёт и настраивает WebSocket для игры
  * @param {string} tableId
  * @param {string} userId
  * @param {string} username
- * @param {(event: MessageEvent) => void} onMessage
+ * @param {function(MessageEvent):void} onMessage
+ * @returns {WebSocket}
  */
 export function createWebSocket(tableId, userId, username, onMessage) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
               `?user_id=${encodeURIComponent(userId)}` +
               `&username=${encodeURIComponent(username)}`;
-  const socket = new WebSocket(url);
-  socket.onopen    = () => console.log('WS connected');
-  socket.onmessage = onMessage;
-  socket.onclose   = () => console.log('WS closed');
-  socket.onerror   = err => console.error('WS error', err);
-  return socket;
+
+  const ws = new WebSocket(url);
+  ws.onopen    = () => console.log('WS connected:', url);
+  ws.onmessage = onMessage;
+  ws.onclose   = () => console.log('WS closed');
+  ws.onerror   = err => console.error('WS error', err);
+  return ws;
 }
 
-// Fallback: если WS не успевает, можно подхватывать через HTTP
-(async function pollState(){
-  try {
-    const state = await getGameState(tableId);
-    renderGameState(state, userId);
-  } catch(e){
-    console.error('Poll error', e);
+// Fallback-поллинг через HTTP: обновление состояния каждые 2 секунды
+export function startPolling(tableId, userId, onState) {
+  async function poll() {
+    try {
+      const state = await getGameState(tableId);
+      onState(state);
+    } catch (e) {
+      console.error('Poll error', e);
+    }
+    setTimeout(poll, 2000);
   }
-  setTimeout(pollState, 2000);
-})();
+  poll();
+}
