@@ -8,6 +8,7 @@ from tables import (
     list_tables,
     create_table as create_table_service,
     join_table as join_table_service,
+    leave_table as leave_table_service,
     get_balance as get_balance_service,
 )
 
@@ -22,7 +23,6 @@ app.include_router(game_router)
 
 @app.get("/api/tables")
 def get_tables(level: str = Query(...)):
-    # Параметр level в будущем можно использовать для фильтрации
     tables = list_tables()
     return {"tables": tables}
 
@@ -37,6 +37,14 @@ def join_table(
     user_id: str = Query(...),
 ):
     result = join_table_service(table_id, user_id)
+    return result
+
+@app.post("/api/leave")
+def leave_table(
+    table_id: int = Query(...),
+    user_id: str = Query(...),
+):
+    result = leave_table_service(table_id, user_id)
     return result
 
 @app.get("/api/balance")
