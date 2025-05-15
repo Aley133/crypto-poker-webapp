@@ -2,7 +2,7 @@ import { getGameState } from './api.js';
 import { createWebSocket } from './ws.js';
 
 // URL-параметры
-tconst params   = new URLSearchParams(window.location.search);
+const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
