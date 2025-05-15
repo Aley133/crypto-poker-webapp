@@ -8,9 +8,9 @@ const usernameEl    = document.getElementById('username');
 
 /\*\*
 
-* Извлекает статичный Telegram user ID и username из Web App API.
-* Бросает ошибку, если данные недоступны.
-* @returns {{ uid: string, uname: string }}
+* Получает статичный Telegram user ID и username через WebApp API
+* @returns {{uid: string, uname: string}}
+* @throws {Error} если API недоступен или данных нет
   \*/
   function getTelegramUser() {
   if (!window\.Telegram || !Telegram.WebApp || !Telegram.WebApp.initDataUnsafe) {
@@ -26,41 +26,40 @@ const usernameEl    = document.getElementById('username');
   return { uid, uname };
   }
 
-// Получаем Telegram-пользователя
+// Инициализация пользователя
 let userId, username;
 try {
 ({ uid: userId, uname: username } = getTelegramUser());
 usernameEl.textContent = username;
-} catch (e) {
-console.error(e);
-usernameEl.textContent = 'Гость';
+} catch (err) {
+console.error(err);
 userId = 'guest\_' + Math.random().toString(36).substr(2, 8);
 username = 'Гость';
+usernameEl.textContent = username;
 }
 
 /\*\*
 
-* Загружает список столов и отображает карточки в лобби
+* Загружает и отображает список столов в лобби
   \*/
   async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
   const { tables } = await listTables(levelSelect.value);
   infoContainer.innerHTML = '';
-
-  tables.forEach(({ id, small\_blind, big\_blind, buy\_in, players }) => {
+  tables.forEach(table => {
   const card = document.createElement('div');
   card.className = 'table-card';
-  card.innerHTML = `      <h3>Стол ${id}</h3>      <p>SB/BB: ${small_blind}/${big_blind}</p>      <p>Бай-ин: ${buy_in} | Игроки: ${players}</p>      <button class="join-btn">Играть</button>
+  card.innerHTML = `      <h3>Стол ${table.id}</h3>      <p>SB/BB: ${table.small_blind}/${table.big_blind}</p>      <p>Бай-ин: ${table.buy_in} | Игроки: ${table.players}</p>      <button class="join-btn">Играть</button>
      `;
   const btn = card.querySelector('.join-btn');
   btn.addEventListener('click', async () => {
   try {
-  await joinTable(id, userId);
-  const url = `/game.html?table_id=${id}` +
+  await joinTable(table.id, userId);
+  window\.location.href =
+  `/game.html?table_id=${table.id}` +
   `&user_id=${encodeURIComponent(userId)}` +
   `&username=${encodeURIComponent(username)}`;
-  window\.location.href = url;
   } catch (err) {
   console.error('Не удалось присоединиться к столу:', err);
   alert('Не удалось присоединиться к столу');
@@ -74,7 +73,7 @@ username = 'Гость';
   }
   }
 
-// Обработчик изменения уровня турниров
+// Обработчик изменения уровня
 levelSelect.addEventListener('change', loadTables);
-// Начальная загрузка
+// Первоначальная загрузка
 loadTables();
