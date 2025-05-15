@@ -1,44 +1,45 @@
-// webapp/js/ui_game.js
 import { getGameState } from './api.js';
 
-// Извлекаем параметры из URL
+// Извлечь параметры из URL
 const params = new URLSearchParams(window.location.search);
 const tableId = params.get('table_id');
-const userId = params.get('user_id');
+const userId  = params.get('user_id');
+
+// Константа для отображения
+const MIN_PLAYERS = 2;
 
 // DOM-элементы
-const statusEl = document.getElementById('status');
-const playersEl = document.getElementById('players');
+const statusEl  = document.getElementById('status');
 const cardsEl   = document.getElementById('cards');
+const playersEl = document.getElementById('players');
 const actionsEl = document.getElementById('actions');
+const leaveBtn  = document.getElementById('leave-btn');
 
-// Устанавливаем статус ожидания
-function renderWaiting(count) {
-  statusEl.textContent = `Ожидание игроков… (${count}/${MIN_PLAYERS})`;
-}
-
-// Рендер состояния игры
+// Функция рендера состояния игры
 function renderGameState(state) {
-  // Если игра ещё не стартовала
+  // Ожидание игроков
   if (!state.started) {
-    const count = state.players ? state.players.length : 0;
+    const count = state.players_count || 0;
     statusEl.textContent = `Ожидание игроков… (${count}/${MIN_PLAYERS})`;
     return;
   }
-  // Иначе показываем раздачу
-  statusEl.textContent = `Игра в процессе`;
-  // Выводим карты столу
-  cardsEl.innerHTML = state.community_cards
-    .map(card => `<span class="card">${card}</span>`)
-    .join('');
-  // Выводим игроков и их стеки
-  playersEl.innerHTML = Object.entries(state.stacks)
-    .map(([uid, stack]) =>
-      `<div class="player${uid===userId? ' self':''}">` +
+  // Игра началась
+  statusEl.textContent = 'Игра в процессе';
+
+  // Рендер общих карт
+  cardsEl.innerHTML = (state.community_cards || []).
+    map(card => `<span class="card">${card}</span>`).
+    join('');
+
+  // Рендер игроков и их стеков
+  playersEl.innerHTML = Object.entries(state.stacks || {}).map(
+    ([uid, stack]) =>
+      `<div class="player${uid === userId ? ' self' : ''}">` +
         `<strong>${uid}</strong>: ${stack}` +
       `</div>`
-    ).join('');
-  // Подготовка кнопок действий
+  ).join('');
+
+  // Кнопки действий для текущего игрока
   actionsEl.innerHTML = '';
   if (state.current_player == userId) {
     ['fold','check','call','bet','raise'].forEach(act => {
@@ -50,25 +51,45 @@ function renderGameState(state) {
   }
 }
 
-// Отправка действия
+// Отправка действия серверу
 function sendAction(action) {
-  const msg = { user_id: userId, action };
-  ws.send(JSON.stringify(msg));
+  ws.send(JSON.stringify({ user_id: userId, action }));
 }
 
-// WebSocket подключение
-const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-const ws = new WebSocket(`${protocol}://${location.host}/ws/game/${tableId}`);
+// WebSocket соединение
+const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const ws = new WebSocket(`${protocol}://${window.location.host}/ws/game/${tableId}`);
 
-ws.onopen = () => console.log('WS connected');
+ws.onopen = () => console.log('WebSocket connected');
 ws.onmessage = e => {
   const state = JSON.parse(e.data);
   renderGameState(state);
 };
-ws.onclose = () => console.log('WS closed');
+ws.onclose = () => console.log('WebSocket closed');
+ws.onerror = err => console.error('WebSocket error', err);
 
-// Начальное получение состояния через HTTP
+// Инициализация через HTTP запрос
 (async function init() {
-  const state = await getGameState(tableId);
-  renderGameState(state);
+  try {
+    const state = await getGameState(tableId);
+    renderGameState(state);
+  } catch (err) {
+    console.error('Init error', err);
+    statusEl.textContent = 'Ошибка получения состояния';
+  }
 })();
+
+// Обработчик кнопки «Покинуть стол»
+leaveBtn.addEventListener('click', async () => {
+  try {
+    await fetch(
+      `/api/leave?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`,
+      { method: 'POST' }
+    );
+    // Редирект в лобби
+    window.location.href = '/index.html';
+  } catch (err) {
+    console.error('Ошибка при выходе со стола', err);
+    alert('Не удалось покинуть стол');
+  }
+});
