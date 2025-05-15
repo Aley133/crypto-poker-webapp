@@ -1,4 +1,3 @@
-```javascript
 import { getGameState } from './api.js';
 
 // Извлекаем параметры из URL
@@ -121,4 +120,3 @@ leaveBtn.addEventListener('click', async () => {
   }
   connectWebSocket();
 })();
-```
