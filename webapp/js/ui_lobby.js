@@ -1,41 +1,45 @@
 // webapp/js/ui_lobby.js
-import { api } from './api.js';
+import { listTables, joinTable } from './api.js';
 
-export async function loadLobby(levelSelect, infoEl, userId) {
-  infoEl.textContent = 'Загрузка столов…';
+const tablesContainer = document.getElementById('tablesContainer');
+const levelSelect = document.getElementById('levelSelect');
+
+// Сохраняем user_id в localStorage, если ещё нет
+function getUserId() {
+  let uid = localStorage.getItem('user_id');
+  if (!uid) {
+    uid = prompt('Введите ваш ID (лучше Telegram user_id)');
+    localStorage.setItem('user_id', uid);
+  }
+  return uid;
+}
+
+async function loadTables() {
+  tablesContainer.innerHTML = 'Загрузка...';
   try {
-    const { tables } = await api('/api/tables', { level: levelSelect.value });
-    infoEl.innerHTML = '';
-    if (tables.length === 0) {
-      infoEl.textContent = 'Нет доступных столов.';
-      return;
-    }
+    const { tables } = await listTables(levelSelect.value);
+    tablesContainer.innerHTML = '';
     for (const t of tables) {
-      // Создаём карточку стола
-      const d = document.createElement('div');
-      d.className = 'table';
-      d.innerHTML = `
-        <strong>Стол ${t.id}</strong><br>
-        SB/BB: ${t.small_blind}/${t.big_blind}<br>
-        Бай-ин: ${t.buy_in} | Игроки: ${t.players}<br>
-        <button data-id="${t.id}">Играть</button>
+      const card = document.createElement('div');
+      card.className = 'table-card';
+      card.innerHTML = `
+        <h3>Стол ${t.id}</h3>
+        <p>SB/BB: ${t.small_blind}/${t.big_blind}</p>
+        <p>Бай-ин: ${t.buy_in} | Игроки: ${t.players}</p>
+        <button class="join-btn">Играть</button>
       `;
-      // Жёсткая привязка атрибута data-id
-      const btn = d.querySelector('button');
-      btn.onclick = () => {
-        const tid = btn.dataset.id;
-        // Переходим в WebApp или просто в браузере
-        const url = `${location.origin}/game.html?table_id=${tid}`;
-        if (window.Telegram?.WebApp) {
-          Telegram.WebApp.openLink(url);
-        } else {
-          location.href = url;
-        }
-      };
-      infoEl.appendChild(d);
+      card.querySelector('.join-btn').addEventListener('click', async () => {
+        const uid = getUserId();
+        await joinTable(t.id, uid);
+        window.location.href = `game.html?table_id=${t.id}&user_id=${encodeURIComponent(uid)}`;
+      });
+      tablesContainer.appendChild(card);
     }
-  } catch (err) {
-    console.error(err);
-    infoEl.textContent = 'Ошибка при загрузке столов.';
+  } catch (e) {
+    tablesContainer.innerHTML = 'Ошибка загрузки таблиц';
+    console.error(e);
   }
 }
+
+levelSelect.addEventListener('change', loadTables);
+loadTables();
