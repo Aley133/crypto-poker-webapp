@@ -3,26 +3,26 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 
 from game_engine import game_states, connections, start_hand, apply_action
+from game_data import seat_map
 
 router = APIRouter()
 
-# Минимальное и максимальное число игроков для старта и джойна
+# Минимальное число игроков для старта и максимальное для подключения
 MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
 async def broadcast(table_id: int):
     """
-    Отправляет текущее состояние игры всем подключённым WS-клиентам.
-    Добавляет динамическое поле players_count по числу соединений.
+    Отправляет текущее состояние игры всем подключённым WS-клиентам,
+    включая динамический players_count по числу игроков в seat_map.
     """
     state = game_states.get(table_id)
     if state is None:
         return
-    # Составляем полезную нагрузку с копией состояния
     payload = state.copy()
-    # Динамическое поле: текущее число подключённых игроков
-    payload["players_count"] = len(connections.get(table_id, []))
-    for ws in connections.get(table_id, []):
+    # берем число реально присоединившихся через API join
+    payload['players_count'] = len(seat_map.get(table_id, []))
+    for ws in list(connections.get(table_id, [])):
         try:
             await ws.send_json(payload)
         except:
@@ -30,33 +30,34 @@ async def broadcast(table_id: int):
 
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
-    # Принимаем соединение
+    # принимать соединение
     await websocket.accept()
-
-    # Проверяем, что стол существует
+    # проверка существования стола
     if table_id not in game_states:
         await websocket.close(code=1008)
         return
 
-    # Список WS для данного стола
+    # Ограничиваем подключение по WebSocket (максимум)
     conns = connections.setdefault(table_id, [])
-    # Ограничение на максимальное число игроков
     if len(conns) >= MAX_PLAYERS:
         await websocket.close(code=1013)  # Try again later
         return
 
-    # Регистрируем нового клиента
+    # регистрируем WS-клиента
     conns.append(websocket)
-    # Если игроков стало меньше минимума — сбрасываем флаг started
-    if len(conns) < MIN_PLAYERS:
-        game_states[table_id].pop("started", None)
-    # Оповещаем всех о текущем состоянии (ожидание или игра)
-    await broadcast(table_id)
+    # текущее число игроков по API
+    count = len(seat_map.get(table_id, []))
 
-    # Как только достигнут минимум — стартуем игру один раз
-    if len(conns) >= MIN_PLAYERS and not game_states[table_id].get("started", False):
+    # Если недостаточно игроков — оповестим о ожидании
+    if count < MIN_PLAYERS:
+        await broadcast(table_id)
+    # Если набрали нужное число и ещё не стартовали — стартуем
+    elif not game_states[table_id].get('started', False):
         start_hand(table_id)
-        game_states[table_id]["started"] = True
+        game_states[table_id]['started'] = True
+        await broadcast(table_id)
+    # Иначе просто шлем текущее состояние
+    else:
         await broadcast(table_id)
 
     try:
@@ -65,17 +66,16 @@ async def ws_game(websocket: WebSocket, table_id: int):
             msg = json.loads(data)
             apply_action(
                 table_id,
-                int(msg.get("user_id", -1)),
-                msg.get("action"),
-                int(msg.get("amount", 0))
+                int(msg.get('user_id', -1)),
+                msg.get('action'),
+                int(msg.get('amount', 0))
             )
             await broadcast(table_id)
     except WebSocketDisconnect:
-        # Убираем соединение при дисконнекте
-        conns.remove(websocket)
-        # Если стало меньше игроков — сбрасываем started и оповещаем
-        if len(conns) < MIN_PLAYERS:
-            game_states[table_id].pop("started", None)
+        # удаляем WS при дисконнекте
+        if websocket in conns:
+            conns.remove(websocket)
+        # на отключение не меняем seat_map, т.к. leave пока не реализован
         await broadcast(table_id)
 
 @router.get("/api/game_state")
