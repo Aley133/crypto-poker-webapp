@@ -20,16 +20,21 @@
     <button class="tab" data-tab="tournaments">Турниры</button>
   </nav>
 
+  <!-- Здесь мы будем рендерить список столов -->
   <main id="info" class="lobby-info">Загрузка…</main>
 
   <div class="controls">
-    <label>Уровень: <select id="level-select">
-      <option value="Low">Low</option>
-      <option value="Medium">Medium</option>
-      <option value="High">High</option>
-    </select></label>
+    <label>
+      Уровень:
+      <select id="level-select">
+        <option value="1">Low</option>
+        <option value="2">Medium</option>
+        <option value="3">High</option>
+      </select>
+    </label>
   </div>
 
-  <script type="module" src="js/app.js"></script>
+  <!-- Загружаем только логику лобби -->
+  <script type="module" src="js/ui_lobby.js"></script>
 </body>
 </html>
