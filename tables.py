@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from game_data import seat_map
-from game_engine import game_states, MIN_PLAYERS
+from game_engine import game_states
 
-
+# Минимальное число игроков для старта
 MIN_PLAYERS = 2
 
 BLINDS = {
