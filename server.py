@@ -1,5 +1,6 @@
 # server.py
-
+# Статика фронтенда: все запросы отдаём из папки webapp
+from pathlib import Path
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -45,6 +46,13 @@ app.include_router(ws_router, prefix="")
 @app.get("/")
 def index():
     return FileResponse("static/index.html")
+
+BASE_DIR = Path(__file__).parent
+STATIC_DIR = BASE_DIR / "webapp"
+if not STATIC_DIR.exists():
+    raise RuntimeError(f"Static files directory not found: {STATIC_DIR}")
+
+app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="webapp")
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
