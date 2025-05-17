@@ -1,62 +1,44 @@
 # game_engine.py
-
 import random
-from game_data import seat_map, game_states, username_map, game_locks
+from typing import Dict, List
+from game_data import seat_map
+
+game_states: Dict[int, dict] = {}
+connections: Dict[int, List] = {}
 
 STARTING_STACK = 1000
 
-def new_deck():
-    suits = ['H','D','C','S']
-    ranks = [str(n) for n in range(2,11)] + list('JQKA')
-    deck = [r + s for r in ranks for s in suits]
+def new_deck() -> List[str]:
+    ranks = [str(x) for x in range(2,11)] + list("JQKA")
+    suits = ["♠","♥","♦","♣"]
+    deck = [r+s for r in ranks for s in suits]
     random.shuffle(deck)
     return deck
 
-async def join_table(table_id: int, user_id: str, username: str):
-    """Добавляем пользователя за стол и сохраняем ник."""
-    lock = game_locks[table_id]
-    async with lock:
-        if user_id not in seat_map[table_id]:
-            seat_map[table_id].append(user_id)
-        username_map[user_id] = username
+def start_hand(table_id: int):
+    players = seat_map.get(table_id, [])
+    if not players: return
+    deck = new_deck()
+    hole = {uid: [deck.pop(), deck.pop()] for uid in players}
+    stacks = {uid: STARTING_STACK for uid in players}
+    game_states[table_id] = {
+        "hole_cards": hole,
+        "community": [],
+        "stacks": stacks,
+        "pot": 0,
+        "current_player": players[0],
+        # "deck": deck
+    }
 
-async def leave_table(table_id: int, user_id: str):
-    """Убираем пользователя из стола, чистим его часть state."""
-    lock = game_locks[table_id]
-    async with lock:
-        players = seat_map.get(table_id, [])
-        if user_id in players:
-            players.remove(user_id)
-        state = game_states.get(table_id)
-        if state:
-            state['hole_cards'].pop(user_id, None)
-            state['stacks'].pop(user_id, None)
-            # Переназначаем current_player, если нужно
-            if state.get('current_player') == user_id and players:
-                state['current_player'] = players[0]
-            state['players'] = list(players)
-            # Если никого не осталось — сбрасываем всё полностью
-            if not players:
-                game_states.pop(table_id, None)
-
-async def start_hand(table_id: int):
-    """Новая раздача: каждому по 2 карты, сбрасываем банк и community."""
-    lock = game_locks[table_id]
-    async with lock:
-        players = seat_map.get(table_id, [])
-        if not players:
-            return
-
-        deck = new_deck()
-        hole = {uid: [deck.pop(), deck.pop()] for uid in players}
-
-        state = game_states.setdefault(table_id, {})
-        state.update({
-            'players': list(players),
-            'hole_cards': hole,
-            'community': [],
-            'stacks': {uid: STARTING_STACK for uid in players},
-            'pot': 0,
-            'current_player': players[0],
-            'deck': deck,
-        })
+def apply_action(table_id: int, uid: int, action: str, amount: int=0):
+    state = game_states.get(table_id)
+    if not state or uid not in state["stacks"]:
+        return
+    if action == "bet" and amount>0:
+        if state["stacks"][uid]>=amount:
+            state["stacks"][uid]-=amount
+            state["pot"]+=amount
+    # TODO: check/fold etc.
+    active = [p for p,s in state["stacks"].items() if s>0]
+    idx = active.index(state["current_player"])
+    state["current_player"] = active[(idx+1)%len(active)]
