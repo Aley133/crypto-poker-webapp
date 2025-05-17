@@ -1,86 +1,82 @@
-### tables.py
+### game_ws.py
 ```python
-from fastapi import HTTPException
-from game_data import seat_map
-from game_engine import game_states, MIN_PLAYERS
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter
+from tables import join_table, leave_table, seat_map
+from game_engine import (
+    create_deck,
+    deal_hole_cards,
+    initialize_stacks,
+    MIN_PLAYERS,
+)
+from typing import Dict, List
 
-# Global blinds settings per level
-BLINDS = {
-    1: (1, 2, 100),
-    2: (2, 4, 200),
-    3: (5, 10, 500),
-}
+router = APIRouter()
+# Active WebSocket connections per table
+connections: Dict[int, List[WebSocket]] = {}
+# Persistent game states per table
+game_states: Dict[int, Dict] = {}
 
-# Initialize game_states for predefined tables
-for tid in BLINDS.keys():
-    game_states.setdefault(tid, {})
+@router.websocket("/ws/{table_id}/{user_id}")
+async def ws_endpoint(websocket: WebSocket, table_id: int, user_id: str):
+    await websocket.accept()
+    # Register connection
+    conns = connections.setdefault(table_id, [])
+    conns.append(websocket)
+    # Ensure user is in the seat map
+    join_table(table_id, user_id)
+    # Broadcast updated lobby/state
+    await broadcast(table_id)
 
+    try:
+        while True:
+            data = await websocket.receive_json()
+            action = data.get("action")
 
-def list_tables() -> list:
-    """
-    Returns list of all tables with parameters and current player counts.
-    """
-    tables = []
-    for tid, (sb, bb, bi) in BLINDS.items():
-        users = seat_map.get(tid, [])
-        tables.append({
-            "id": tid,
-            "small_blind": sb,
-            "big_blind": bb,
-            "buy_in": bi,
-            "players": len(users),
-        })
-    return tables
+            if action == "start_hand":
+                players = seat_map.get(table_id, []).copy()
+                # Only start if minimum players met
+                if len(players) < MIN_PLAYERS:
+                    continue
+                # Prepare deck and deal
+                deck = create_deck()
+                hole_cards = deal_hole_cards(deck, len(players))
+                stacks = initialize_stacks(players)
+                # Store full game state including players and deck
+                game_states[table_id] = {
+                    "players": players,
+                    "deck": deck,
+                    "hole_cards": hole_cards,
+                    "community": [],
+                    "stacks": stacks,
+                    "pot": 0,
+                    "current_player": players[0],
+                    "started": True,
+                }
+                await broadcast(table_id)
+            # TODO: handle other WS actions like betting, folding...
 
+    except WebSocketDisconnect:
+        # Cleanup on disconnect
+        if websocket in connections.get(table_id, []):
+            connections[table_id].remove(websocket)
+        # Remove player from seat map as well
+        leave_table(table_id, user_id)
+        # Reset "started" if too few players
+        state = game_states.get(table_id)
+        if state and len(connections.get(table_id, [])) < MIN_PLAYERS:
+            state.pop("started", None)
+        await broadcast(table_id)
 
-def create_table(level: int) -> dict:
-    """
-    Creates a new table for the given level. Returns its parameters.
-    """
-    if level not in BLINDS:
-        raise HTTPException(status_code=400, detail="Invalid level")
-    new_id = max(BLINDS.keys(), default=0) + 1
-    sb, bb, bi = BLINDS[level]
-    BLINDS[new_id] = (sb, bb, bi)
-    seat_map[new_id] = []
-    game_states[new_id] = {}
-    return {
-        "id": new_id,
-        "small_blind": sb,
-        "big_blind": bb,
-        "buy_in": bi,
-        "players": 0,
-    }
-
-
-def join_table(table_id: int, user_id: str) -> dict:
-    """
-    Adds the user to the table if not present. Returns status and players.
-    """
-    users = seat_map.setdefault(table_id, [])
-    if user_id not in users:
-        users.append(user_id)
-    return {"status": "ok", "players": users}
-
-
-def leave_table(table_id: int, user_id: str) -> dict:
-    """
-    Removes the user from the table if present. Returns status and players.
-    """
-    users = seat_map.get(table_id, [])
-    if user_id in users:
-        users.remove(user_id)
-    # Reset "started" flag if too few players
+async def broadcast(table_id: int):
+    conns = connections.get(table_id, [])
     state = game_states.get(table_id, {})
-    if len(users) < MIN_PLAYERS:
-        state.pop("started", None)
-    return {"status": "ok", "players": users}
-
-
-def get_balance(table_id: int, user_id: str) -> dict:
-    """
-    Returns the current stack of the user at the table.
-    """
-    stacks = game_states.get(table_id, {}).get("stacks", {})
-    return {"balance": stacks.get(user_id, 0)}
+    # Always include the current seat_map if state has no players
+    players = state.get("players", seat_map.get(table_id, []))
+    payload = {
+        "type": "state_update",
+        "players": players,
+        "state": state,
+    }
+    for conn in conns:
+        await conn.send_json(payload)
 ```
