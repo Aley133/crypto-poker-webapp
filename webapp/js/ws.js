@@ -1,37 +1,37 @@
-// ws.js
+import { getGameState } from './api.js';
 
-let pollingInterval = null;
+/**
+ * Создаёт и настраивает WebSocket для игры
+ * @param {string} tableId
+ * @param {string} userId
+ * @param {string} username
+ * @param {function(MessageEvent):void} onMessage
+ * @returns {WebSocket}
+ */
+export function createWebSocket(tableId, userId, username, onMessage) {
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
+              `?user_id=${encodeURIComponent(userId)}` +
+              `&username=${encodeURIComponent(username)}`;
 
-export function connectWS(tableId, userId, onState, onError) {
-  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(`${protocol}://${location.host}/ws/${tableId}/${userId}`);
-
-  socket.onmessage = (e) => onState(JSON.parse(e.data));
-  socket.onerror = () => {
-    socket.close();
-    if (onError) onError();
-  };
-  socket.onclose = () => {
-    if (pollingInterval === null && onError) onError();
-  };
-
-  return socket;
+  const ws = new WebSocket(url);
+  ws.onopen    = () => console.log('WS connected:', url);
+  ws.onmessage = onMessage;
+  ws.onclose   = () => console.log('WS closed');
+  ws.onerror   = err => console.error('WS error', err);
+  return ws;
 }
 
+// Fallback-поллинг через HTTP: обновление состояния каждые 2 секунды
 export function startPolling(tableId, userId, onState) {
-  // fallback: опрашиваем раз в 2 сек
-  pollingInterval = setInterval(async () => {
-    const resp = await fetch(`/api/state?table_id=${tableId}&user_id=${userId}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      onState(data);
+  async function poll() {
+    try {
+      const state = await getGameState(tableId);
+      onState(state);
+    } catch (e) {
+      console.error('Poll error', e);
     }
-  }, 2000);
-}
-
-export function stopPolling() {
-  if (pollingInterval !== null) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
+    setTimeout(poll, 2000);
   }
+  poll();
 }
