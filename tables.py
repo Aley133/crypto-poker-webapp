@@ -1,5 +1,3 @@
-### tables.py
-```python
 from fastapi import HTTPException
 from game_data import seat_map
 from game_engine import game_states, MIN_PLAYERS
@@ -14,7 +12,6 @@ BLINDS = {
 # Initialize game_states for predefined tables
 for tid in BLINDS.keys():
     game_states.setdefault(tid, {})
-
 
 def list_tables() -> list:
     """
@@ -31,7 +28,6 @@ def list_tables() -> list:
             "players": len(users),
         })
     return tables
-
 
 def create_table(level: int) -> dict:
     """
@@ -52,7 +48,6 @@ def create_table(level: int) -> dict:
         "players": 0,
     }
 
-
 def join_table(table_id: int, user_id: str) -> dict:
     """
     Adds the user to the table if not present. Returns status and players.
@@ -61,7 +56,6 @@ def join_table(table_id: int, user_id: str) -> dict:
     if user_id not in users:
         users.append(user_id)
     return {"status": "ok", "players": users}
-
 
 def leave_table(table_id: int, user_id: str) -> dict:
     """
@@ -76,11 +70,9 @@ def leave_table(table_id: int, user_id: str) -> dict:
         state.pop("started", None)
     return {"status": "ok", "players": users}
 
-
 def get_balance(table_id: int, user_id: str) -> dict:
     """
     Returns the current stack of the user at the table.
     """
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
-```
