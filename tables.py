@@ -1,5 +1,5 @@
 ### tables.py
-python
+```python
 from fastapi import HTTPException
 from game_data import seat_map
 from game_engine import game_states, MIN_PLAYERS
@@ -83,4 +83,4 @@ def get_balance(table_id: int, user_id: str) -> dict:
     """
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
-
+```
