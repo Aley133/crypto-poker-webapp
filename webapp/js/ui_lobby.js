@@ -1,4 +1,3 @@
-
 import { listTables, joinTable } from './api.js';
 
 const infoContainer = document.getElementById('info');
@@ -11,35 +10,40 @@ function generateId() {
     .map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Получаем user_id (и username) либо из Telegram-виджета, либо из localStorage, либо генерим
+// Получаем user_id и username из URL, localStorage или генерим новые
 function getUserInfo() {
-  // 1) если из URL приходит user_id (например, после первой авторизации) – подхватываем
   const params = new URLSearchParams(window.location.search);
-  const urlUid = params.get('user_id');
-  const urlName = params.get('username');
-  if (urlUid) {
-    localStorage.setItem('user_id', urlUid);
+  let uid = params.get('user_id') || localStorage.getItem('user_id');
+  let uname = params.get('username') || localStorage.getItem('username');
+
+  // Сохраняем в localStorage, если пришло из URL
+  if (params.get('user_id')) {
+    localStorage.setItem('user_id', uid);
   }
-  if (urlName) {
-    localStorage.setItem('username', urlName);
-    usernameEl.textContent = urlName;
+  if (params.get('username')) {
+    localStorage.setItem('username', uname);
   }
 
-  // 2) иначе – берём из localStorage
-  let uid = localStorage.getItem('user_id');
-  let uname = localStorage.getItem('username');
+  // Генерируем ID, если нет
   if (!uid) {
     uid = generateId();
     localStorage.setItem('user_id', uid);
   }
-  if (uname) {
-    usernameEl.textContent = uname;
+  // Дефолт для username — это uid
+  if (!uname) {
+    uname = uid;
+    localStorage.setItem('username', uname);
   }
+
+  // Отображаем в UI
+  usernameEl.textContent = uname;
+
   return { uid, uname };
 }
 
-const { uid: userId } = getUserInfo();
+const { uid: userId, uname: username } = getUserInfo();
 
+// Загрузка списка столов
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
@@ -56,9 +60,10 @@ async function loadTables() {
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
         await joinTable(t.id, userId);
+        const uidParam = encodeURIComponent(userId);
+        const unameParam = encodeURIComponent(username);
         window.location.href =
-          `game.html?table_id=${t.id}&user_id=${encodeURIComponent(userId)}` +
-          `&username=${encodeURIComponent(localStorage.getItem('username')||'')}`;
+          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`;
       });
       infoContainer.appendChild(card);
     });

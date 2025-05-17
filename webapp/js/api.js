@@ -34,3 +34,4 @@ export async function getGameState(tableId) {
   if (!res.ok) throw new Error(`getGameState error ${res.status}`);
   return await res.json();
 }
+
