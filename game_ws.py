@@ -1,6 +1,7 @@
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter
 from tables import join_table, leave_table, seat_map
-from game_engine import create_deck, deal_hole_cards, initialize_stacks, MIN_PLAYERS
+from game_engine import create_deck, deal_hole_cards, initialize_stacks
+from tables import MIN_PLAYERS
 from typing import Dict, List
 
 router = APIRouter()
