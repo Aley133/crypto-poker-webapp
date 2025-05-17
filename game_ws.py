@@ -27,26 +27,14 @@ async def ws_endpoint(websocket: WebSocket, table_id: int, user_id: str):
             action = data.get("action")
 
             if action == "start_hand":
-                players = seat_map.get(table_id, []).copy()
-                # Only start if minimum players met
-                if len(players) < MIN_PLAYERS:
-                    continue
-                # Prepare deck and deal
-                deck = create_deck()
-                hole_cards = deal_hole_cards(deck, len(players))
-                stacks = initialize_stacks(players)
-                # Store full game state including players and deck
-                game_states[table_id] = {
-                    "players": players,
-                    "deck": deck,
-                    "hole_cards": hole_cards,
-                    "community": [],
-                    "stacks": stacks,
-                    "pot": 0,
-                    "current_player": players[0],
-                    "started": True,
-                }
-                await broadcast(table_id)
++        # Только если достаточно игроков
++        if len(seat_map.get(table_id, [])) < MIN_PLAYERS:
++            continue
++        # Делегируем логику раздачи в game_engine.start_hand
++        start_hand(table_id)
++        # Выставляем флаг 'started' вручную
++        game_states[table_id].setdefault("started", True)
++        await broadcast(table_id)
             # TODO: handle other WS actions like betting, folding...
 
     except WebSocketDisconnect:
