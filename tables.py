@@ -36,18 +36,24 @@ async def leave_table(table_id: int, user_id: str):
     return {"status": "ok", "players": users}
 
 @router.get("/tables")
-async def list_tables() -> list:
-    tables = []
+async def list_tables(level: int | None = None) -> dict:
+    """
+    Если level задан, фильтруем столы по идентификатору таблицы == level.
+    Иначе возвращаем все.
+    """
+    out = []
     for tid, (sb, bb, bi) in BLINDS.items():
+        if level is not None and tid != level:
+            continue
         users = seat_map.get(tid, [])
-        tables.append({
+        out.append({
             "id": tid,
             "small_blind": sb,
             "big_blind": bb,
             "buy_in": bi,
             "players": len(users),
         })
-    return tables
+    return {"tables": out}
 
 @router.post("/create")
 async def create_table(level: int) -> dict:
