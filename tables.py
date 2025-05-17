@@ -2,7 +2,9 @@ from fastapi import HTTPException
 from game_data import seat_map
 from game_engine import game_states, MIN_PLAYERS
 
-# Global blinds settings per level
+
+MIN_PLAYERS = 2
+
 BLINDS = {
     1: (1, 2, 100),
     2: (2, 4, 200),
