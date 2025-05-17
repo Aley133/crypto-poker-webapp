@@ -10,8 +10,15 @@ connections: Dict[int, List[WebSocket]] = {}
 # Persistent game states per table
 game_states: Dict[int, dict] = {}
 
-@router.websocket("/ws/{table_id}/{user_id}")
-async def ws_endpoint(websocket: WebSocket, table_id: int, user_id: str):
+@router.websocket("/ws/game/{table_id}")
+async def ws_endpoint(websocket: WebSocket, table_id: int):
+    # Extract user from query params
+    params = websocket.query_params
+    user_id = params.get("user_id")
+    if not user_id:
+        await websocket.close(code=4001)
+        return
+
     await websocket.accept()
     # Register connection
     conns = connections.setdefault(table_id, [])
@@ -61,5 +68,3 @@ async def broadcast(table_id: int):
     }
     for conn in conns:
         await conn.send_json(payload)
-
-
