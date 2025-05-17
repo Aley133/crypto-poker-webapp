@@ -57,16 +57,15 @@ async def ws_endpoint(websocket: WebSocket, table_id: int, user_id: str):
 
     except WebSocketDisconnect:
         # Cleanup on disconnect
-        if websocket in conns:
-            conns.remove(websocket)
+        if websocket in connections.get(table_id, []):
+            connections[table_id].remove(websocket)
         # Remove player from seat map as well
         leave_table(table_id, user_id)
-        # If too few connections, reset "started"
+        # Reset "started" if too few players
         state = game_states.get(table_id)
-        if state and len(conns) < MIN_PLAYERS:
+        if state and len(connections.get(table_id, [])) < MIN_PLAYERS:
             state.pop("started", None)
         await broadcast(table_id)
-
 
 async def broadcast(table_id: int):
     conns = connections.get(table_id, [])
@@ -80,37 +79,3 @@ async def broadcast(table_id: int):
     }
     for conn in conns:
         await conn.send_json(payload)
-```
-
-### tables.py
-```python
-from fastapi import APIRouter, HTTPException
-from typing import Dict, List
-
-router = APIRouter(prefix="/api")
-# Mapping from table_id to list of user_ids
-seat_map: Dict[int, List[str]] = {}
-
-@router.post("/join")
-async def join_table(table_id: int, user_id: str):
-    users = seat_map.setdefault(table_id, [])
-    # Prevent duplicate joins
-    if user_id not in users:
-        users.append(user_id)
-    return {"table_id": table_id, "users": users}
-
-@router.post("/leave")
-async def leave_table(table_id: int, user_id: str):
-    users = seat_map.get(table_id, [])
-    if user_id in users:
-        users.remove(user_id)
-    return {"table_id": table_id, "users": users}
-
-@router.get("/tables")
-async def list_tables():
-    return {"tables": list(seat_map.keys())}
-
-@router.get("/tables/{table_id}/users")
-async def get_table_users(table_id: int):
-    users = seat_map.get(table_id, [])
-    return {"table_id": table_id, "users": users}
