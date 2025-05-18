@@ -16,7 +16,10 @@ def new_deck() -> List[str]:
     return deck
 
 def start_hand(table_id: int):
-    players = seat_map.get(table_id, [])
+    # raw_ids — это список строк из seat_map
+    raw_ids = seat_map.get(table_id, [])
+    # приводим к int, чтобы дальше в state всё хранилось по числам
+    players = [int(uid) for uid in raw_ids]
     if len(players) < 2:
         return
 
@@ -35,8 +38,8 @@ def start_hand(table_id: int):
     bb_pid = players[bb_idx]
 
     bets = {uid: 0 for uid in players}
-    stacks[sb_pid] -= SB;  bets[sb_pid] = SB
-    stacks[bb_pid] -= BB;  bets[bb_pid] = BB
+    stacks[sb_pid] -= SB; bets[sb_pid] = SB
+    stacks[bb_pid] -= BB; bets[bb_pid] = BB
     pot = SB + BB
 
     first_idx = (bb_idx + 1) % len(players)
@@ -52,7 +55,7 @@ def start_hand(table_id: int):
         "current_bet":   BB,
         "current_player": first_pid,
         "stage":         "preflop",
-        "folded":        set(),       # кто сбросил
+        "folded":        set(),
         "usernames":     usernames,
     }
 
