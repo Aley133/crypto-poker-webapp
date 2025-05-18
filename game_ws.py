@@ -1,10 +1,9 @@
-import logging
-import json
-
+import sys
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from tables import join_table, leave_table, seat_map
-from game_engine import game_states, connections, start_hand, apply_action
+from game_engine import game_states, connections, start_hand, MIN_PLAYERS
+from broadcast import broadcast
 
 router = APIRouter()
 
@@ -55,58 +54,74 @@ async def broadcast(table_id: int):
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
     await websocket.accept()
+
     user_id = int(websocket.query_params["user_id"])
     username = websocket.query_params.get("username", str(user_id))
 
-    logging.info(f"[ws_game] ACCEPTED connection table={table_id} user={user_id} ({username})")
+    # 1. Новый WS-коннект
+    print(f"[ws_game] ACCEPTED connection table={table_id} user={user_id} ({username})",
+          file=sys.stdout, flush=True)
 
-    # Гарантируем join в seat_map
+    # 2. Убедимся, что пользователь в seat_map
     join_table(table_id, str(user_id))
-    logging.info(f"[ws_game] AFTER join_table: seat_map={seat_map.get(table_id)}")
+    print(f"[ws_game] AFTER join_table: seat_map={seat_map.get(table_id)}",
+          file=sys.stdout, flush=True)
 
-    # Регистрируем WS-коннект
+    # 3. Зарегистрируем username и сокет
     state = game_states.setdefault(table_id, {})
     state.setdefault("usernames", {})[user_id] = username
     conns = connections.setdefault(table_id, [])
     conns.append(websocket)
-    logging.info(f"[ws_game] CONNECTIONS now: {len(conns)} sockets for table {table_id}")
+    print(f"[ws_game] CONNECTIONS now: {len(conns)} sockets for table {table_id}",
+          file=sys.stdout, flush=True)
 
     try:
-        # Ветка ожидания
+        # 4a. Если игроков меньше минимума — просто ждем
         if len(conns) < MIN_PLAYERS:
-            logging.info(f"[ws_game] BROADCAST waiting: only {len(conns)} players")
+            print(f"[ws_game] BROADCAST waiting: only {len(conns)} players",
+                  file=sys.stdout, flush=True)
             await broadcast(table_id)
 
-        # Ветка старта новой руки
+        # 4b. Если достаточно игроков и рука не стартовала — стартуем
         elif not state.get("started", False):
-            logging.info(f"[ws_game] START_HAND for players={seat_map.get(table_id)}")
+            print(f"[ws_game] BEFORE start_hand: state={game_states.get(table_id)}",
+                  file=sys.stdout, flush=True)
             start_hand(table_id)
-            logging.info(f"[ws_game] AFTER start_hand: state={game_states.get(table_id)}")
+            print(f"[ws_game] AFTER start_hand: state={game_states.get(table_id)}",
+                  file=sys.stdout, flush=True)
             await broadcast(table_id)
 
-        # Ветка ongoing
+        # 4c. Игра уже идет — обновляем состояние
         else:
-            logging.info(f"[ws_game] BROADCAST ongoing: state={game_states.get(table_id)}")
+            print(f"[ws_game] BROADCAST ongoing: state={game_states.get(table_id)}",
+                  file=sys.stdout, flush=True)
             await broadcast(table_id)
 
-        # Главный цикл приёма ходов
+        # 5. Главный цикл приема ходов
         while True:
             data = await websocket.receive_text()
-            logging.info(f"[ws_game] RECEIVED from {user_id}: {data}")
-            # …обработка хода…
+            print(f"[ws_game] RECEIVED from {user_id}: {data}",
+                  file=sys.stdout, flush=True)
+            # здесь ваша логика обработки действия…
             await broadcast(table_id)
 
     except WebSocketDisconnect:
-        logging.info(f"[ws_game] DISCONNECT user={user_id} conns_before={len(conns)}")
+        # 6. Обработка отключения
+        print(f"[ws_game] DISCONNECT user={user_id}, conns_before={len(conns)}",
+              file=sys.stdout, flush=True)
         if websocket in conns:
             conns.remove(websocket)
-        logging.info(f"[ws_game] conns_after_remove={len(conns)}")
+        print(f"[ws_game] conns_after_remove={len(conns)}",
+              file=sys.stdout, flush=True)
 
-        # Убираем игрока
+        # 7. Убираем игрока из seat_map и очищаем state при необходимости
         leave_table(table_id, str(user_id))
-        logging.info(f"[ws_game] AFTER leave_table: seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}")
+        print(f"[ws_game] AFTER leave_table: seat_map={seat_map.get(table_id)}, "
+              f"state={game_states.get(table_id)}",
+              file=sys.stdout, flush=True)
 
-        logging.info(f"[ws_game] BROADCAST after disconnect")
+        # 8. Оповещаем оставшихся игроков
+        print(f"[ws_game] BROADCAST after disconnect", file=sys.stdout, flush=True)
         await broadcast(table_id)
         
 
