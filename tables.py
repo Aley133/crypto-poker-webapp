@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-import sys
+
 from game_data import seat_map
 from game_engine import game_states
 
@@ -70,38 +70,17 @@ def join_table(table_id: int, user_id: str) -> dict:
 
 def leave_table(table_id: int, user_id: str) -> dict:
     """
-    Убирает пользователя со стола (идемпотентно).
-    Всегда возвращает список текущих игроков,
-    и при недостатке игроков сбрасывает состояние руки.
+    Убирает пользователя со стола. Возвращает статус и список оставшихся игроков.
     """
-    users = seat_map.setdefault(table_id, [])
-
-    # Логируем до удаления
-    print(
-        f"[leave_table] BEFORE: seat_map={seat_map.get(table_id)}, "
-        f"state={game_states.get(table_id)}",
-        file=sys.stdout,
-        flush=True
-    )
-
-    # Удаляем только если игрок есть
-    if user_id in users:
-        users.remove(user_id)
-
-    # Если игроков стало меньше минимума — сбрасываем state
+    users = seat_map.get(table_id, [])
+    if user_id not in users:
+        raise HTTPException(status_code=400, detail="User not at table")
+    users.remove(user_id)
+    # Сбрасываем флаг начала игры, если игроков стало меньше минимума
     if len(users) < MIN_PLAYERS:
-        game_states[table_id] = {}
-
-    # Логируем после удаления
-    print(
-        f"[leave_table] AFTER:  seat_map={seat_map.get(table_id)}, "
-        f"state={game_states.get(table_id)}",
-        file=sys.stdout,
-        flush=True
-    )
-
+        game_states.get(table_id, {}).pop("started", None)
     return {"status": "ok", "players": users}
-    
+
 
 def get_balance(table_id: int, user_id: str) -> dict:
     """
