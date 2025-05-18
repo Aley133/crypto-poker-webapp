@@ -12,38 +12,42 @@ MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
 async def broadcast(table_id: int):
-    # Берём текущее состояние игры
     state = game_states.get(table_id)
     if state is None:
         return
 
-    # Копируем состояние, чтобы не менять оригинал
+    # Клонируем остальное состояние
     payload = state.copy()
 
-    # Мапа user_id → username, которую мы обновляем при подключении WS
+    # Словарь user_id(int) -> username
     usernames = state.get("usernames", {})
 
-    # Получаем список user_id в порядке «стула» из seat_map
+    # Список «сидящих» за столом (user_id в виде строки)
     player_ids = seat_map.get(table_id, [])
 
-    # Формируем новый payload["players"] с реальными именами
-    payload["players"] = [
-        {
+    # Формируем список игроков с правильными юзернеймами
+    players = []
+    for pid in player_ids:
+        # pid может быть строкой, приводим к int
+        try:
+            uid = int(pid)
+        except ValueError:
+            uid = pid  # если совсем странное значение, оставим как есть
+        name = usernames.get(uid, str(pid))
+        players.append({
             "user_id": pid,
-            "username": usernames.get(pid, str(pid))  # если имени нет — показываем pid
-        }
-        for pid in player_ids
-    ]
+            "username": name
+        })
 
-    # Принятое количество ws-соединений
+    payload["players"] = players
     payload["players_count"] = len(connections.get(table_id, []))
 
-    # Разошлём всем клиентам
     for ws in list(connections.get(table_id, [])):
         try:
             await ws.send_json(payload)
         except:
             pass
+
 
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
