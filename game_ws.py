@@ -16,30 +16,22 @@ async def broadcast(table_id: int):
     if state is None:
         return
 
-    # Клонируем остальное состояние
     payload = state.copy()
-
-    # Словарь user_id(int) -> username
     usernames = state.get("usernames", {})
 
-    # Список «сидящих» за столом (user_id в виде строки)
-    player_ids = seat_map.get(table_id, [])
-
-    # Формируем список игроков с правильными юзернеймами
+    raw_ids = seat_map.get(table_id, [])
     players = []
-    for pid in player_ids:
-        # pid может быть строкой, приводим к int
+    for pid_str in raw_ids:
         try:
-            uid = int(pid)
+            pid = int(pid_str)
         except ValueError:
-            uid = pid  # если совсем странное значение, оставим как есть
-        name = usernames.get(uid, str(pid))
+            pid = pid_str
         players.append({
-            "user_id": pid,
-            "username": name
+            "user_id": pid_str,            # фронту как строка
+            "username": usernames.get(pid, pid_str)
         })
 
-    payload["players"] = players
+    payload["players"]       = players
     payload["players_count"] = len(connections.get(table_id, []))
 
     for ws in list(connections.get(table_id, [])):
