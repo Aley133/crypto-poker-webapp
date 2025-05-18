@@ -74,14 +74,21 @@ async def ws_game(websocket: WebSocket, table_id: int):
     try:
         while True:
             data = await websocket.receive_text()
-            msg = json.loads(data)
-            apply_action(
-                table_id,
-                int(msg.get("user_id", -1)),
-                msg.get("action"),
-                int(msg.get("amount", 0))
-            )
+             msg = json.loads(data)
+
+        # если это sync-запрос — сразу рассылаем состояние
+        if msg.get("action") == "sync":
             await broadcast(table_id)
+            continue
+
+        # иначе — обычное действие
+        apply_action(
+            table_id,
+            int(msg.get("user_id", -1)),
+            msg.get("action"),
+            int(msg.get("amount", 0))
+        )
+        await broadcast(table_id)
 
     except WebSocketDisconnect:
         # Убираем соединение
