@@ -122,11 +122,18 @@ let ws;
   const initState = await getGameState(tableId);
   updateUI(initState);
   renderTable(initState);
-  ws = createWebSocket(tableId, userId, username, e => {
-    const state = JSON.parse(e.data);
-    updateUI(state);
-    renderTable(state);
-  });
+  // пропишите так
+ws = createWebSocket(tableId, userId, username, e => {
+  const state = JSON.parse(e.data);
+  updateUI(state);
+  renderTable(state);
+});
+
+// сразу после этого
+ws.onopen = () => {
+  // шлём «запрос синхронизации»
+  ws.send(JSON.stringify({ action: 'sync' }));
+};
 })();
 
 // Обработка кнопки «Покинуть стол»
