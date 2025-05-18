@@ -3,7 +3,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from tables import join_table, leave_table, seat_map
 from game_engine import game_states, connections, start_hand, MIN_PLAYERS
-from broadcast import broadcast
+
 
 router = APIRouter()
 
@@ -49,6 +49,20 @@ async def broadcast(table_id: int):
             await ws.send_json(payload)
         except:
             pass
+
+async def broadcast(table_id: int):
+    """
+    Отправляет game_states[table_id] всем WebSocket в connections[table_id].
+    """
+    state = game_states.get(table_id, {})
+    payload = json.dumps(state)
+    conns = connections.setdefault(table_id, [])
+    for ws in conns.copy():
+        try:
+            await ws.send_text(payload)
+        except:
+            conns.remove(ws)
+
 
 
 @router.websocket("/ws/game/{table_id}")
