@@ -98,6 +98,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
             )
             await broadcast(table_id)
 
+    
      except WebSocketDisconnect:
         # Убираем это соединение из списка
         conns = connections.get(table_id, [])
