@@ -84,22 +84,23 @@ function polarToCartesian(cx, cy, r, deg) {
 function renderTable(state) {
   pokerTableEl.innerHTML = '';
   const players = state.players || [];
-  const cx = pokerTableEl.clientWidth/2;
-  const cy = pokerTableEl.clientHeight/2;
-  const radius = cx - 60;
+  const cx = pokerTableEl.clientWidth / 2;
+  const cy = pokerTableEl.clientHeight / 2;
+  const radius = cx - 80; // отступ чуть больше, чтобы карты не вылезали за край
 
   players.forEach((p, idx) => {
-    const angle = 360*idx/players.length + 180;
+    const angle = 360 * idx / players.length + 180;
     const pos   = polarToCartesian(cx, cy, radius, angle);
 
     const seat = document.createElement('div');
     seat.className = 'player-seat';
-    // Выделить активного игрока
+    // Выделить активного
     if (p.user_id.toString() === state.current_player.toString()) {
       seat.classList.add('active-player');
     }
-    seat.style.left = `${pos.x}px`;
-    seat.style.top  = `${pos.y}px`;
+    // центрируем по середине
+    seat.style.left = `${pos.x - 50}px`;
+    seat.style.top  = `${pos.y - 30}px`;
 
     // Имя
     const nameEl = document.createElement('div');
@@ -112,14 +113,14 @@ function renderTable(state) {
     stackEl.textContent = `Stack: ${state.stacks[p.user_id]}`;
     seat.appendChild(stackEl);
 
-    // Ставка в раунде
+    // Ставка
     const betEl = document.createElement('div');
     betEl.className = 'player-bet';
     betEl.textContent = `Bet: ${state.bets[p.user_id]||0}`;
     seat.appendChild(betEl);
 
     // Карманные карты
-    const hand = state.hole_cards[p.user_id]||[];
+    const hand = state.hole_cards[p.user_id] || [];
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     hand.forEach(card => {
@@ -133,9 +134,19 @@ function renderTable(state) {
     pokerTableEl.appendChild(seat);
   });
 }
+  });
+}
 
 let ws;
 (async () => {
+  // Начальное HTTP- sync для надёжности
+  try {
+    const initState = await getGameState(tableId);
+    updateUI(initState);
+    renderTable(initState);
+  } catch (err) {
+    console.error('Init error', err);
+  }
   // Устанавливаем WebSocket
   ws = createWebSocket(tableId, userId, username, e => {
     const state = JSON.parse(e.data);
@@ -144,6 +155,7 @@ let ws;
   });
   // При открытии просим синхронизацию
   ws.onopen = () => ws.send(JSON.stringify({ action: 'sync' }));
+})();(JSON.stringify({ action: 'sync' }));
 })();
 
 // Кнопка «Покинуть стол»
