@@ -76,10 +76,11 @@ def leave_table(table_id: int, user_id: str) -> dict:
     if user_id not in users:
         raise HTTPException(status_code=400, detail="User not at table")
     users.remove(user_id)
-    # Сбрасываем флаг начала игры, если игроков стало меньше минимума
+
+    # Если стало меньше нужного числа игроков — полностью сбрасываем состояние руки
     if len(users) < MIN_PLAYERS:
-    # создаём «пустой» state — на следующем старте он будет инициализирован заново
-    game_states[table_id] = {}
+        game_states[table_id] = {}
+
     return {"status": "ok", "players": users}
 
 
