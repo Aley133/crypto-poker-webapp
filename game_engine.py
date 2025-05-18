@@ -1,4 +1,3 @@
-# game_engine.py
 import random
 from typing import Dict, List
 from game_data import seat_map
@@ -16,52 +15,52 @@ def new_deck() -> List[str]:
     return deck
 
 def start_hand(table_id: int):
-    # Берём raw-список (строки) и приводим к int
+    # Берём из seat_map список строковых ID, приводим к int
     raw = seat_map.get(table_id, [])
     players = [int(u) for u in raw]
     if len(players) < 2:
         return
 
-    # Сохраняем старую мапу username (если была)
+    # Сохраняем старую мапу user_id → username
     old = game_states.get(table_id, {})
     usernames = old.get("usernames", {})
 
-    # Готовим новую колоду и раздаём карманные карты
+    # Колода и карманные карты
     deck = new_deck()
     hole = {uid: [deck.pop(), deck.pop()] for uid in players}
 
-    # Инициализируем стеки
+    # Стек каждого
     stacks = {uid: STARTING_STACK for uid in players}
 
-    # Блайнды
+    # Малый и большой блайнд
     SB, BB = 5, 10
     sb_idx = 1 % len(players)
     bb_idx = 2 % len(players)
     sb_pid = players[sb_idx]
     bb_pid = players[bb_idx]
 
-    # Списываем блайнды и фиксируем их ставки
+    # Списываем блайнды
     bets = {uid: 0 for uid in players}
     stacks[sb_pid] -= SB;  bets[sb_pid] = SB
     stacks[bb_pid] -= BB;  bets[bb_pid] = BB
     pot = SB + BB
 
-    # Первый ход — игрок сразу после большого блайнда
+    # Первый ход — после большого блайнда
     first_pid = players[(bb_idx + 1) % len(players)]
 
-    # Собираем состояние
+    # Сохраняем в game_states
     game_states[table_id] = {
-        "hole_cards":     hole,       # ваши две карты
-        "community":      [],         # флоп/терн/ривер
-        "deck":           deck,       # остаток колоды
-        "stacks":         stacks,     # сколько у кого фишек
-        "bets":           bets,       # сколько уже поставил каждый
-        "pot":            pot,        # общий пот
-        "current_bet":    BB,         # ставка для уравнивания
-        "current_player": first_pid,  # чей ход
-        "stage":          "preflop",  # стадия раунда
-        "folded":         set(),      # кто сбросил
-        "usernames":      usernames,  # map user_id→username
+        "hole_cards":     hole,
+        "community":      [],
+        "deck":           deck,
+        "stacks":         stacks,
+        "bets":           bets,
+        "pot":            pot,
+        "current_bet":    BB,
+        "current_player": first_pid,
+        "stage":          "preflop",
+        "folded":         set(),
+        "usernames":      usernames,
     }
 
 def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
@@ -69,23 +68,25 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
     if not state or uid not in state["stacks"]:
         return
 
-    # 1) Проверяем очередь
+    # Ходить может только current_player
     if uid != state["current_player"]:
         return
 
+    # Активные (не сбросившие и с фишками)
     players = [int(u) for u in seat_map.get(table_id, [])]
     folded  = state["folded"]
     active  = [p for p in players if p not in folded and state["stacks"][p] > 0]
 
-    # 2) Обработка действия
+    # 1) fold
     if action == "fold":
         folded.add(uid)
 
+    # 2) check
     elif action == "check":
-        # можно только если ставка у вас уже равна current_bet
         if state["bets"][uid] != state["current_bet"]:
             return
 
+    # 3) call
     elif action == "call":
         to_call = state["current_bet"] - state["bets"][uid]
         to_call = min(to_call, state["stacks"][uid])
@@ -93,8 +94,8 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
         state["bets"][uid]   += to_call
         state["pot"]        += to_call
 
+    # 4) bet / raise
     elif action in ("bet","raise"):
-        # новая ставка должна быть больше текущей
         if amount <= state["current_bet"]:
             return
         delta = amount - state["bets"][uid]
@@ -105,20 +106,20 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
         state["current_bet"] = state["bets"][uid]
 
     else:
-        return  # неизвестное действие
+        return
 
-    # 3) Считаем активных снова
+    # Пересчитаем активных
     active = [p for p in players if p not in folded and state["stacks"][p] > 0]
     # Если остался один — сразу шоудаун
     if len(active) <= 1:
         state["stage"] = "showdown"
         return
 
-    # 4) Меняем ход
+    # Переходим к следующему игроку
     idx = active.index(uid)
     state["current_player"] = active[(idx + 1) % len(active)]
 
-    # 5) Если все активные уже уравняли ставки — переходим на next stage
+    # Если все уравняли ставки — новая стадия
     if all(state["bets"][p] == state["current_bet"] for p in active):
         next_stage = {
             "preflop": "flop",
@@ -128,7 +129,7 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
         }[state["stage"]]
         state["stage"] = next_stage
 
-        # Сбрасываем ставки, готовим новую ставку
+        # Сброс ставок
         for p in active:
             state["bets"][p] = 0
         state["current_bet"] = 0
@@ -140,5 +141,5 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
         elif next_stage in ("turn","river"):
             state["community"].append(state["deck"].pop())
 
-        # Ходит первый активный
+        # Первый ход — первый активный
         state["current_player"] = active[0]
