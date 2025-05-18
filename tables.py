@@ -1,3 +1,4 @@
+### tables.py
 from fastapi import HTTPException
 from game_data import seat_map
 from game_engine import game_states
@@ -5,22 +6,22 @@ from game_engine import game_states
 # Минимальное число игроков для старта
 MIN_PLAYERS = 2
 
-# Глобальные настройки блайндов по уровням
+# Global blinds settings per level
 BLINDS = {
     1: (1, 2, 100),
     2: (2, 4, 200),
     3: (5, 10, 500),
 }
 
-# Инициализируем состояния для предустановленных столов
+# Initialize game_states for predefined tables
 for tid in BLINDS.keys():
     game_states.setdefault(tid, {})
 
 
 def list_tables(level: int | None = None) -> list:
     """
-    Возвращает список столов с параметрами и числом игроков.
-    Если level задан, фильтрует только по нему.
+    Returns list of tables with parameters and current player counts.
+    If level is provided, filters by that table only.
     """
     out = []
     for tid, (sb, bb, bi) in BLINDS.items():
@@ -39,7 +40,7 @@ def list_tables(level: int | None = None) -> list:
 
 def create_table(level: int) -> dict:
     """
-    Создает новый стол заданного уровня. Возвращает его параметры.
+    Creates a new table for the given level. Returns its parameters.
     """
     if level not in BLINDS:
         raise HTTPException(status_code=400, detail="Invalid level")
@@ -59,7 +60,7 @@ def create_table(level: int) -> dict:
 
 def join_table(table_id: int, user_id: str) -> dict:
     """
-    Добавляет пользователя за стол, если его там нет.
+    Adds the user to the table if not present. Returns status and players.
     """
     users = seat_map.setdefault(table_id, [])
     if user_id not in users:
@@ -69,7 +70,7 @@ def join_table(table_id: int, user_id: str) -> dict:
 
 def leave_table(table_id: int, user_id: str) -> dict:
     """
-    Убирает пользователя со стола, если он там есть.
+    Removes the user from the table if present. Returns status and players.
     """
     users = seat_map.get(table_id, [])
     if user_id in users:
@@ -82,7 +83,8 @@ def leave_table(table_id: int, user_id: str) -> dict:
 
 def get_balance(table_id: int, user_id: str) -> dict:
     """
-    Возвращает баланс (стек) пользователя на столе.
+    Returns the current stack of the user at the table.
     """
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
+
