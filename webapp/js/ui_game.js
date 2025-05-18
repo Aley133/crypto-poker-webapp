@@ -55,30 +55,55 @@ function polarToCartesian(cx, cy, r, deg) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-// Рисуем игроков и общие карты по кругу стола
 function renderTable(state) {
   pokerTableEl.innerHTML = '';
   const players = state.players || [];
+
+  // 1) Делим на “вас” + всех остальных
+  const meIdx = players.findIndex(p => String(p.user_id) === userId);
+  // если по какой-то причине не нашли — оставляем оригинальный порядок
+  const ordered = meIdx >= 0
+    ? players.slice(meIdx).concat(players.slice(0, meIdx))
+    : players;
+
   const cx = pokerTableEl.clientWidth / 2;
   const cy = pokerTableEl.clientHeight / 2;
   const radius = cx - 60;
 
-  // Отрисовка общих карт в центре
-  const community = state.community_cards ?? state.community ?? [];
-  if (community.length) {
-    const commEl = document.createElement('div');
-    commEl.className = 'cards';
-    commEl.style.position = 'absolute';
-    commEl.style.left = `${cx - (community.length * 20)}px`;
-    commEl.style.top  = `${cy - 20}px`;
-    community.forEach(card => {
-      const cc = document.createElement('div');
-      cc.className = 'card';
-      cc.textContent = card;
-      commEl.appendChild(cc);
+  // … дальше идёт отрисовка community-карт …
+
+  // 2) Теперь рендерим “ordered” вместо “players”
+  ordered.forEach((p, idx) => {
+    // угол так, чтобы idx=0 (вы) был внизу (180°), остальные вокруг круга
+    const angle = 360 * idx / ordered.length + 180;
+    const pos   = polarToCartesian(cx, cy, radius, angle);
+
+    // создаём место игрока
+    const seat = document.createElement('div');
+    seat.className = 'player-seat';
+    seat.style.left = `${pos.x}px`;
+    seat.style.top  = `${pos.y}px`;
+
+    // имя
+    const nameEl = document.createElement('div');
+    nameEl.textContent = p.username;
+    seat.appendChild(nameEl);
+
+    // карманные карты: только свои лицом, у остальных рубашка
+    const hand = (state.hole_cards ?? state.hands ?? {})[String(p.user_id)] || [];
+    const cardsEl = document.createElement('div');
+    cardsEl.className = 'cards';
+    hand.forEach(card => {
+      const c = document.createElement('div');
+      c.className = 'card';
+      c.textContent = String(p.user_id) === userId ? card : '🂠';
+      cardsEl.appendChild(c);
     });
-    pokerTableEl.appendChild(commEl);
-  }
+    seat.appendChild(cardsEl);
+
+    pokerTableEl.appendChild(seat);
+  });
+}
 
   // Карты игроков
   const holeMap = state.hole_cards ?? state.hands ?? {};
