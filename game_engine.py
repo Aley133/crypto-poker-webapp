@@ -17,19 +17,18 @@ def new_deck() -> List[str]:
 
 def start_hand(table_id: int):
     players = seat_map.get(table_id, [])
-    if not players: return
+    if not players:
+        return
     deck = new_deck()
     hole = {uid: [deck.pop(), deck.pop()] for uid in players}
     stacks = {uid: STARTING_STACK for uid in players}
     game_states[table_id] = {
-        # чтобы broadcast точно знал, кто играет
-        "players": players.copy(),
+        "players": players.copy(),      # <-- здесь
         "hole_cards": hole,
         "community": [],
         "stacks": stacks,
         "pot": 0,
         "current_player": players[0],
-        # "deck": deck
     }
 
 def apply_action(table_id: int, uid: int, action: str, amount: int=0):
