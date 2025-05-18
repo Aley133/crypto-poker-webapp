@@ -108,14 +108,15 @@ async def ws_game(websocket: WebSocket, table_id: int):
             await broadcast(table_id)
 
     except WebSocketDisconnect:
-        # Убираем это соединение
-        if websocket in conns:
-            conns.remove(websocket)
-        # Если игроков стало меньше минимума — полностью сбрасываем стол
-        if len(conns) < MIN_PLAYERS:
-            connections.pop(table_id, None)
-            game_states.pop(table_id, None)
-        # Оповещаем остальных (или возвращаем их в лобби)
+        # 1) Убираем это соединение из списка
+        if websocket in connections.get(table_id, []):
+            connections[table_id].remove(websocket)
+
+        # 2) Если теперь игроков < MIN_PLAYERS — сбрасываем только содержимое state (карты, ставки и т.п.)
+        if len(connections.get(table_id, [])) < MIN_PLAYERS:
+            game_states[table_id].clear()
+
+        # 3) Оповещаем оставшихся (отрисовкой «Ожидаем игроков (x/2)»)
         await broadcast(table_id)
 
 @router.get("/api/game_state")
