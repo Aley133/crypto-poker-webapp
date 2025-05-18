@@ -1,13 +1,9 @@
-# game_ws.py
-
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
-from game_data import seat_map
 from game_engine import game_states, connections, start_hand, apply_action
+from game_data import seat_map
 
 router = APIRouter()
-
-# Минимальное и максимальное число игроков
 MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
@@ -26,10 +22,8 @@ async def broadcast(table_id: int):
             pid = int(pid_str)
         except ValueError:
             pid = pid_str
-        players.append({
-            "user_id": pid_str,
-            "username": usernames.get(pid, pid_str)
-        })
+        name = usernames.get(pid, pid_str)
+        players.append({"user_id": pid_str, "username": name})
 
     payload["players"] = players
     payload["players_count"] = len(connections.get(table_id, []))
@@ -65,15 +59,12 @@ async def ws_game(websocket: WebSocket, table_id: int):
         return
     conns.append(websocket)
 
-    # Логика старта
-    if len(conns) < MIN_PLAYERS:
-        await broadcast(table_id)
-    elif not game_states[table_id].get("started", False):
+    # Логика старта: при ровно MIN_PLAYERS сначала запускаем раздачу
+    if len(conns) == MIN_PLAYERS and not game_states[table_id].get("started", False):
         start_hand(table_id)
         game_states[table_id]["started"] = True
-        await broadcast(table_id)
-    else:
-        await broadcast(table_id)
+    # Оповещаем всех
+    await broadcast(table_id)
 
     try:
         while True:
@@ -89,11 +80,12 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
     except WebSocketDisconnect:
         # Убираем соединение
-        if websocket in connections.get(table_id, []):
-            connections[table_id].remove(websocket)
+        conns = connections.get(table_id, [])
+        if websocket in conns:
+            conns.remove(websocket)
 
-        # Если игроков стало меньше минимума — сбрасываем только раздачу
-        if len(connections.get(table_id, [])) < MIN_PLAYERS:
+        # Если игроков стало меньше минимума — сбрасываем текущую раздачу
+        if len(conns) < MIN_PLAYERS:
             saved_usernames = game_states[table_id].get("usernames", {})
             game_states[table_id].clear()
             game_states[table_id]["usernames"] = saved_usernames
