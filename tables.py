@@ -78,7 +78,8 @@ def leave_table(table_id: int, user_id: str) -> dict:
     users.remove(user_id)
     # Сбрасываем флаг начала игры, если игроков стало меньше минимума
     if len(users) < MIN_PLAYERS:
-        game_states.get(table_id, {}).pop("started", None)
+    # создаём «пустой» state — на следующем старте он будет инициализирован заново
+    game_states[table_id] = {}
     return {"status": "ok", "players": users}
 
 
