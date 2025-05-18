@@ -1,4 +1,5 @@
 import sys
+import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from tables import join_table, leave_table, seat_map
