@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-
+import logging
 from game_data import seat_map
 from game_engine import game_states
 
@@ -74,19 +74,21 @@ def leave_table(table_id: int, user_id: str) -> dict:
     Всегда возвращает список текущих игроков,
     и при недостатке игроков сбрасывает состояние руки.
     """
-     logging.info(f"[leave_table] до: seat_map={seat_map[table_id]}, state={game_states.get(table_id)}")
-
     users = seat_map.setdefault(table_id, [])
 
-    # Удаляем только если игрок есть в списке
+    # Логируем до удаления
+    logging.info(f"[leave_table] before: seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}")
+
+    # Удаляем только если игрок есть
     if user_id in users:
         users.remove(user_id)
 
-    # Если игроков стало меньше минимума — полностью сбрасываем состояние руки
+    # Если игроков стало меньше минимума — сбрасываем state
     if len(users) < MIN_PLAYERS:
         game_states[table_id] = {}
-        
-    logging.info(f"[leave_table] после: seat_map={seat_map[table_id]}, state={game_states.get(table_id)}")
+
+    # Логируем после удаления
+    logging.info(f"[leave_table] after:  seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}")
 
     return {"status": "ok", "players": users}
 
