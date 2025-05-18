@@ -108,21 +108,19 @@ async def ws_game(websocket: WebSocket, table_id: int):
             )
             await broadcast(table_id)
 
-    except WebSocketDisconnect:
-        # 1) Убираем WS-соединение из списка активных
+except WebSocketDisconnect:
+        # 1) Удаляем само WS-соединение
         if websocket in conns:
             conns.remove(websocket)
 
-        # 2) Убираем игрока из seat_map и полностью сбрасываем состояние,
-        #    если игроков стало меньше минимального
+        # 2) Удаляем игрока из seat_map и очищаем состояние через leave_table
         if user_id is not None:
             try:
                 leave_table(table_id, str(user_id))
             except Exception:
-                # на случай, если игрока уже нет в списке
                 pass
 
-        # 3) Оповещаем оставшихся игроков о новом состоянии
+        # 3) Оповещаем всех оставшихся
         await broadcast(table_id)
 
 @router.get("/api/game_state")
