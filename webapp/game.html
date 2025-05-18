@@ -2,31 +2,37 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Crypto Poker</title>
+  <title>Crypto Poker — Стол</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Кнопка «закрыть» и область с номером стола -->
-  <button id="close-btn" onclick="location.href='index.html'">✕ Close</button>
-  <h1>Стол <span id="table-id"></span></h1>
+  <!-- Заголовок -->
+  <header>
+    <h1>Стол <span id="table-id"></span></h1>
+    <div class="user-info">
+      <!-- Здесь можете показывать аватарки, баланс и т.п. -->
+    </div>
+  </header>
 
-  <!-- Круглый стол, карточки игроков отрисуются сюда -->
+  <!-- Круглый стол -->
   <div id="poker-table"></div>
 
-  <!-- Инфо о состоянии игры -->
+  <!-- Статус, Пот и Ставка -->
   <div id="game-info">
     <div id="status">Ожидаем игроков…</div>
     <div id="pot">Пот: 0</div>
     <div id="current-bet">Текущая ставка: 0</div>
   </div>
 
-  <!-- Кнопки ваших действий (fold, check, call, bet, raise) -->
+  <!-- Кнопки действий игрока -->
   <div id="actions" style="display:none;"></div>
 
-  <!-- Кнопка «Покинуть стол» -->
-  <button id="leave-btn">Покинуть стол</button>
+  <!-- Кнопка выхода из стола -->
+  <div style="text-align:center; margin:20px 0;">
+    <button id="leave-btn">Покинуть стол</button>
+  </div>
 
-  <!-- Наш единый модуль, который подхватит api.js и ws.js и отрисует всё -->
+  <!-- Подключаем только наш UI-модуль -->
   <script type="module" src="/js/ui_game.js"></script>
 </body>
 </html>
