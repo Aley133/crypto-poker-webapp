@@ -13,9 +13,25 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-// Для отладки выводим состояние в консоль
+// Для отладки: выводим состояние в консоль
 function logState(state) {
     console.log('Game state:', state);
+}
+
+// Утилиты для извлечения карт
+function getHoleCardsMap(state) {
+    return state.hole_cards 
+        ?? state.hands 
+        ?? state.holeCards 
+        ?? state.player_hands 
+        ?? {};
+}
+
+function getCommunityCards(state) {
+    return state.community_cards 
+        ?? state.communityCards 
+        ?? state.community 
+        ?? [];
 }
 
 // Обновление UI: статус, пот, ставки и кнопки
@@ -30,7 +46,6 @@ function updateUI(state) {
         actionsEl.style.display = 'flex';
     }
 
-    // Отображение стеков, ставок не нужно здесь — они в renderTable при необходимости
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || state.currentBet || 0}`;
 
@@ -64,6 +79,9 @@ function renderTable(state) {
     const cy = pokerTableEl.clientHeight / 2;
     const radius = cx - 60;
 
+    const holeMap = getHoleCardsMap(state);
+    const community = getCommunityCards(state);
+
     players.forEach((p, idx) => {
         const angle = 360 * idx / players.length + 180;
         const pos = polarToCartesian(cx, cy, radius, angle);
@@ -79,7 +97,7 @@ function renderTable(state) {
         seat.appendChild(nameEl);
 
         // Карты игрока
-        const hand = state.hole_cards?.[p.user_id] || state.hands?.[p.user_id] || [];
+        const hand = holeMap[p.user_id] || [];
         const cardsEl = document.createElement('div');
         cardsEl.className = 'cards';
         hand.forEach(card => {
@@ -89,6 +107,22 @@ function renderTable(state) {
             cardsEl.appendChild(c);
         });
         seat.appendChild(cardsEl);
+
+        // Общие карты (один раз в центре)
+        if (idx === 0) {
+            const commEl = document.createElement('div');
+            commEl.className = 'cards';
+            commEl.style.position = 'absolute';
+            commEl.style.left = `${cx - community.length * 20}px`;
+            commEl.style.top  = `${cy - 20}px`;
+            community.forEach(card => {
+                const cc = document.createElement('div');
+                cc.className = 'card';
+                cc.textContent = card;
+                commEl.appendChild(cc);
+            });
+            pokerTableEl.appendChild(commEl);
+        }
 
         pokerTableEl.appendChild(seat);
     });
