@@ -35,6 +35,3 @@ export async function getGameState(tableId) {
   return await res.json();
 }
 
-export default {
-  listTables, createTable, joinTable, getBalance, getGameState
-};
