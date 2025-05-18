@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
+from tables import leave_table
 
 from game_engine import game_states, connections, start_hand, apply_action
 
@@ -108,13 +109,20 @@ async def ws_game(websocket: WebSocket, table_id: int):
             await broadcast(table_id)
 
     except WebSocketDisconnect:
-        # Убираем при отключении
+        # 1) Убираем WS-соединение из списка активных
         if websocket in conns:
             conns.remove(websocket)
-        # Сбрасываем started, если слишком мало игроков
-        if len(conns) < MIN_PLAYERS:
-            game_states[table_id].pop("started", None)
-        # Оповещаем остальных
+
+        # 2) Убираем игрока из seat_map и полностью сбрасываем состояние,
+        #    если игроков стало меньше минимального
+        if user_id is not None:
+            try:
+                leave_table(table_id, str(user_id))
+            except Exception:
+                # на случай, если игрока уже нет в списке
+                pass
+
+        # 3) Оповещаем оставшихся игроков о новом состоянии
         await broadcast(table_id)
 
 @router.get("/api/game_state")
