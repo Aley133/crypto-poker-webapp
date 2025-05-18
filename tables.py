@@ -70,12 +70,15 @@ def join_table(table_id: int, user_id: str) -> dict:
 
 def leave_table(table_id: int, user_id: str) -> dict:
     """
-    Убирает пользователя со стола. Возвращает статус и список оставшихся игроков.
+    Убирает пользователя со стола (идемпотентно). 
+   Всегда возвращает список текущих игроков, 
+    и при недостатке игроков сбрасывает состояние руки.
     """
-    users = seat_map.get(table_id, [])
-    if user_id not in users:
-        raise HTTPException(status_code=400, detail="User not at table")
-    users.remove(user_id)
+   users = seat_map.setdefault(table_id, [])
+
+   # Удаляем только если игрок есть в списке
+    if user_id in users:
+        users.remove(user_id)
 
     # Если стало меньше нужного числа игроков — полностью сбрасываем состояние руки
     if len(users) < MIN_PLAYERS:
