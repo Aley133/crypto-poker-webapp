@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
-
+from game_data import seat_map
 from game_engine import game_states, connections, start_hand, apply_action
 
 router = APIRouter()
@@ -12,38 +12,22 @@ MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
 async def broadcast(table_id: int):
-    """
-    Шлёт всем WS-клиентам текущее состояние игры,
-    дополняя его списком игроков с их username и
-    полем players_count.
-    """
     state = game_states.get(table_id)
     if state is None:
         return
 
-    # Берём копию «сырого» state
     payload = state.copy()
-
-    # Маппинг из user_id → username 
-    # (пополняется в ws_game при подключении)
     usernames = state.get("usernames", {})
 
-    # Игроки приходят из HTTP-логики game_engine
-    player_ids = state.get("players", [])
+    # Тянем игроков из seat_map, а не из state["players"]
+    player_ids = seat_map.get(table_id, [])
 
-    # Формируем новый payload["players"]
     payload["players"] = [
-        {
-            "user_id": pid,
-            "username": usernames.get(pid, str(pid))
-        }
+        {"user_id": pid, "username": usernames.get(pid, str(pid))}
         for pid in player_ids
     ]
-
-    # Сколько WS-соединений сейчас активно на этом столе
     payload["players_count"] = len(connections.get(table_id, []))
 
-    # Рассылаем всем
     for ws in list(connections.get(table_id, [])):
         try:
             await ws.send_json(payload)
