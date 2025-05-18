@@ -16,29 +16,47 @@ def new_deck() -> List[str]:
     return deck
 
 def start_hand(table_id: int):
-    # Получаем список юзеров из seat_map
     players = seat_map.get(table_id, [])
-    if not players:
+    if len(players) < 2:
         return
 
-    # Сохраняем старую мапу user_id → username, если она есть
     old_state = game_states.get(table_id, {})
     usernames = old_state.get("usernames", {})
 
-    # Новая колода и раздача карманных карт
     deck = new_deck()
     hole = {uid: [deck.pop(), deck.pop()] for uid in players}
-
-    # Инициализация стеков
     stacks = {uid: STARTING_STACK for uid in players}
 
-    # Собираем новое состояние, включая usernames
+    SB = 5
+    BB = 10
+    # small blind — второй игрок в списке, big blind — третий (или первому, если всего двое)
+    sb_idx = 1 % len(players)
+    bb_idx = 2 % len(players)
+    sb_pid = players[sb_idx]
+    bb_pid = players[bb_idx]
+
+    # инициализируем ставки
+    bets = {uid: 0 for uid in players}
+    # списываем блайнды
+    stacks[sb_pid] -= SB
+    stacks[bb_pid] -= BB
+    bets[sb_pid] = SB
+    bets[bb_pid] = BB
+    pot = SB + BB
+
+    # первый ход — игрок после big blind
+    first_to_act_idx = (bb_idx + 1) % len(players)
+    first_pid = players[first_to_act_idx]
+
     game_states[table_id] = {
         "hole_cards": hole,
         "community": [],
         "stacks": stacks,
-        "pot": 0,
-        "current_player": players[0],
+        "bets": bets,
+        "pot": pot,
+        "current_bet": BB,
+        "current_player": first_pid,
+        "stage": "preflop",
         "usernames": usernames,
     }
 
