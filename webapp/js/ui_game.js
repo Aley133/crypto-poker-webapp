@@ -14,10 +14,11 @@ const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
 // Для отладки выводим состояние в консоль
-def function logState(state) {
+function logState(state) {
     console.log('Game state:', state);
 }
 
+// Обновление UI: статус, пот, ставки и кнопки
 function updateUI(state) {
     logState(state);
 
@@ -29,12 +30,11 @@ function updateUI(state) {
         actionsEl.style.display = 'flex';
     }
 
-    const hole = state.hole_cards?.[userId] || state.hands?.[userId] || [];
-    const community = state.community_cards || state.community || [];
-
+    // Отображение стеков, ставок не нужно здесь — они в renderTable при необходимости
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || state.currentBet || 0}`;
 
+    // Кнопки действий
     actionsEl.innerHTML = '';
     ['fold','check','call','bet','raise'].forEach(act => {
         const btn = document.createElement('button');
@@ -50,11 +50,13 @@ function updateUI(state) {
     });
 }
 
+// Полярные координаты -> экранные
 function polarToCartesian(cx, cy, r, deg) {
     const rad = (deg - 90) * Math.PI / 180;
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
+// Рисуем игроков по кругу стола
 function renderTable(state) {
     pokerTableEl.innerHTML = '';
     const players = state.players || [];
@@ -71,12 +73,15 @@ function renderTable(state) {
         seat.style.left = `${pos.x}px`;
         seat.style.top  = `${pos.y}px`;
 
+        // Имя игрока
         const nameEl = document.createElement('div');
         nameEl.textContent = p.username;
         seat.appendChild(nameEl);
 
+        // Карты игрока
         const hand = state.hole_cards?.[p.user_id] || state.hands?.[p.user_id] || [];
         const cardsEl = document.createElement('div');
+        cardsEl.className = 'cards';
         hand.forEach(card => {
             const c = document.createElement('div');
             c.className = 'card';
@@ -107,7 +112,8 @@ let ws;
     });
 })();
 
+// Обработка кнопки «Покинуть стол»
 leaveBtn.onclick = async () => {
     await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-    location.href = 'index.html';
+    window.location.href = 'index.html';
 };
