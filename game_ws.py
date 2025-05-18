@@ -1,10 +1,9 @@
-# game_ws.py
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-import json
-from tables import join_table, leave_table
+from fastapi import WebSocket, WebSocketDisconnect
 
-from game_engine import game_states, connections, start_hand, apply_action
+from tables import seat_map, game_states, join_table, leave_table
+from game_engine import start_hand, MIN_PLAYERS
+from broadcast import broadcast, connections
 
 router = APIRouter()
 
