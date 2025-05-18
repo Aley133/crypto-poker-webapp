@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
-from tables import leave_table
+from tables import join_table, leave_table
 
 from game_engine import game_states, connections, start_hand, apply_action
 
@@ -59,11 +59,9 @@ async def ws_game(websocket: WebSocket, table_id: int):
     # Получаем user_id и username из query params
     user_id = int(websocket.query_params["user_id"])
     username = websocket.query_params.get("username", str(user_id))
-    # Регистрируем username
+    join_table(table_id, str(user_id))
     state = game_states.setdefault(table_id, {})
     state.setdefault("usernames", {})[user_id] = username
-
-    # Добавляем соединение
     conns = connections.setdefault(table_id, [])
     conns.append(websocket)
 
