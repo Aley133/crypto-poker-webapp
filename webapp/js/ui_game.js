@@ -1,7 +1,6 @@
 import { getGameState } from './api.js';
 import { createWebSocket } from './ws.js';
 
-// URL-параметры
 const params = new URLSearchParams(window.location.search);
 const tableId = params.get('table_id');
 const userId  = params.get('user_id');
@@ -18,26 +17,29 @@ const actionsEl    = document.getElementById('actions');
 const pokerTableEl = document.getElementById('poker-table');
 const leaveBtn     = document.getElementById('leave-btn');
 
-// Показать номер стола
+// Отобразить номер стола
 tableIdEl.textContent = tableId;
 
-// Обновление UI
+// Обновление UI: статус, этап, пот, ставка, общие карты и кнопки
 function updateUI(state) {
-  // статус
   if (!state.started) {
     statusEl.textContent = `Ожидаем игроков… (${state.players_count || 0}/2)`;
+    stageEl.textContent  = '';
     actionsEl.style.display = 'none';
-  } else {
-    statusEl.textContent = 'Игра началась';
-    actionsEl.style.display = 'flex';
+    pokerTableEl.style.visibility = 'hidden';
+    return;
   }
-  // этап
-  const names = { preflop:'Префлоп', flop:'Флоп', turn:'Тёрн', river:'Ривер', showdown:'Шоудаун' };
+  // Игра началась
+  statusEl.textContent = 'Игра началась';
+  actionsEl.style.display = 'flex';
+  pokerTableEl.style.visibility = 'visible';
+  // Этап раунда
+  const names = { preflop: 'Префлоп', flop: 'Флоп', turn: 'Тёрн', river: 'Ривер', showdown: 'Шоудаун' };
   stageEl.textContent = `Раунд: ${names[state.stage] || state.stage}`;
-  // пот и ставка
+  // Пот и текущая ставка
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-  // общие карты
+  // Общие карты
   communityEl.innerHTML = '';
   (state.community || []).forEach(card => {
     const cc = document.createElement('div');
@@ -45,12 +47,12 @@ function updateUI(state) {
     cc.textContent = card;
     communityEl.appendChild(cc);
   });
-  // кнопки действий
+  // Кнопки действий
   actionsEl.innerHTML = '';
-  ['fold','check','call','bet','raise'].forEach(act => {
+  ['fold', 'check', 'call', 'bet', 'raise'].forEach(act => {
     const btn = document.createElement('button');
     btn.textContent = act;
-    btn.disabled    = state.current_player.toString() !== userId;
+    btn.disabled = state.current_player.toString() !== userId;
     btn.onclick = () => {
       let amount = 0;
       if (act === 'bet' || act === 'raise') {
@@ -62,46 +64,44 @@ function updateUI(state) {
   });
 }
 
-// полярные
+// Конвертация полярных координат в экранные
 function polarToCartesian(cx, cy, r, deg) {
   const rad = (deg - 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-// отрисовка
+// Отрисовка игроков по кругу стола
 function renderTable(state) {
   pokerTableEl.innerHTML = '';
   const players = state.players || [];
   const cx = pokerTableEl.clientWidth / 2;
   const cy = pokerTableEl.clientHeight / 2;
   const radius = cx - 80;
-
   players.forEach((p, idx) => {
-    const angle = 360 * idx / players.length + 180;
-    const pos   = polarToCartesian(cx, cy, radius, angle);
-
+    const angle = (360 * idx) / players.length + 180;
+    const pos = polarToCartesian(cx, cy, radius, angle);
     const seat = document.createElement('div');
     seat.className = 'player-seat';
     if (p.user_id.toString() === state.current_player.toString()) {
       seat.classList.add('active-player');
     }
     seat.style.left = `${pos.x - 50}px`;
-    seat.style.top  = `${pos.y - 30}px`;
-
+    seat.style.top = `${pos.y - 30}px`;
+    // Имя
     const nameEl = document.createElement('div');
     nameEl.textContent = p.username;
     seat.appendChild(nameEl);
-
+    // Стек
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = `Stack: ${state.stacks[p.user_id] || 0}`;
     seat.appendChild(stackEl);
-
+    // Ставка
     const betEl = document.createElement('div');
     betEl.className = 'player-bet';
     betEl.textContent = `Bet: ${state.bets[p.user_id] || 0}`;
     seat.appendChild(betEl);
-
+    // Карманные карты
     const hand = state.hole_cards[p.user_id] || [];
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
@@ -112,23 +112,25 @@ function renderTable(state) {
       cardsEl.appendChild(c);
     });
     seat.appendChild(cardsEl);
-
     pokerTableEl.appendChild(seat);
   });
 }
 
 let ws;
 (async () => {
-  // начальное состояние
+  // Начальное состояние через HTTP
   try {
     const initState = await getGameState(tableId);
     updateUI(initState);
-    renderTable(initState);
+    if (initState.started) {
+      renderTable(initState);
+    }
   } catch (err) {
     console.error('Init error', err);
   }
-  ws = createWebSocket(tableId, userId, username, e => {
-    const state = JSON.parse(e.data);
+  // WS-подключение и своя синхронизация
+  ws = createWebSocket(tableId, userId, username, event => {
+    const state = JSON.parse(event.data);
     updateUI(state);
     renderTable(state);
   });
