@@ -100,15 +100,17 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
      except WebSocketDisconnect:
         # Убираем это соединение из списка
-        if websocket in connections.get(table_id, []):
-            connections[table_id].remove(websocket)
-        # Если стало меньше игроков, сбрасываем только поля текущей раздачи
-        if len(connections.get(table_id, [])) < MIN_PLAYERS:
-            # Сохраняем мапу username, удаляем всё остальное
+        conns = connections.get(table_id, [])
+        if websocket in conns:
+            conns.remove(websocket)
+
+        # Если стало меньше MIN_PLAYERS — сбрасываем только данные раздачи
+        if len(conns) < MIN_PLAYERS:
             saved_usernames = game_states[table_id].get("usernames", {})
             game_states[table_id].clear()
             game_states[table_id]["usernames"] = saved_usernames
-        # Оповещаем оставшихся (или возвращаем их в лобби)
+
+        # Оповещаем оставшихся
         await broadcast(table_id)
 
 @router.get("/api/game_state")
