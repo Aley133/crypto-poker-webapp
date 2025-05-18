@@ -36,7 +36,7 @@ def start_hand(table_id: int):
 
     bets = {uid: 0 for uid in players}
     stacks[sb_pid] -= SB; bets[sb_pid] = SB
-    stacks[bb_pid] -= BB; bets[bb_idx] = BB
+    stacks[bb_pid] -= BB; bets[bb_pid] = BB
     pot = SB + BB
 
     first_pid = players[(bb_idx + 1) % len(players)]
