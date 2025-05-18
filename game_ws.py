@@ -92,15 +92,19 @@ async def ws_game(websocket: WebSocket, table_id: int):
         # Цикл приёма ходов
         while True:
             data = await websocket.receive_text()
-            msg = json.loads(data)
+            msg  = json.loads(data)
 
-            # apply_action ожидает int-пользователя и сумму
-            apply_action(
-                table_id,
-                int(msg.get("user_id", -1)),
-                msg.get("action"),
-                int(msg.get("amount", 0))
-            )
+            #  ── если это sync-запрос, просто шлём текущее состояние и ждём дальше
+            if msg.get("action") == "sync":
+                await broadcast(table_id)
+                continue
+
+            #  ── иначе это реальный action от игрока
+            uid    = int(msg.get("user_id", -1))
+            action = msg.get("action")
+            amount = int(msg.get("amount", 0))
+
+            apply_action(table_id, uid, action, amount)
             await broadcast(table_id)
 
     except WebSocketDisconnect:
@@ -110,7 +114,9 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
         # 2) Если теперь игроков < MIN_PLAYERS — сбрасываем только содержимое state (карты, ставки и т.п.)
         if len(connections.get(table_id, [])) < MIN_PLAYERS:
-            game_states[table_id].clear()
+        saved = game_states[table_id].get("usernames", {})
+        game_states[table_id].clear()
+        game_states[table_id]["usernames"] = saved
 
         # 3) Оповещаем оставшихся (отрисовкой «Ожидаем игроков (x/2)»)
         await broadcast(table_id)
