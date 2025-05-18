@@ -108,17 +108,18 @@ async def ws_game(websocket: WebSocket, table_id: int):
             await broadcast(table_id)
 
     except WebSocketDisconnect:
-        # 1) Убираем это соединение из списка
-        if websocket in connections.get(table_id, []):
-            connections[table_id].remove(websocket)
+        # Убираем соединение
+        conns = connections.get(table_id, [])
+        if websocket in conns:
+            conns.remove(websocket)
 
-        # 2) Если теперь игроков < MIN_PLAYERS — сбрасываем только содержимое state (карты, ставки и т.п.)
-        if len(connections.get(table_id, [])) < MIN_PLAYERS:
-        saved = game_states[table_id].get("usernames", {})
-        game_states[table_id].clear()
-        game_states[table_id]["usernames"] = saved
+        # Если игроков стало меньше минимума — сбрасываем только данные раздачи
+        if len(conns) < MIN_PLAYERS:
+            saved_usernames = game_states[table_id].get("usernames", {})
+            game_states[table_id].clear()
+            game_states[table_id]["usernames"] = saved_usernames
 
-        # 3) Оповещаем оставшихся (отрисовкой «Ожидаем игроков (x/2)»)
+        # Оповещаем оставшихся
         await broadcast(table_id)
 
 @router.get("/api/game_state")
