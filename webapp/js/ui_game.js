@@ -4,6 +4,7 @@ import { createWebSocket } from './ws.js';
 const params = new URLSearchParams(window.location.search);
 const tableId = params.get('table_id');
 const userId  = params.get('user_id');
+const myId     = Number(userId);
 const username = params.get('username') || userId;
 
 const statusEl     = document.getElementById('status');
@@ -41,9 +42,9 @@ function updateUI(state) {
         btn.onclick = () => {
             let amount = 0;
             if (act === 'bet' || act === 'raise') {
-                amount = parseInt(prompt('Сумма:')) || 0;
+                amount = parseInt(prompt('Сумма:'), 10) || 0;
             }
-            ws.send(JSON.stringify({ user_id: userId, action: act, amount }));
+            ws.send(JSON.stringify({ user_id: myId, action: act, amount }));
         };
         actionsEl.appendChild(btn);
     });
@@ -97,19 +98,25 @@ function renderTable(state) {
         seat.appendChild(nameEl);
 
         // Карманные карты
-        const hand = holeMap[p.user_id] || [];
+        // Приводим ключи к строке и числу
+        const hand = holeMap[p.user_id] 
+            || holeMap[String(p.user_id)] 
+            || holeMap[userId] 
+            || holeMap[String(myId)] 
+            || [];
         const cardsEl = document.createElement('div');
         cardsEl.className = 'cards';
         hand.forEach(card => {
-            const c = document.createElement('div');
-            c.className = 'card';
-            // Показываем только свои карты, для оппонентов рисуем рубашку
-            if (p.user_id === parseInt(userId)) {
-                c.textContent = card;
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card';
+            // Показываем только свои карты лицом
+            if (p.user_id === myId) {
+                cardDiv.textContent = card;
             } else {
-                c.textContent = '🂠';
+                // Рисуем рубашку для оппонентов
+                cardDiv.textContent = '🂠';
             }
-            cardsEl.appendChild(c);
+            cardsEl.appendChild(cardDiv);
         });
         seat.appendChild(cardsEl);
 
@@ -128,7 +135,7 @@ let ws;
         statusEl.textContent = 'Ошибка получения состояния';
     }
 
-    ws = createWebSocket(tableId, userId, username, event => {
+    ws = createWebSocket(tableId, myId, username, event => {
         const state = JSON.parse(event.data);
         updateUI(state);
         renderTable(state);
@@ -137,6 +144,6 @@ let ws;
 
 // Кнопка покинуть стол
 leaveBtn.onclick = async () => {
-    await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
+    await fetch(`/api/leave?table_id=${tableId}&user_id=${myId}`, { method: 'POST' });
     window.location.href = 'index.html';
 };
