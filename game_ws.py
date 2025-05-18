@@ -111,9 +111,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
         # Убираем при отключении
         if websocket in conns:
             conns.remove(websocket)
-        # Сбрасываем started, если слишком мало игроков
-        if len(conns) < MIN_PLAYERS:
-            game_states[table_id].pop("started", None)
+       if len(conns) < MIN_PLAYERS:
+        # удаляем все WS-коннекты
+        connections.pop(table_id, None)
+        # удаляем всё состояние игры
+        game_states.pop(table_id, None)
         # Оповещаем остальных
         await broadcast(table_id)
 
