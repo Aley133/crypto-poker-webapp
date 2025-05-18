@@ -22,6 +22,8 @@ def start_hand(table_id: int):
     hole = {uid: [deck.pop(), deck.pop()] for uid in players}
     stacks = {uid: STARTING_STACK for uid in players}
     game_states[table_id] = {
+        # чтобы broadcast точно знал, кто играет
+        "players": players.copy(),
         "hole_cards": hole,
         "community": [],
         "stacks": stacks,
