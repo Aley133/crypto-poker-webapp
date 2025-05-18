@@ -58,37 +58,38 @@ async def ws_game(websocket: WebSocket, table_id: int):
         await websocket.close(code=1013)
         return
     conns.append(websocket)
-     # после conns.append(websocket)
-    print(f"[ws_game] New connection to table {table_id}. "
-          f"Total WS clients: {len(conns)}; "
-          f"started flag is {game_states[table_id].get('started')}")
 
-    # Логика старта: при ровно MIN_PLAYERS сначала запускаем раздачу
+    # Лог соединения
+    print(f"[ws_game] New connection to table {table_id}. "
+          f"Total WS clients: {len(conns)}; started = {game_states[table_id].get('started')}")
+
+    # Старт раздачи при втором игроке
     if len(conns) == MIN_PLAYERS and not game_states[table_id].get("started", False):
         print(f"[ws_game] Starting hand on table {table_id}")
         start_hand(table_id)
         game_states[table_id]["started"] = True
-    # Оповещаем всех
+
+    # Первый broadcast
     await broadcast(table_id)
 
     try:
         while True:
             data = await websocket.receive_text()
-             msg = json.loads(data)
+            msg = json.loads(data)
 
-        # если это sync-запрос — сразу рассылаем состояние
-        if msg.get("action") == "sync":
+            # синхронизация по запросу клиента
+            if msg.get("action") == "sync":
+                await broadcast(table_id)
+                continue
+
+            # обычное действие (fold/call/etc.)
+            apply_action(
+                table_id,
+                int(msg.get("user_id", -1)),
+                msg.get("action"),
+                int(msg.get("amount", 0))
+            )
             await broadcast(table_id)
-            continue
-
-        # иначе — обычное действие
-        apply_action(
-            table_id,
-            int(msg.get("user_id", -1)),
-            msg.get("action"),
-            int(msg.get("amount", 0))
-        )
-        await broadcast(table_id)
 
     except WebSocketDisconnect:
         # Убираем соединение
@@ -96,7 +97,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
         if websocket in conns:
             conns.remove(websocket)
 
-        # Если игроков стало меньше минимума — сбрасываем текущую раздачу
+        # Если игроков стало меньше минимума — сброс раздачи
         if len(conns) < MIN_PLAYERS:
             saved_usernames = game_states[table_id].get("usernames", {})
             game_states[table_id].clear()
