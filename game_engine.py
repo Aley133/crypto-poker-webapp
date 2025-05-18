@@ -8,10 +8,13 @@ connections: Dict[int, List] = {}
 
 STARTING_STACK = 1000
 
+MIN_PLAYERS = 2
+
+
 def new_deck() -> List[str]:
-    ranks = [str(x) for x in range(2,11)] + list("JQKA")
-    suits = ["♠","♥","♦","♣"]
-    deck = [r+s for r in ranks for s in suits]
+    ranks = [str(x) for x in range(2, 11)] + list("JQKA")
+    suits = ["♠", "♥", "♦", "♣"]
+    deck = [r + s for r in ranks for s in suits]
     random.shuffle(deck)
     return deck
 
@@ -20,28 +23,32 @@ def start_hand(table_id: int):
     if len(players) < MIN_PLAYERS:
         return
 
-    # Берём тот же dict, чтобы broadcast и ws_game «видели» новые ключи
+    # Берём тот же объект state, чтобы broadcast «видел» все ключи
     state = game_states.setdefault(table_id, {})
 
-    # Сохраняем usernames, если они уже были
+    # Сохраняем username-маппинг
     usernames = state.get("usernames", {})
 
-    # Чистим и инициализируем «с нуля»
+    # Полностью сбрасываем предыдущее состояние руки
     state.clear()
     state["usernames"]      = usernames
-    state["started"]        = True           # флаг «рука идёт»
-    state["players"]        = players.copy() # чтобы UI рисовал список игроков
-    state["hole_cards"]     = {              # парные карты
-        uid: [deck_card := new_deck().pop(), deck_card2 := new_deck().pop()] 
-        for uid in players
-    }
-    state["community_cards"] = []             # UI ждёт именно этот ключ
+    state["started"]        = True
+    state["players"]        = players.copy()
+
+    # Перетасовываем одну колоду и раздаём из неё
+    deck = new_deck()
+    hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
+    state["hole_cards"]     = hole_cards
+
+    # UI может ждать именно community_cards
+    state["community_cards"] = []
+
     state["stacks"]         = {uid: STARTING_STACK for uid in players}
     state["bets"]           = {uid: 0 for uid in players}
     state["pot"]            = 0
     state["current_bet"]    = 0
     state["current_player"] = players[0]
-
+    
 def apply_action(table_id: int, uid: int, action: str, amount: int=0):
     state = game_states.get(table_id)
     if not state or uid not in state["stacks"]:
