@@ -12,22 +12,33 @@ MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
 async def broadcast(table_id: int):
+    # Берём текущее состояние игры
     state = game_states.get(table_id)
     if state is None:
         return
 
+    # Копируем состояние, чтобы не менять оригинал
     payload = state.copy()
+
+    # Мапа user_id → username, которую мы обновляем при подключении WS
     usernames = state.get("usernames", {})
 
-    # Тянем игроков из seat_map, а не из state["players"]
+    # Получаем список user_id в порядке «стула» из seat_map
     player_ids = seat_map.get(table_id, [])
 
+    # Формируем новый payload["players"] с реальными именами
     payload["players"] = [
-        {"user_id": pid, "username": usernames.get(pid, str(pid))}
+        {
+            "user_id": pid,
+            "username": usernames.get(pid, str(pid))  # если имени нет — показываем pid
+        }
         for pid in player_ids
     ]
+
+    # Принятое количество ws-соединений
     payload["players_count"] = len(connections.get(table_id, []))
 
+    # Разошлём всем клиентам
     for ws in list(connections.get(table_id, [])):
         try:
             await ws.send_json(payload)
