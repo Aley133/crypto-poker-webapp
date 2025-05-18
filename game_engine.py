@@ -16,18 +16,30 @@ def new_deck() -> List[str]:
     return deck
 
 def start_hand(table_id: int):
+    # Получаем список юзеров из seat_map
     players = seat_map.get(table_id, [])
-    if not players: return
+    if not players:
+        return
+
+    # Сохраняем старую мапу user_id → username, если она есть
+    old_state = game_states.get(table_id, {})
+    usernames = old_state.get("usernames", {})
+
+    # Новая колода и раздача карманных карт
     deck = new_deck()
     hole = {uid: [deck.pop(), deck.pop()] for uid in players}
+
+    # Инициализация стеков
     stacks = {uid: STARTING_STACK for uid in players}
+
+    # Собираем новое состояние, включая usernames
     game_states[table_id] = {
         "hole_cards": hole,
         "community": [],
         "stacks": stacks,
         "pot": 0,
         "current_player": players[0],
-        # "deck": deck
+        "usernames": usernames,
     }
 
 def apply_action(table_id: int, uid: int, action: str, amount: int=0):
