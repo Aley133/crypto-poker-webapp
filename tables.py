@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-import logging
+import sys
 from game_data import seat_map
 from game_engine import game_states
 
@@ -77,7 +77,7 @@ def leave_table(table_id: int, user_id: str) -> dict:
     users = seat_map.setdefault(table_id, [])
 
     # Логируем до удаления
-    logging.info(f"[leave_table] before: seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}")
+   print(f"[leave_table] BEFORE: seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}", flush=True)
 
     # Удаляем только если игрок есть
     if user_id in users:
@@ -88,7 +88,7 @@ def leave_table(table_id: int, user_id: str) -> dict:
         game_states[table_id] = {}
 
     # Логируем после удаления
-    logging.info(f"[leave_table] after:  seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}")
+   print(f"[leave_table] AFTER:  seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}", flush=True)
 
     return {"status": "ok", "players": users}
 
