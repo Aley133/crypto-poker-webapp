@@ -51,76 +51,56 @@ async def broadcast(table_id: int):
         except:
             pass
 
+
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
-    # Принимаем WS
     await websocket.accept()
 
-    # Если стола нет — отклоняем
-    if table_id not in game_states:
-        await websocket.close(code=1008)
-        return
+    # Получаем user_id и username из query params
+    user_id = int(websocket.query_params["user_id"])
+    username = websocket.query_params.get("username", str(user_id))
+    # Регистрируем username
+    state = game_states.setdefault(table_id, {})
+    state.setdefault("usernames", {})[user_id] = username
 
-    # Парсим user_id и username из query-параметров
-    user_id_str = websocket.query_params.get("user_id")
-    username = websocket.query_params.get("username", user_id_str)
-    try:
-        user_id = int(user_id_str)
-    except (TypeError, ValueError):
-        # Если не число — просто не сохраняем username-mapping
-        user_id = None
-
-    # Регистрируем username в состоянии (если корректный user_id)
-    if user_id is not None:
-        game_states[table_id].setdefault("usernames", {})[user_id] = username
-
-    # Регистрируем соединение
+    # Добавляем соединение
     conns = connections.setdefault(table_id, [])
-    if len(conns) >= MAX_PLAYERS:
-        # Стол полон
-        await websocket.close(code=1013)
-        return
     conns.append(websocket)
 
     try:
-        # Логика старта или ожидания
-        count_conns = len(conns)
-        if count_conns < MIN_PLAYERS:
+        # 1) Если игроков меньше минимума — просто бродкастим
+        if len(conns) < MIN_PLAYERS:
             await broadcast(table_id)
-        elif not game_states[table_id].get("started", False):
+
+        # 2) Если игроков достаточно и рука ещё не стартована — стартуем
+        elif not state.get("started", False):
             start_hand(table_id)
-            game_states[table_id]["started"] = True
+            state["started"] = True
             await broadcast(table_id)
+
+        # 3) Если игра уже идёт — просто обновляем
         else:
             await broadcast(table_id)
 
-        # Цикл приёма ходов
+        # 4) Обработка входящих сообщений (ходов)
         while True:
             data = await websocket.receive_text()
-            msg = json.loads(data)
+            # тут ваша логика ходов, например:
+            # await handle_action(table_id, user_id, data)
+            # await broadcast(table_id)
 
-            # apply_action ожидает int-пользователя и сумму
-            apply_action(
-                table_id,
-                int(msg.get("user_id", -1)),
-                msg.get("action"),
-                int(msg.get("amount", 0))
-            )
-            await broadcast(table_id)
-
-except WebSocketDisconnect:
-        # 1) Удаляем само WS-соединение
+    except WebSocketDisconnect:
+        # Убираем WS-соединение
         if websocket in conns:
             conns.remove(websocket)
 
-        # 2) Удаляем игрока из seat_map и очищаем состояние через leave_table
-        if user_id is not None:
-            try:
-                leave_table(table_id, str(user_id))
-            except Exception:
-                pass
+        # Убираем игрока из стола и, при необходимости, сбрасываем состояние
+        try:
+            leave_table(table_id, str(user_id))
+        except:
+            pass
 
-        # 3) Оповещаем всех оставшихся
+        # Оповещаем оставшихся
         await broadcast(table_id)
 
 @router.get("/api/game_state")
