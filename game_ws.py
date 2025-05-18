@@ -58,9 +58,14 @@ async def ws_game(websocket: WebSocket, table_id: int):
         await websocket.close(code=1013)
         return
     conns.append(websocket)
+     # после conns.append(websocket)
+    print(f"[ws_game] New connection to table {table_id}. "
+          f"Total WS clients: {len(conns)}; "
+          f"started flag is {game_states[table_id].get('started')}")
 
     # Логика старта: при ровно MIN_PLAYERS сначала запускаем раздачу
     if len(conns) == MIN_PLAYERS and not game_states[table_id].get("started", False):
+        print(f"[ws_game] Starting hand on table {table_id}")
         start_hand(table_id)
         game_states[table_id]["started"] = True
     # Оповещаем всех
