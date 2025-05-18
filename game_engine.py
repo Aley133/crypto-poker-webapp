@@ -17,19 +17,30 @@ def new_deck() -> List[str]:
 
 def start_hand(table_id: int):
     players = seat_map.get(table_id, [])
-    if not players:
+    if len(players) < MIN_PLAYERS:
         return
-    deck = new_deck()
-    hole = {uid: [deck.pop(), deck.pop()] for uid in players}
-    stacks = {uid: STARTING_STACK for uid in players}
-    game_states[table_id] = {
-        "players": players.copy(),      # <-- здесь
-        "hole_cards": hole,
-        "community": [],
-        "stacks": stacks,
-        "pot": 0,
-        "current_player": players[0],
+
+    # Берём тот же dict, чтобы broadcast и ws_game «видели» новые ключи
+    state = game_states.setdefault(table_id, {})
+
+    # Сохраняем usernames, если они уже были
+    usernames = state.get("usernames", {})
+
+    # Чистим и инициализируем «с нуля»
+    state.clear()
+    state["usernames"]      = usernames
+    state["started"]        = True           # флаг «рука идёт»
+    state["players"]        = players.copy() # чтобы UI рисовал список игроков
+    state["hole_cards"]     = {              # парные карты
+        uid: [deck_card := new_deck().pop(), deck_card2 := new_deck().pop()] 
+        for uid in players
     }
+    state["community_cards"] = []             # UI ждёт именно этот ключ
+    state["stacks"]         = {uid: STARTING_STACK for uid in players}
+    state["bets"]           = {uid: 0 for uid in players}
+    state["pot"]            = 0
+    state["current_bet"]    = 0
+    state["current_player"] = players[0]
 
 def apply_action(table_id: int, uid: int, action: str, amount: int=0):
     state = game_states.get(table_id)
