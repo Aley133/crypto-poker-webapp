@@ -1,46 +1,43 @@
-### tables.py
 from fastapi import HTTPException
+
 from game_data import seat_map
 from game_engine import game_states
 
-# Минимальное число игроков для старта
-MIN_PLAYERS = 2
-
-# Global blinds settings per level
+# Глобальный словарь с настройками блайндов по уровням
 BLINDS = {
     1: (1, 2, 100),
     2: (2, 4, 200),
     3: (5, 10, 500),
 }
 
-# Initialize game_states for predefined tables
+# Минимальное число игроков для старта
+MIN_PLAYERS = 2
+
+# Инициализируем состояния для предустановленных столов
 for tid in BLINDS.keys():
     game_states.setdefault(tid, {})
 
 
-def list_tables(level: int | None = None) -> list:
+def list_tables() -> list:
     """
-    Returns list of tables with parameters and current player counts.
-    If level is provided, filters by that table only.
+    Возвращает список всех столов с параметрами и числом игроков.
     """
     out = []
     for tid, (sb, bb, bi) in BLINDS.items():
-        if level is not None and tid != level:
-            continue
         users = seat_map.get(tid, [])
         out.append({
             "id": tid,
             "small_blind": sb,
             "big_blind": bb,
             "buy_in": bi,
-            "players": len(users),
+            "players": len(users)
         })
     return out
 
 
 def create_table(level: int) -> dict:
     """
-    Creates a new table for the given level. Returns its parameters.
+    Создает новый стол по заданному уровню. Возвращает его параметры.
     """
     if level not in BLINDS:
         raise HTTPException(status_code=400, detail="Invalid level")
@@ -54,37 +51,40 @@ def create_table(level: int) -> dict:
         "small_blind": sb,
         "big_blind": bb,
         "buy_in": bi,
-        "players": 0,
+        "players": 0
     }
 
 
 def join_table(table_id: int, user_id: str) -> dict:
     """
-    Adds the user to the table if not present. Returns status and players.
+    Добавляет пользователя за стол или обновляет его присутствие.
+    Возвращает статус и список игроков.
     """
     users = seat_map.setdefault(table_id, [])
-    if user_id not in users:
-        users.append(user_id)
+    # Если пользователь уже за столом, удаляем старую запись для переподключения
+    if user_id in users:
+        users.remove(user_id)
+    users.append(user_id)
     return {"status": "ok", "players": users}
 
 
 def leave_table(table_id: int, user_id: str) -> dict:
     """
-    Removes the user from the table if present. Returns status and players.
+    Убирает пользователя со стола. Возвращает статус и список оставшихся игроков.
     """
     users = seat_map.get(table_id, [])
-    if user_id in users:
-        users.remove(user_id)
-    state = game_states.get(table_id, {})
+    if user_id not in users:
+        raise HTTPException(status_code=400, detail="User not at table")
+    users.remove(user_id)
+    # Сбрасываем флаг начала игры, если игроков стало меньше минимума
     if len(users) < MIN_PLAYERS:
-        state.pop("started", None)
+        game_states.get(table_id, {}).pop("started", None)
     return {"status": "ok", "players": users}
 
 
 def get_balance(table_id: int, user_id: str) -> dict:
     """
-    Returns the current stack of the user at the table.
+    Возвращает баланс (стек) пользователя на столе.
     """
     stacks = game_states.get(table_id, {}).get("stacks", {})
     return {"balance": stacks.get(user_id, 0)}
-
