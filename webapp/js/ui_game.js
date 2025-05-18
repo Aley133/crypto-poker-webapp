@@ -17,25 +17,23 @@ const currentBetEl = document.getElementById('current-bet');
 const playersEl    = document.getElementById('players');
 const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
+const pokerTableEl = document.getElementById('poker-table');
 
 // Показать номер стола
 tableIdEl.textContent = tableId;
 
-/**
- * Рендерит состояние игры
- */
-function renderGameState(state) {
-  // Статус ожидания / старта
+// Обновление UI-элементов (список игроков, статус, карты, ставки)
+function updateUI(state) {
   if (!state.started) {
     const cnt = state.players_count || 0;
     statusEl.textContent = `Ожидаем игроков… (${cnt}/2)`;
     actionsEl.style.display = 'none';
   } else {
     statusEl.textContent = 'Игра началась';
-    actionsEl.style.display = 'block';
+    actionsEl.style.display = 'flex';
   }
 
-  // Карманные карты
+  // Карманные карты игрока
   const hole = state.hole_cards?.[userId] || [];
   holeCardsEl.innerHTML = hole.map(c => `<span class="card">${c}</span>`).join('');
 
@@ -43,16 +41,15 @@ function renderGameState(state) {
   const community = state.community_cards || [];
   communityEl.innerHTML = community.map(c => `<span class="card">${c}</span>`).join('');
 
-  // Пот и ставка
+  // Пот и текущая ставка
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
 
-  // Список игроков
+  // Стек и ставки каждого игрока
   playersEl.innerHTML = '';
   (state.players || []).forEach(p => {
-    const selfClass = p.user_id == userId ? ' self' : '';
     const div = document.createElement('div');
-    div.className = `player-card${selfClass}`;
+    div.className = p.user_id == userId ? 'player-card self' : 'player-card';
     const stack = state.stacks?.[p.user_id] || 0;
     const bet   = state.bets?.[p.user_id] || 0;
     div.innerHTML = `
@@ -63,10 +60,11 @@ function renderGameState(state) {
     playersEl.appendChild(div);
   });
 
-  // Кнопки действий для вашего хода (всегда активны в демо)
+  // Кнопки действий
   actionsEl.innerHTML = '';
   ['fold','check','call','bet','raise'].forEach(act => {
     const btn = document.createElement('button');
+    btn.className = 'action-btn';
     btn.textContent = act;
     btn.addEventListener('click', () => {
       let amount = 0;
@@ -79,20 +77,7 @@ function renderGameState(state) {
   });
 }
 
-// Инициализация: получение через HTTP и WS
-let ws;
-(async () => {
-  try {
-    const state = await getGameState(tableId);
-    renderGameState(state);
-  } catch (err) {
-    console.error('Init error', err);
-    statusEl.textContent = 'Ошибка получения состояния';
-  }
-  ws = createWebSocket(tableId, userId, username, e => renderGameState(JSON.parse(e.data)));
-})();
-
-// Вспомогалка: выдаёт координаты (x, y) на окружности радиуса R
+// Преобразование полярных координат в декартовы
 function polarToCartesian(cx, cy, radius, angleDeg) {
   const angleRad = (angleDeg - 90) * Math.PI / 180.0;
   return {
@@ -101,45 +86,59 @@ function polarToCartesian(cx, cy, radius, angleDeg) {
   };
 }
 
-function renderGameState(state, myUserId) {
-  const table = document.getElementById('poker-table');
-  table.innerHTML = ''; // очищаем старые сидения
-
-  const players = state.players; // [{user_id, username}, …]
-  const center = { x: table.clientWidth/2, y: table.clientHeight/2 };
-  const radius = table.clientWidth/2 - 80; // отступ от края
+// Отрисовка игроков по кругу стола
+function renderTable(state) {
+  pokerTableEl.innerHTML = '';
+  const players = state.players || [];
+  const center  = { x: pokerTableEl.clientWidth/2, y: pokerTableEl.clientHeight/2 };
+  const radius  = pokerTableEl.clientWidth/2 - 80;
 
   players.forEach((p, idx) => {
-    // вычисляем угол: 360° делим на кол-во, смещаем чтобы "0" — это низ (ваши карты)
     const angle = 360 * idx / players.length + 180;
-    const pos = polarToCartesian(center.x, center.y, radius, angle);
+    const pos   = polarToCartesian(center.x, center.y, radius, angle);
 
-    // создаём див для позиции
     const seat = document.createElement('div');
     seat.classList.add('player-seat');
-    seat.style.left = `${pos.x - 60}px`; // вычитаем половину ширины
-    seat.style.top  = `${pos.y - 30}px`; // вычитаем половину высоты
+    seat.style.left = `${pos.x - 60}px`;
+    seat.style.top  = `${pos.y - 30}px`;
 
-    // имя
+    // Имя
     const nameEl = document.createElement('div');
     nameEl.textContent = p.username;
     seat.appendChild(nameEl);
 
-    // карты
+    // Карты (для демонстрации разложим все)
     const cardsEl = document.createElement('div');
     cardsEl.classList.add('cards');
-    const hand = state.hands?.[p.user_id] || [];
+    const hand = state.hole_cards?.[p.user_id] || [];
     hand.forEach(card => {
       const cardEl = document.createElement('div');
       cardEl.classList.add('card');
-      cardEl.textContent = card; // например, 'K♠' или '10♥'
+      cardEl.textContent = card;
       cardsEl.appendChild(cardEl);
     });
     seat.appendChild(cardsEl);
 
-    table.appendChild(seat);
+    pokerTableEl.appendChild(seat);
   });
 }
+
+let ws;
+(async () => {
+  try {
+    const state = await getGameState(tableId);
+    updateUI(state);
+    renderTable(state);
+  } catch (err) {
+    statusEl.textContent = 'Ошибка получения состояния';
+  }
+
+  ws = createWebSocket(tableId, userId, username, e => {
+    const state = JSON.parse(e.data);
+    updateUI(state);
+    renderTable(state);
+  });
+})();
 
 // Покинуть стол
 leaveBtn.addEventListener('click', async () => {
