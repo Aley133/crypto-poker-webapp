@@ -1,5 +1,5 @@
 # game_ws.py
-
+import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 from tables import join_table, leave_table
@@ -55,51 +55,60 @@ async def broadcast(table_id: int):
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
     await websocket.accept()
-
-    # Получаем user_id и username из query params
     user_id = int(websocket.query_params["user_id"])
     username = websocket.query_params.get("username", str(user_id))
+
+    logging.info(f"[ws_game] ACCEPTED connection table={table_id} user={user_id} ({username})")
+
+    # Гарантируем join в seat_map
     join_table(table_id, str(user_id))
+    logging.info(f"[ws_game] AFTER join_table: seat_map={seat_map.get(table_id)}")
+
+    # Регистрируем WS-коннект
     state = game_states.setdefault(table_id, {})
     state.setdefault("usernames", {})[user_id] = username
     conns = connections.setdefault(table_id, [])
     conns.append(websocket)
+    logging.info(f"[ws_game] CONNECTIONS now: {len(conns)} sockets for table {table_id}")
 
     try:
-        # 1) Если игроков меньше минимума — просто бродкастим
+        # Ветка ожидания
         if len(conns) < MIN_PLAYERS:
+            logging.info(f"[ws_game] BROADCAST waiting: only {len(conns)} players")
             await broadcast(table_id)
 
-        # 2) Если игроков достаточно и рука ещё не стартована — стартуем
+        # Ветка старта новой руки
         elif not state.get("started", False):
+            logging.info(f"[ws_game] START_HAND for players={seat_map.get(table_id)}")
             start_hand(table_id)
-            state["started"] = True
+            logging.info(f"[ws_game] AFTER start_hand: state={game_states.get(table_id)}")
             await broadcast(table_id)
 
-        # 3) Если игра уже идёт — просто обновляем
+        # Ветка ongoing
         else:
+            logging.info(f"[ws_game] BROADCAST ongoing: state={game_states.get(table_id)}")
             await broadcast(table_id)
 
-        # 4) Обработка входящих сообщений (ходов)
+        # Главный цикл приёма ходов
         while True:
             data = await websocket.receive_text()
-            # тут ваша логика ходов, например:
-            # await handle_action(table_id, user_id, data)
-            # await broadcast(table_id)
+            logging.info(f"[ws_game] RECEIVED from {user_id}: {data}")
+            # …обработка хода…
+            await broadcast(table_id)
 
     except WebSocketDisconnect:
-        # Убираем WS-соединение
+        logging.info(f"[ws_game] DISCONNECT user={user_id} conns_before={len(conns)}")
         if websocket in conns:
             conns.remove(websocket)
+        logging.info(f"[ws_game] conns_after_remove={len(conns)}")
 
-        # Убираем игрока из стола и, при необходимости, сбрасываем состояние
-        try:
-            leave_table(table_id, str(user_id))
-        except:
-            pass
+        # Убираем игрока
+        leave_table(table_id, str(user_id))
+        logging.info(f"[ws_game] AFTER leave_table: seat_map={seat_map.get(table_id)}, state={game_states.get(table_id)}")
 
-        # Оповещаем оставшихся
+        logging.info(f"[ws_game] BROADCAST after disconnect")
         await broadcast(table_id)
+        
 
 @router.get("/api/game_state")
 async def api_game_state(table_id: int):
