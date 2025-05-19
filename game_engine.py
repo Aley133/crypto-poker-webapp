@@ -68,7 +68,8 @@ def start_hand(table_id: int):
 def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     """Обрабатывает действия игроков и переключает раунды торговли."""
     state = game_states.get(table_id)
-    # если стола нет или юзер не за столом — игнорируем
+    uid = str(uid)
+    # нет стола или этот юзер не за ним
     if not state or uid not in state["stacks"]:
         return
 
@@ -76,9 +77,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if state["current_player"] != uid:
         return
         
-    stacks = state["stacks"]
+    stacks  = state["stacks"]
     contrib = state["contributions"]
-    cb = state["current_bet"]
+    cb      = state["current_bet"]
 
     # Основные действия
     if action == "call":
@@ -112,9 +113,15 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             contrib[uid] = amount
 
     # Перевод хода
+    # Перевод хода: для двух игроков просто чередуем
     active = [p for p, st in stacks.items() if st > 0]
-    idx = active.index(state["current_player"])
-    state["current_player"] = active[(idx + 1) % len(active)]
+    if len(active) == 2:
+        # если uid == актив[0], то следующий актив[1], иначе актив[0]
+        state["current_player"] = active[1] if uid == active[0] else active[0]
+    else:
+        # общий случай
+         idx = active.index(uid)
+        state["current_player"] = active[(idx + 1) % len(active)]
 
     # Переход улицы, если все сравнялись
     if all(contrib[p] == state["current_bet"] for p in active):
@@ -139,7 +146,4 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         # Сброс ставок для нового раунда
         state["current_bet"] = 0
         state["contributions"] = {p: 0 for p in active}
-        # Ход игрока слева от дилера
-        players = state["players"]
-        next_idx = (state["dealer_index"] + 1) % len(players)
-        state["current_player"] = players[next_idx]
+       
