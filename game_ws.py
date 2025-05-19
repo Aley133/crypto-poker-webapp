@@ -73,17 +73,25 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
         # Цикл обработки сообщений от клиента
         while True:
-            data = await websocket.receive_text()
-            msg = json.loads(data)
-            print(f"← WS Message: table={table_id}, uid={uid}, action={action}, amount={amount}")
-            apply_action(
-                print("→ apply_action:", table_id, uid, action, amount)
-                table_id,
-                int(msg.get('user_id', -1)),
-                msg.get('action'),
-                int(msg.get('amount', 0))
-            )
-            await broadcast(table_id)
+    data = await websocket.receive_text()
+    msg = json.loads(data)
+
+    # Извлекаем параметры
+    uid = int(msg.get('user_id', -1))
+    action = msg.get('action')
+    amount = int(msg.get('amount', 0))
+
+    # Логируем полученное сообщение
+    print(f"← WS Message: table={table_id}, uid={uid}, action={action}, amount={amount}")
+
+    # Вызываем действие
+    apply_action(table_id, uid, action, amount)
+
+    # Логируем факт обработки
+    print(f"→ apply_action done: table={table_id}, uid={uid}, action={action}, amount={amount}")
+
+    # Рассылаем всем новое состояние
+    await broadcast(table_id)
 
     except WebSocketDisconnect:
         # При отключении удаляем WS
