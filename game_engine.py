@@ -1,4 +1,3 @@
-```python
 # game_engine.py
 import random
 from typing import Dict, List
