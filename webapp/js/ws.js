@@ -15,10 +15,25 @@ export function createWebSocket(tableId, userId, username, onMessage) {
               `&username=${encodeURIComponent(username)}`;
 
   const ws = new WebSocket(url);
-  ws.onopen    = () => console.log('WS connected:', url);
-  ws.onmessage = onMessage;
-  ws.onclose   = () => console.log('WS closed');
-  ws.onerror   = err => console.error('WS error', err);
+
+  ws.onopen = () => {
+    console.log('WebSocket connected to', url);
+  };
+
+  ws.onmessage = event => {
+    onMessage(event);
+  };
+
+  ws.onclose = event => {
+    console.log('WebSocket closed', event);
+    // При желании можно переключиться на HTTP-поллинг:
+    // startPolling(tableId, userId, data => onMessage({ data: JSON.stringify(data) }));
+  };
+
+  ws.onerror = err => {
+    console.error('WebSocket error', err);
+  };
+
   return ws;
 }
 
@@ -27,7 +42,7 @@ export function startPolling(tableId, userId, onState) {
   async function poll() {
     try {
       const state = await getGameState(tableId);
-      onState(state);
+      onState({ data: JSON.stringify(state) });
     } catch (e) {
       console.error('Poll error', e);
     }
