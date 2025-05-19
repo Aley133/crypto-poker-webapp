@@ -68,9 +68,14 @@ def start_hand(table_id: int):
 def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     """Обрабатывает действия игроков и переключает раунды торговли."""
     state = game_states.get(table_id)
+    # если стола нет или юзер не за столом — игнорируем
     if not state or uid not in state["stacks"]:
         return
 
+    # enforce turn: только current_player может делать действие
+    if state["current_player"] != uid:
+        return
+        
     stacks = state["stacks"]
     contrib = state["contributions"]
     cb = state["current_bet"]
