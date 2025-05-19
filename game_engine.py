@@ -45,6 +45,8 @@ def start_hand(table_id: int):
     - выбор первого ходящего
     """
     players = seat_map.get(table_id, [])
+    # Убедимся, что всё строки
+    players = [str(uid) for uid in players]
     if len(players) < 2:
         return
 
@@ -110,6 +112,7 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
       - raise (увеличение > current_bet)
     После действия переводит ход следующему активному игроку.
     """
+    uid = str(uid)
     state = game_states.get(table_id)
     if not state or uid not in state['stacks']:
         return
