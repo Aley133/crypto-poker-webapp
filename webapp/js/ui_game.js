@@ -44,6 +44,16 @@ function updateUI(state) {
     return;
   }
 
+  // 2) Если это не мой ход, прячем кнопки и показываем, чей сейчас ход
+  if (String(state.current_player) !== String(userId)) {
+    const nextName = state.usernames[state.current_player] || state.current_player;
+    statusEl.textContent       = `Ход игрока: ${nextName}`;
+    actionsEl.style.display    = 'none';
+    potEl.textContent          = `Пот: ${state.pot||0}`;
+    currentBetEl.textContent   = `Текущая ставка: ${state.current_bet||0}`;
+    return;
+  }
+
   statusEl.textContent     = 'Игра началась';
   actionsEl.style.display  = 'flex';
   potEl.textContent        = `Пот: ${state.pot||0}`;
