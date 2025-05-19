@@ -29,12 +29,11 @@ async def broadcast(table_id: int):
     raw_ids = seat_map.get(table_id, [])
     players = []
     for pid_str in raw_ids:
-        try:
-            pid = int(pid_str)
-        except ValueError:
-            pid = pid_str
-        name = usernames.get(pid, pid_str)
-        players.append({"user_id": pid_str, "username": name})
+    try:
+        pid = int(pid_str)
+    except ValueError:
+        pid = pid_str
+    players.append({"user_id": pid, "username": name})
 
     payload["players"]       = players
     payload["players_count"] = len(connections.get(table_id, []))
