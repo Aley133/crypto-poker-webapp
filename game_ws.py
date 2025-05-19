@@ -60,46 +60,36 @@ async def ws_game(websocket: WebSocket, table_id: int):
     conns.append(websocket)
 
     try:
-        # Логика старта или рассылки состояния
-        cnt = len(conns)
-        if cnt < MIN_PLAYERS:
-            # Ждём дополнительных игроков
-            await broadcast(table_id)
-        else:
-            # Если не стартовали — начинаем раздачу
-            if not game_states[table_id].get('started', False):
-                start_hand(table_id)
-            await broadcast(table_id)
+            # Старт игры или рассылка первого состояния
+            cnt = len(conns)
+            if cnt < MIN_PLAYERS:
+                await broadcast(table_id)
+            else:
+                if not game_states[table_id].get('started', False):
+                    start_hand(table_id)
+                await broadcast(table_id)
 
-        # Цикл обработки сообщений от клиента
-        while True:
-    data = await websocket.receive_text()
-    msg = json.loads(data)
+            # Теперь цикл приёма ходов
+            while True:
+                data = await websocket.receive_text()
+                msg = json.loads(data)
 
-    # Извлекаем параметры
-    uid = int(msg.get('user_id', -1))
-    action = msg.get('action')
-    amount = int(msg.get('amount', 0))
+                # Извлекаем параметры
+                uid    = int(msg.get('user_id', -1))
+                action = msg.get('action')
+                amount = int(msg.get('amount', 0))
 
-    # Логируем полученное сообщение
-    print(f"← WS Message: table={table_id}, uid={uid}, action={action}, amount={amount}")
+                # Логируем приходящую команду
+                print(f"← WS Message: table={table_id}, uid={uid}, action={action}, amount={amount}")
 
-    # Вызываем действие
-    apply_action(table_id, uid, action, amount)
+                # Выполняем ход
+                apply_action(table_id, uid, action, amount)
 
-    # Логируем факт обработки
-    print(f"→ apply_action done: table={table_id}, uid={uid}, action={action}, amount={amount}")
+                # Логируем факт применения
+                print(f"→ apply_action done: table={table_id}, uid={uid}, action={action}, amount={amount}")
 
-    # Рассылаем всем новое состояние
-    await broadcast(table_id)
-
-    except WebSocketDisconnect:
-        # При отключении удаляем WS
-        conns.remove(websocket)
-        # Если игроков осталось меньше необходимого — сбрасываем состояние
-        if len(conns) < MIN_PLAYERS:
-            game_states[table_id].clear()
-        await broadcast(table_id)
+                # Шлём всем новое состояние
+                await broadcast(table_id)
 
 @router.get("/api/game_state")
 async def api_game_state(table_id: int):
