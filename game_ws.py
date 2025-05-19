@@ -7,23 +7,27 @@ router = APIRouter()
 MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
-# Шлёт текущее состояние всем WS-клиентам
 async def broadcast(table_id: int):
     state = game_states.get(table_id)
     if not state:
         return
 
-    # Копируем только JSON-сериализуемые поля
-    payload = {k: v for k, v in state.items() if k not in ('deck',)}
-    # folded как список
-    if 'folded' in state:
-        payload['folded'] = list(state['folded'])
-
-    # Добавляем список игроков с именами
+    # Формируем чистый payload
+    payload = {
+        'started': state.get('started', False),
+        'stage': state.get('stage'),
+        'pot': state.get('pot', 0),
+        'current_bet': state.get('current_bet', 0),
+        'community': state.get('community', []),
+        'current_player': state.get('current_player'),
+        'stacks': state.get('stacks', {}),
+        'bets': state.get('bets', {}),
+        'hole_cards': state.get('hole_cards', {}),
+    }
+    # Список игроков с id (int) и username
     usernames = state.get('usernames', {})
-    raw_ids = seat_map.get(table_id, [])
     players = []
-    for pid_str in raw_ids:
+    for pid_str in seat_map.get(table_id, []):
         try:
             pid = int(pid_str)
         except ValueError:
@@ -35,7 +39,7 @@ async def broadcast(table_id: int):
     payload['players'] = players
     payload['players_count'] = len(connections.get(table_id, []))
 
-    # Рассылаем всем активным соединениям
+    # Рассылаем состояние всем WS-клиентам
     for ws in list(connections.get(table_id, [])):
         try:
             await ws.send_json(payload)
@@ -46,33 +50,33 @@ async def broadcast(table_id: int):
 async def ws_game(websocket: WebSocket, table_id: int):
     await websocket.accept()
 
-    # Убедимся, что есть запись стола
+    # Инициализируем state при первом подключении
     if table_id not in game_states:
-        game_states[table_id] = {'usernames': {}}
+        game_states[table_id] = {}
 
     # Регистрация username
     user_id_str = websocket.query_params.get('user_id')
-    username = websocket.query_params.get('username', user_id_str)
     try:
         user_id = int(user_id_str)
     except (TypeError, ValueError):
         user_id = None
+    username = websocket.query_params.get('username', user_id_str)
     if user_id is not None:
         game_states[table_id].setdefault('usernames', {})[user_id] = username
 
-    # Регистрируем WS-соединение
+    # Регистрируем соединение
     conns = connections.setdefault(table_id, [])
     if len(conns) >= MAX_PLAYERS:
         await websocket.close(code=1013)
         return
     conns.append(websocket)
 
-    # При достижении MIN_PLAYERS — стартуем раздачу один раз
-    if len(conns) == MIN_PLAYERS and not game_states[table_id].get('started', False):
+    # Запускаем раздачу при достаточном числе игроков
+    if len(conns) >= MIN_PLAYERS and not game_states[table_id].get('started', False):
         start_hand(table_id)
         game_states[table_id]['started'] = True
 
-    # Оповещаем всех сразу после подключения
+    # Отправляем начальное состояние
     await broadcast(table_id)
 
     try:
@@ -80,29 +84,32 @@ async def ws_game(websocket: WebSocket, table_id: int):
             data = await websocket.receive_text()
             msg = json.loads(data)
 
-            # Синхронизация состояния
+            # Обработка sync-запроса
             if msg.get('action') == 'sync':
                 await broadcast(table_id)
                 continue
 
-            # Обычное действие от игрока
-            uid = int(msg.get('user_id', -1))
+            # Обычная логика действий
+            raw_uid = msg.get('user_id')
+            try:
+                uid = int(raw_uid)
+            except (TypeError, ValueError):
+                uid = raw_uid
             action = msg.get('action')
-            amount = int(msg.get('amount', 0))
+            amount = int(msg.get('amount', 0) or 0)
+
             apply_action(table_id, uid, action, amount)
             await broadcast(table_id)
 
     except WebSocketDisconnect:
-        # Удаляем отключившийся сокет
+        # Удаляем соединение
         if websocket in conns:
             conns.remove(websocket)
-
-        # Если стало меньше игроков — сброс только раздачи, но сохраняем usernames
+        # При недостатке игроков сбрасываем раздачу, сохраняем usernames
         if len(conns) < MIN_PLAYERS:
             saved = game_states[table_id].get('usernames', {})
             game_states[table_id].clear()
             game_states[table_id]['usernames'] = saved
-
         await broadcast(table_id)
 
 @router.get("/api/game_state")
