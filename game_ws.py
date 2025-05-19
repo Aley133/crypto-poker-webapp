@@ -62,10 +62,14 @@ async def ws_game(websocket: WebSocket, table_id: int):
     try:
         # При подключении шлём стартовое состояние или стартуем игру
         if len(conns) < MIN_PLAYERS:
+            print("→ waiting for players")
             await broadcast(table_id)
         else:
+            print("→ starting hand")
             if not game_states[table_id].get('started', False):
                 start_hand(table_id)
+                print("→ start_hand done, state:", game_states[table_id])
+            print("→ broadcasting initial state")
             await broadcast(table_id)
 
         # Цикл получения ходов
