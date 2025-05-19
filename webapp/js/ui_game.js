@@ -19,6 +19,7 @@ let ws;  // единственное сокет-соединение
 
 // Обёртка для безопасной отправки по WS
 function safeSend(payload) {
+  console.log('→ safeSend:', payload, 'readyState=', ws && ws.readyState);
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   } else {
