@@ -75,7 +75,9 @@ async def ws_game(websocket: WebSocket, table_id: int):
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
+            print(f"← WS Message: table={table_id}, uid={uid}, action={action}, amount={amount}")
             apply_action(
+                print("→ apply_action:", table_id, uid, action, amount)
                 table_id,
                 int(msg.get('user_id', -1)),
                 msg.get('action'),
