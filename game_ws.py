@@ -10,9 +10,12 @@ MIN_PLAYERS = 2
 MAX_PLAYERS = 6
 
 async def broadcast(table_id: int):
+    print(f"→ broadcast start: table={table_id}, conns={len(connections.get(table_id, []))}")
     state = game_states.get(table_id)
     if not state:
+        print("   no state, return")
         return
+
     payload = state.copy()
     usernames = state.get('usernames', {})
     player_ids = seat_map.get(table_id, [])
@@ -26,11 +29,15 @@ async def broadcast(table_id: int):
         players.append({'user_id': pid, 'username': name})
     payload['players'] = players
     payload['players_count'] = len(connections.get(table_id, []))
+
     for ws in list(connections.get(table_id, [])):
         try:
             await ws.send_json(payload)
-        except:
-            pass
+            print(f"   sent to ws {ws!r}")
+        except Exception as e:
+            print(f"   failed to send to ws {ws!r}: {e!r}")
+
+    print("→ broadcast done")
 
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
