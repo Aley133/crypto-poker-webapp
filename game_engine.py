@@ -1,6 +1,6 @@
 # game_engine.py
 import random
-from typing import Dict, List
+from typing import Dict, List, Set
 from game_data import seat_map
 
 # Состояние столов и WebSocket-соединения
@@ -30,38 +30,30 @@ def start_hand(table_id: int):
       - Ротация дилера
       - Постинг блайндов
       - Раздача карманных карт
-      - Инициализация deck, community, contributions, current_round
+      - Инициализация deck, community, contributions, round_actions, current_round
     """
-    # Список игроков (user_id как строки)
     players = [str(uid) for uid in seat_map.get(table_id, [])]
     if len(players) < 2:
         return
 
-    prev_state = game_states.get(table_id, {})
-    prev_dealer = prev_state.get('dealer_index', -1)
+    prev = game_states.get(table_id, {})
+    prev_dealer = prev.get('dealer_index', -1)
     dealer_index = (prev_dealer + 1) % len(players)
 
-    # Определяем позиции блайндов
     sb = players[(dealer_index + 1) % len(players)]
     bb = players[(dealer_index + 2) % len(players)]
 
-    # Инициализация стеков
-    stacks = prev_state.get('stacks', {uid: STARTING_STACK for uid in players})
+    stacks = prev.get('stacks', {uid: STARTING_STACK for uid in players})
     stacks[sb] = max(0, stacks.get(sb, STARTING_STACK) - BLIND_SMALL)
     stacks[bb] = max(0, stacks.get(bb, STARTING_STACK) - BLIND_BIG)
 
-    # Ставки pre-flop
     current_bet = BLIND_BIG
-    contributions = {
-        uid: (BLIND_SMALL if uid == sb else BLIND_BIG if uid == bb else 0)
-        for uid in players
-    }
+    contributions = {uid: (BLIND_SMALL if uid == sb else BLIND_BIG if uid == bb else 0) for uid in players}
 
-    # Перемешиваем колоду и раздаем карманные карты
     deck = new_deck()
     hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
 
-    # Инициализируем состояние
+    # Инициализация состояния
     game_states[table_id] = {
         'players': players,
         'dealer_index': dealer_index,
@@ -72,46 +64,43 @@ def start_hand(table_id: int):
         'pot': BLIND_SMALL + BLIND_BIG,
         'current_bet': current_bet,
         'contributions': contributions,
+        'round_actions': set(),  # кто ходил в текущем раунде
         'current_player': players[(players.index(bb) + 1) % len(players)],
         'current_round': 'pre-flop',
         'started': True,
-        'usernames': prev_state.get('usernames', {}),
+        'usernames': prev.get('usernames', {}),
     }
 
 
 def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
     """
-    Обрабатывает ход игрока и при необходимости переходит на следующую улицу:
-      - call, check, fold, bet, raise
-      - смена current_player
-      - проверка конца раунда и переход к flop/turn/river/showdown
+    Обрабатывает ход игрока и при необходимости переходит на следующую улицу.
+    Логика раунда: call, check, fold, bet, raise.
+    Перевод хода, учёт round_actions для полного раунда.
     """
-    # Приводим uid к строке
     uid = str(uid)
     state = game_states.get(table_id)
     if not state or uid not in state['stacks']:
         return
 
-    stacks       = state['stacks']
+    stacks = state['stacks']
     contributions = state['contributions']
-    cb           = state['current_bet']
+    cb = state['current_bet']
+    # помечаем, что игрок ходил
+    state['round_actions'].add(uid)
 
-    # 1) Обработка действий
+    # Действия
     if action == 'call':
         to_call = cb - contributions[uid]
         if stacks[uid] >= to_call:
             stacks[uid] -= to_call
             state['pot'] += to_call
             contributions[uid] += to_call
-
     elif action == 'check':
         if contributions[uid] != cb:
             return
-
     elif action == 'fold':
-        # Игрок выбыл из розыгрыша
         stacks[uid] = 0
-
     elif action == 'bet':
         if amount > cb and stacks[uid] >= amount:
             state['current_bet'] = amount
@@ -119,7 +108,6 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
             stacks[uid] -= diff
             state['pot'] += diff
             contributions[uid] = amount
-
     elif action == 'raise':
         if amount > cb and stacks[uid] >= (amount - contributions[uid]):
             state['current_bet'] = amount
@@ -128,44 +116,44 @@ def apply_action(table_id: int, uid: int, action: str, amount: int = 0):
             state['pot'] += diff
             contributions[uid] = amount
 
-    # 2) Смена текущего игрока среди активных
+    # Смена игрока
     active = [p for p, st in stacks.items() if st > 0]
     if state['current_player'] in active:
         idx = active.index(state['current_player'])
         state['current_player'] = active[(idx + 1) % len(active)]
 
-    # 3) Проверка окончания раунда торговли
-    if all(contributions[p] == state['current_bet'] for p in active):
-        # Переход на следующую улицу
+    # Проверка конца раунда: все активные сходили
+    if state['round_actions'] >= set(active) and all(contributions[p] == state['current_bet'] for p in active):
+        # переход на следующую улицу
         deck = state['deck']
-        if state['current_round'] == 'pre-flop':
-            deck.pop()  # burn
+        cr = state['current_round']
+        if cr == 'pre-flop':
+            deck.pop()
             state['community'] = [deck.pop() for _ in range(3)]
             state['current_round'] = 'flop'
-        elif state['current_round'] == 'flop':
+        elif cr == 'flop':
             deck.pop()
             state['community'].append(deck.pop())
             state['current_round'] = 'turn'
-        elif state['current_round'] == 'turn':
+        elif cr == 'turn':
             deck.pop()
             state['community'].append(deck.pop())
             state['current_round'] = 'river'
         else:
             state['current_round'] = 'showdown'
 
-        # Сброс ставок для нового раунда
+        # сброс ставок
         state['current_bet'] = 0
         state['contributions'] = {p: 0 for p in active}
-
-        # Первый ход — слева от дилера
+        state['round_actions'] = set()
+        # первый ход слева от дилера
         dealer_idx = state['dealer_index']
         players = state['players']
-        for i in range(1, len(players) + 1):
+        for i in range(1, len(players)+1):
             nxt = players[(dealer_idx + i) % len(players)]
             if state['stacks'].get(nxt, 0) > 0:
                 state['current_player'] = nxt
                 break
 
-    # 4) Сохранение состояния
     game_states[table_id] = state
 
