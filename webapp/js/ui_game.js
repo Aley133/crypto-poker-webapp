@@ -54,7 +54,7 @@ function updateUI(state) {
     return;
   }
 
-  statusEl.textContent     = 'Игра началась';
+  statusEl.textContent     = 'Ваш ход';
   actionsEl.style.display  = 'flex';
   potEl.textContent        = `Пот: ${state.pot||0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet||0}`;
