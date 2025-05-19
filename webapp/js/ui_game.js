@@ -163,6 +163,8 @@ function renderTable(state) {
 
 // Основной IIFE: загрузка стейта и WS
 (async () => {
+  document.getElementById('table-id').textContent = tableId;
+  
   const initState = await getGameState(tableId);
   updateUI(initState);
   renderTable(initState);
