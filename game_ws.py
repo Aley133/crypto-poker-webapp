@@ -35,6 +35,7 @@ async def broadcast(table_id: int):
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
     await websocket.accept()
+    print(f"+++ Client connected: table={table_id}")
 
     # Отклоняем, если нет state
     if table_id not in game_states:
