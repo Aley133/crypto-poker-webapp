@@ -17,6 +17,15 @@ const pokerTableEl = document.getElementById('poker-table');
 
 let ws;  // сокет
 
+// Обёртка для безопасной отправки
+function safeSend(payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+  } else {
+    console.warn('WebSocket не готов к отправке:', ws && ws.readyState);
+  }
+}
+
 // Логирование для отладки
 function logState(state) {
   console.log('Game state:', state);
@@ -69,6 +78,7 @@ function updateUI(state) {
   callBtn.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   callBtn.disabled    = (toCall <= 0 || myStack < toCall);
   callBtn.onclick     = () => ws.send(JSON.stringify({ user_id: userId, action: 'call' }));
+  callBtn.onclick = () => safeSend({ user_id: userId, action: 'call' });
   actionsEl.appendChild(callBtn);
 
   // Bet (первая ставка)
@@ -175,6 +185,23 @@ function renderTable(state) {
     renderTable(state);
   });
 })();
+
+// ===== Инициализация WS и первого рендера =====
+(async function init() {
+  // Показываем ID стола (если нужно)
+  document.getElementById('table-id').textContent = tableId;
+
+  // Первый стейт
+  const initState = await getGameState(tableId);
+  updateUI(initState);
+  renderTable(initState);
+
+  // Открываем WS один раз
+  ws = createWebSocket(tableId, userId, username, e => {
+    const state = JSON.parse(e.data);
+    updateUI(state);
+    renderTable(state);
+  });
 
 // Кнопка «Покинуть стол»
 leaveBtn.onclick = async () => {
