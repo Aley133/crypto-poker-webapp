@@ -16,23 +16,10 @@ export function createWebSocket(tableId, userId, username, onMessage) {
 
   const ws = new WebSocket(url);
 
-  ws.onopen = () => {
-    console.log('WebSocket connected to', url);
-  };
-
-  ws.onmessage = event => {
-    onMessage(event);
-  };
-
-  ws.onclose = event => {
-    console.log('WebSocket closed', event);
-    // При желании можно переключиться на HTTP-поллинг:
-    // startPolling(tableId, userId, data => onMessage({ data: JSON.stringify(data) }));
-  };
-
-  ws.onerror = err => {
-    console.error('WebSocket error', err);
-  };
+  ws.onopen = () => console.log('WebSocket connected to', url);
+  ws.onmessage = event => onMessage(event);
+  ws.onclose = e => console.log('WebSocket closed', e);
+  ws.onerror = e => console.error('WebSocket error', e);
 
   return ws;
 }
