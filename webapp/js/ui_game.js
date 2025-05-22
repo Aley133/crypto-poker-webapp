@@ -1,4 +1,5 @@
-import { getGameState }   from './api.js';
+// Файл webapp/js/ui_game.js
+import { getGameState } from './api.js';
 import { createWebSocket } from './ws.js';
 
 const params      = new URLSearchParams(window.location.search);
@@ -24,81 +25,83 @@ function safeSend(payload) {
 }
 
 function updateUI(state) {
-  // Если игра ещё не стартовала
+  // Игра не началась
   if (!state.started) {
-    statusEl.textContent     = `Ожидаем игроков… (${state.players_count||0}/2)`;
+    statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
     return;
   }
 
-  // Если не мой ход
-  if (String(state.current_player) !== String(userId)) {
+  const isMyTurn = String(state.current_player) === String(userId);
+
+  // Не мой ход
+  if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
-    potEl.textContent        = `Пот: ${state.pot||0}`;
-    currentBetEl.textContent = `Текущая ставка: ${state.current_bet||0}`;
+    potEl.textContent        = `Пот: ${state.pot || 0}`;
+    currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
     actionsEl.style.display  = 'none';
     return;
   }
 
-  // Мой ход
+  // Мой ход: отрисовываем кнопки действий
   statusEl.textContent     = 'Ваш ход';
-  potEl.textContent        = `Пот: ${state.pot||0}`;
-  currentBetEl.textContent = `Текущая ставка: ${state.current_bet||0}`;
+  potEl.textContent        = `Пот: ${state.pot || 0}`;
+  currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
   actionsEl.style.display  = 'flex';
   actionsEl.innerHTML      = '';
 
-  const contribs   = state.contributions || {};
-  const myContrib  = contribs[userId] || 0;
-  const cb         = state.current_bet || 0;
-  const toCall     = cb - myContrib;
-  const myStack    = state.stacks?.[userId] ?? 0;
+  const contribs  = state.contributions || {};
+  const myContrib = contribs[userId] || 0;
+  const cb       = state.current_bet || 0;
+  const toCall   = cb - myContrib;
+  const myStack  = state.stacks?.[userId] ?? 0;
 
   // Fold
-  const f = document.createElement('button');
-  f.textContent = 'Fold';
-  f.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
-  actionsEl.appendChild(f);
+  const btnFold = document.createElement('button');
+  btnFold.textContent = 'Fold';
+  btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
+  actionsEl.appendChild(btnFold);
 
   // Check
-  const c = document.createElement('button');
-  c.textContent = 'Check';
-  c.disabled    = (toCall !== 0);
-  c.onclick     = () => safeSend({ user_id: userId, action: 'check' });
-  actionsEl.appendChild(c);
+  const btnCheck = document.createElement('button');
+  btnCheck.textContent = 'Check';
+  btnCheck.disabled    = toCall !== 0;
+  btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
+  actionsEl.appendChild(btnCheck);
 
   // Call
-  const cl = document.createElement('button');
-  cl.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  cl.disabled    = (toCall <= 0 || myStack < toCall);
-  cl.onclick     = () => safeSend({ user_id: userId, action: 'call' });
-  actionsEl.appendChild(cl);
+  const btnCall = document.createElement('button');
+  btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+  btnCall.disabled    = toCall <= 0 || myStack < toCall;
+  btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
+  actionsEl.appendChild(btnCall);
 
   // Bet
-  const b = document.createElement('button');
-  b.textContent = 'Bet';
-  b.onclick     = () => {
-    const amt = parseInt(prompt('Сколько поставить?'), 10) || 0;
-    safeSend({ user_id: userId, action: 'bet', amount: amt });
+  const btnBet = document.createElement('button');
+  btnBet.textContent = 'Bet';
+  btnBet.onclick     = () => {
+    const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
+    safeSend({ user_id: userId, action: 'bet', amount });
   };
-  actionsEl.appendChild(b);
+  actionsEl.appendChild(btnBet);
 
   // Raise
-  const r = document.createElement('button');
-  r.textContent = 'Raise';
-  r.disabled    = (toCall <= 0);
-  r.onclick     = () => {
-    const amt = parseInt(prompt(`Рейз до (>${cb})?`), 10) || 0;
-    safeSend({ user_id: userId, action: 'raise', amount: amt });
+  const btnRaise = document.createElement('button');
+  btnRaise.textContent = 'Raise';
+  btnRaise.disabled    = toCall <= 0;
+  btnRaise.onclick     = () => {
+    const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
+    safeSend({ user_id: userId, action: 'raise', amount: target });
   };
-  actionsEl.appendChild(r);
+  actionsEl.appendChild(btnRaise);
 }
 
 function polarToCartesian(cx, cy, r, deg) {
-  const rad = (deg - 90) * Math.PI/180;
-  return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
+  const rad = (deg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
 function renderTable(state) {
@@ -107,7 +110,7 @@ function renderTable(state) {
   const community = state.community || [];
   const holeMap   = state.hole_cards || {};
 
-  const cx     = pokerTableEl.clientWidth  / 2;
+  const cx     = pokerTableEl.clientWidth / 2;
   const cy     = pokerTableEl.clientHeight / 2;
   const radius = Math.min(cx, cy) - 60;
 
@@ -116,7 +119,7 @@ function renderTable(state) {
     const commEl = document.createElement('div');
     commEl.className = 'cards';
     commEl.style.position = 'absolute';
-    commEl.style.left     = `${cx - community.length*20}px`;
+    commEl.style.left     = `${cx - community.length * 20}px`;
     commEl.style.top      = `${cy - 20}px`;
     community.forEach(card => {
       const c = document.createElement('div');
@@ -127,11 +130,11 @@ function renderTable(state) {
     pokerTableEl.appendChild(commEl);
   }
 
-  // Игроки по кругу (вы — внизу)
+  // Игроки по кругу (вы внизу)
   const myIdx = players.findIndex(p => String(p.user_id) === userId);
-  const ordered = myIdx >= 0
-    ? players.slice(myIdx).concat(players.slice(0, myIdx))
-    : players;
+  const ordered = myIdx >= 0 ?
+    players.slice(myIdx).concat(players.slice(0, myIdx)) :
+    players;
 
   ordered.forEach((p, i) => {
     const angle = 360 * i / ordered.length + 180;
@@ -142,15 +145,12 @@ function renderTable(state) {
     seat.style.left = `${pos.x}px`;
     seat.style.top  = `${pos.y}px`;
 
-    const nm = document.createElement('div');
-    nm.textContent = p.username;
+    const nm = document.createElement('div'); nm.textContent = p.username;
     seat.appendChild(nm);
 
-    const cardsEl = document.createElement('div');
-    cardsEl.className = 'cards';
+    const cardsEl = document.createElement('div'); cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(card => {
-      const cd = document.createElement('div');
-      cd.className = 'card';
+      const cd = document.createElement('div'); cd.className = 'card';
       cd.textContent = String(p.user_id) === userId ? card : '🂠';
       cardsEl.appendChild(cd);
     });
@@ -160,7 +160,7 @@ function renderTable(state) {
   });
 }
 
-// === Инициализация ===
+// Инициализация
 (async function init() {
   document.getElementById('table-id').textContent = tableId;
 
