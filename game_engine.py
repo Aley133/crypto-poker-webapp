@@ -32,12 +32,12 @@ def start_hand(table_id: int):
       - Раздача карманных карт
       - Начало pre-flop
     """
-    # Берём актуальный список игроков из seat_map (чтобы учесть новых)
-    players = [str(uid) for uid in seat_map.get(table_id, [])]
-    if len(players) < MIN_PLAYERS:
-        # Недостаточно игроков — очищаем состояние
-        game_states.pop(table_id, None)
-        return
+   # Берём актуальный список участников из state, куда WS-рут до этого уже положил всех подключившихся
+prev = game_states.get(table_id, {})
+players = prev.get("players", [])
+if len(players) < MIN_PLAYERS:
+    game_states.pop(table_id, None)
+    return
 
     prev = game_states.get(table_id, {})
     prev_usernames = prev.get("usernames", {})
