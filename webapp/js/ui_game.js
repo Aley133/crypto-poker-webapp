@@ -1,4 +1,3 @@
-import { getGameState } from './api.js';
 import { createWebSocket } from './ws.js';
 
 const params      = new URLSearchParams(window.location.search);
@@ -33,7 +32,6 @@ function safeSend(payload) {
 }
 
 function updateUI(state) {
-  // Фаза результата — показываем оверлей
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
@@ -89,23 +87,54 @@ function updateUI(state) {
     potEl.textContent        = `Пот: ${state.pot||0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet||0}`;
     actionsEl.style.display  = 'none';
-  } else {
-    statusEl.textContent     = 'Ваш ход';
-    potEl.textContent        = `Пот: ${state.pot||0}`;
-    currentBetEl.textContent = `Текущая ставка: ${state.current_bet||0}`;
-    actionsEl.style.display  = 'flex';
-    actionsEl.innerHTML      = '';
-    const contribs  = state.contributions || {};
-    const myContrib = contribs[userId] || 0;
-    const cb        = state.current_bet || 0;
-    const toCall    = cb - myContrib;
-    const myStack   = state.stacks?.[userId] ?? 0;
-    const btnFold = document.createElement('button'); btnFold.textContent = 'Fold'; btnFold.onclick = () => safeSend({ user_id: userId, action: 'fold' }); actionsEl.appendChild(btnFold);
-    const btnCheck = document.createElement('button'); btnCheck.textContent = 'Check'; btnCheck.disabled = toCall !== 0; btnCheck.onclick = () => safeSend({ user_id: userId, action: 'check' }); actionsEl.appendChild(btnCheck);
-    const btnCall = document.createElement('button'); btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call'; btnCall.disabled = toCall <= 0 || myStack < toCall; btnCall.onclick = () => safeSend({ user_id: userId, action: 'call' }); actionsEl.appendChild(btnCall);
-    const btnBet = document.createElement('button'); btnBet.textContent = 'Bet'; btnBet.onclick = () => { const amount = parseInt(prompt('Сколько поставить?'), 10) || 0; safeSend({ user_id: userId, action: 'bet', amount }); }; actionsEl.appendChild(btnBet);
-    const btnRaise = document.createElement('button'); btnRaise.textContent = 'Raise'; btnRaise.disabled = toCall <= 0; btnRaise.onclick = () => { const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0; safeSend({ user_id: userId, action: 'raise', amount: target }); }; actionsEl.appendChild(btnRaise);
+    return;
   }
+
+  statusEl.textContent     = 'Ваш ход';
+  potEl.textContent        = `Пот: ${state.pot||0}`;
+  currentBetEl.textContent = `Текущая ставка: ${state.current_bet||0}`;
+  actionsEl.style.display  = 'flex';
+  actionsEl.innerHTML      = '';
+
+  const contribs  = state.contributions || {};
+  const myContrib = contribs[userId] || 0;
+  const cb        = state.current_bet || 0;
+  const toCall    = cb - myContrib;
+  const myStack   = state.stacks?.[userId] ?? 0;
+
+  const btnFold = document.createElement('button');
+  btnFold.textContent = 'Fold';
+  btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
+  actionsEl.appendChild(btnFold);
+
+  const btnCheck = document.createElement('button');
+  btnCheck.textContent = 'Check';
+  btnCheck.disabled    = toCall !== 0;
+  btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
+  actionsEl.appendChild(btnCheck);
+
+  const btnCall = document.createElement('button');
+  btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+  btnCall.disabled    = toCall <= 0 || myStack < toCall;
+  btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
+  actionsEl.appendChild(btnCall);
+
+  const btnBet = document.createElement('button');
+  btnBet.textContent = 'Bet';
+  btnBet.onclick     = () => {
+    const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
+    safeSend({ user_id: userId, action: 'bet', amount });
+  };
+  actionsEl.appendChild(btnBet);
+
+  const btnRaise = document.createElement('button');
+  btnRaise.textContent = 'Raise';
+  btnRaise.disabled    = toCall <= 0;
+  btnRaise.onclick     = () => {
+    const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
+    safeSend({ user_id: userId, action: 'raise', amount: target });
+  };
+  actionsEl.appendChild(btnRaise);
 }
 
 function polarToCartesian(cx, cy, r, deg) {
@@ -140,16 +169,15 @@ function renderTable(state) {
   });
 }
 
-(async function init() {
+(function init() {
   document.getElementById('table-id').textContent = tableId;
-  const initState = await getGameState(tableId);
-  updateUI(initState);
-  renderTable(initState);
+
   ws = createWebSocket(tableId, userId, username, e => {
     const state = JSON.parse(e.data);
     updateUI(state);
     renderTable(state);
   });
+
   leaveBtn.onclick = async () => {
     await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
     window.location.href = 'index.html';
