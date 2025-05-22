@@ -83,7 +83,17 @@ async def ws_game(websocket: WebSocket, table_id: int):
             # Удаляем состояние, если нет игроков
             game_states.pop(table_id, None)
 
-# REST-фоллбек для фронтенда, если где-то ещё используется
+# REST-фоллбек для фронтенда: возвращаем payload в том же виде, что и WebSocket broadcast
 @router.get("/api/game_state")
 async def api_game_state(table_id: int):
-    return game_states.get(table_id, {}) or {}
+    state = game_states.get(table_id)
+    if not state:
+        return {"players_count": 0}
+    # Формируем payload идентичный broadcast
+    payload = state.copy()
+    payload["players"] = [
+        {"user_id": uid, "username": state.get("usernames", {}).get(uid, str(uid))}
+        for uid in state.get("players", [])
+    ]
+    payload["players_count"] = len(state.get("players", []))
+    return payload
