@@ -1,5 +1,6 @@
 import random
-from typing import Dict, List, Set, Tuple
+import time
+from typing import Dict, List, Set, Tuple, Optional
 from game_data import seat_map
 
 # Хранилища состояний и WS-соединений
@@ -11,6 +12,9 @@ STARTING_STACK = 1000
 BLIND_SMALL    = 1
 BLIND_BIG      = 2
 MIN_PLAYERS    = 2
+DECISION_TIME  = 30  # секунда на ход
+
+# Порядок улиц
 ROUNDS         = ["pre-flop", "flop", "turn", "river", "showdown"]
 
 # Ранжирование комбинаций
@@ -25,7 +29,9 @@ HAND_RANKS = {
     'four_of_a_kind': 8,
     'straight_flush': 9,
 }
-RANK_ORDER = {r: i for i, r in enumerate(['2','3','4','5','6','7','8','9','10','J','Q','K','A'], start=2)}
+RANK_ORDER = {r: i for i, r in enumerate(
+    ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], start=2)
+}
 SUITS = ['♠','♥','♦','♣']
 
 
@@ -45,7 +51,10 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
     vals.sort(reverse=True)
     # Проверка флеша
     flush_suit = next((s for s in SUITS if suits.count(s) >= 5), None)
-    flush_cards = sorted([v for v, su in zip(vals, suits) if su == flush_suit], reverse=True)[:5] if flush_suit else []
+    flush_cards = sorted(
+        [v for v, su in zip(vals, suits) if su == flush_suit],
+        reverse=True
+    )[:5] if flush_suit else []
     # Проверка стрит
     unique_vals = sorted(set(vals), reverse=True)
     straight_high = 0
@@ -54,52 +63,73 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
         if window[0] - window[-1] == 4:
             straight_high = window[0]
             break
+    # Wheel A-5
     if set([14,5,4,3,2]).issubset(unique_vals):
         straight_high = 5
     # Группы
     counts = {v: vals.count(v) for v in set(vals)}
-    groups = sorted(counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+    groups = sorted(
+        counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True
+    )
     # Категории
     if flush_suit and straight_high:
-        category = 'straight_flush'; tiebreaker = [straight_high]
+        category, tiebreaker = 'straight_flush', [straight_high]
     elif groups[0][1] == 4:
-        category = 'four_of_a_kind'; four = groups[0][0]
-        kicker = max(v for v in vals if v != four); tiebreaker = [four, kicker]
+        four = groups[0][0]
+        kicker = max(v for v in vals if v != four)
+        category, tiebreaker = 'four_of_a_kind', [four, kicker]
     elif groups[0][1] == 3 and groups[1][1] >= 2:
-        category = 'full_house'; tiebreaker = [groups[0][0], groups[1][0]]
+        category, tiebreaker = 'full_house', [groups[0][0], groups[1][0]]
     elif flush_suit:
-        category = 'flush'; tiebreaker = flush_cards
+        category, tiebreaker = 'flush', flush_cards
     elif straight_high:
-        category = 'straight'; tiebreaker = [straight_high]
+        category, tiebreaker = 'straight', [straight_high]
     elif groups[0][1] == 3:
-        category = 'three_of_a_kind'; th = groups[0][0]
-        kickers = sorted([v for v in vals if v != th], reverse=True)[:2]; tiebreaker = [th] + kickers
+        th = groups[0][0]
+        kickers = sorted([v for v in vals if v != th], reverse=True)[:2]
+        category, tiebreaker = 'three_of_a_kind', [th] + kickers
     elif groups[0][1] == 2 and groups[1][1] == 2:
-        category = 'two_pair'; hp, lp = groups[0][0], groups[1][0]
-        kicker = max(v for v in vals if v not in (hp, lp)); tiebreaker = [hp, lp, kicker]
+        hp, lp = groups[0][0], groups[1][0]
+        kicker = max(v for v in vals if v not in (hp, lp))
+        category, tiebreaker = 'two_pair', [hp, lp, kicker]
     elif groups[0][1] == 2:
-        category = 'one_pair'; pair = groups[0][0]
-        kickers = sorted([v for v in vals if v != pair], reverse=True)[:3]; tiebreaker = [pair] + kickers
+        pair = groups[0][0]
+        kickers = sorted([v for v in vals if v != pair], reverse=True)[:3]
+        category, tiebreaker = 'one_pair', [pair] + kickers
     else:
-        category = 'high_card'; tiebreaker = vals[:5]
+        category, tiebreaker = 'high_card', vals[:5]
     return (HAND_RANKS[category], tiebreaker)
 
 
 def start_hand(table_id: int):
     state = game_states.get(table_id)
-    if not state: return
+    if not state:
+        return
     players = state.get("players", [])
     if len(players) < MIN_PLAYERS:
         game_states.pop(table_id, None)
         return
+
+    # Ротация дилера и блайнды
     prev = state.get("dealer_index", -1)
     dealer = (prev + 1) % len(players)
-    sb = (dealer + 1) % len(players); bb = (dealer + 2) % len(players)
+    sb, bb = (dealer + 1) % len(players), (dealer + 2) % len(players)
     sb_uid, bb_uid = players[sb], players[bb]
-    deck = new_deck(); hole = {u: [deck.pop(), deck.pop()] for u in players}
+
+    # Создание колоды и раздача
+    deck = new_deck()
+    hole = {u: [deck.pop(), deck.pop()] for u in players}
+
+    # Стеки и блайнды
     stacks = {u: STARTING_STACK for u in players}
-    stacks[sb_uid] -= BLIND_SMALL; stacks[bb_uid] -= BLIND_BIG
-    contributions = {u: 0 for u in players}; contributions[sb_uid], contributions[bb_uid] = BLIND_SMALL, BLIND_BIG
+    stacks[sb_uid] -= BLIND_SMALL
+    stacks[bb_uid] -= BLIND_BIG
+
+    contributions = {u: 0 for u in players}
+    contributions[sb_uid] = BLIND_SMALL
+    contributions[bb_uid] = BLIND_BIG
+
+    # Инициализация состояния
     state.update({
         "dealer_index": dealer,
         "deck": deck,
@@ -114,84 +144,140 @@ def start_hand(table_id: int):
         "started": True,
         "folds": set(),
         "acted": set(),
+        "timer_deadline": time.time() + DECISION_TIME,
+        "split_pots": {},
     })
-    for k in ["winner","game_over","game_over_reason","revealed_hands","split_pots"]:
+    # Очистка результатов предыдущей руки
+    for k in ["winner", "game_over", "game_over_reason", "revealed_hands"]:
         state.pop(k, None)
+
     game_states[table_id] = state
 
 
 def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
+    now = time.time()
     state = game_states.get(table_id)
-    if not state: return
+    if not state:
+        return
     uid = str(uid)
     players = state.get("players", [])
     stacks, contrib = state["stacks"], state["contributions"]
     folds, cb = set(state.get("folds", set())), state.get("current_bet", 0)
-    if uid not in stacks or state.get("current_player") != uid: return
-    # Fold
+    deadline = state.get("timer_deadline", now)
+
+    # Тайм-аут
+    if now > deadline:
+        # Авто-fold при просрочке
+        action = 'fold'
+
+    if uid not in stacks or state.get("current_player") != uid:
+        return
+
+    # Обработка fold
     if action == "fold":
-        folds.add(uid); state["folds"] = folds
+        folds.add(uid)
+        state["folds"] = folds
         alive = [p for p in players if p not in folds]
         if len(alive) == 1:
             winner = alive[0]
+            # Завершение руки
             state.update({
                 "revealed_hands": {p: state["hole_cards"][p] for p in players},
-                "winner": winner, "game_over": True,
-                "game_over_reason": "fold", "split_pots": {winner: state.get("pot",0)}
+                "winner": winner,
+                "game_over": True,
+                "game_over_reason": "fold",
+                "split_pots": {winner: state.get("pot",0)},
             })
             state["started"] = False
-            if len(players)>=MIN_PLAYERS: start_hand(table_id)
             return
+        # Выбор следующего активного
         idx = players.index(uid)
-        for i in range(1,len(players)):
-            cand = players[(idx+i)%len(players)]
-            if cand not in folds and stacks[cand]>0:
-                state["current_player"] = cand; break
+        for i in range(1, len(players)):
+            cand = players[(idx + i) % len(players)]
+            if cand not in folds and stacks[cand] > 0:
+                state["current_player"] = cand
+                break
+        state["timer_deadline"] = now + DECISION_TIME
         return
-    # Actions
+
+    # Check, call, bet, raise
     if action == "check":
-        if contrib.get(uid,0) != cb: return
+        if contrib.get(uid, 0) != cb:
+            return
     elif action == "call":
-        to_call = cb - contrib.get(uid,0); stacks[uid]-=to_call; state["pot"]+=to_call; contrib[uid]+=to_call
-    elif action == "bet" and amount>cb and stacks[uid]>=amount:
-        state["current_bet"] = amount; diff=amount-contrib.get(uid,0); stacks[uid]-=diff; state["pot"]+=diff; contrib[uid]=amount
-    elif action == "raise" and amount>cb and stacks[uid]>=amount-contrib.get(uid,0):
-        state["current_bet"] = amount; diff=amount-contrib.get(uid,0); stacks[uid]-=diff; state["pot"]+=diff; contrib[uid]=amount
-    else: return
-    # Mark action
-    acted = set(state.get("acted", set())); acted.add(uid); state["acted"] = acted
-    # Next street?
+        to_call = cb - contrib.get(uid, 0)
+        stacks[uid] -= to_call
+        state["pot"] += to_call
+        contrib[uid] += to_call
+    elif action == "bet" and amount > cb and stacks[uid] >= amount:
+        state["current_bet"] = amount
+        diff = amount - contrib.get(uid, 0)
+        stacks[uid] -= diff
+        state["pot"] += diff
+        contrib[uid] = amount
+    elif action == "raise" and amount > cb and stacks[uid] >= (amount - contrib.get(uid,0)):
+        state["current_bet"] = amount
+        diff = amount - contrib.get(uid, 0)
+        stacks[uid] -= diff
+        state["pot"] += diff
+        contrib[uid] = amount
+    else:
+        return
+
+    # Пометка хода и сброс таймера
+    acted = set(state.get("acted", set()))
+    acted.add(uid)
+    state["acted"] = acted
+    state["timer_deadline"] = now + DECISION_TIME
+
+    # Переход улицы
     alive = [p for p in players if p not in folds]
     if acted >= set(alive):
-        state["acted"] = set(); rnd=state["current_round"]; deck=state["deck"]; idx=ROUNDS.index(rnd)
+        state["acted"] = set()
+        state["timer_deadline"] = now + DECISION_TIME
+        rnd = state.get("current_round")
+        deck = state.get("deck", [])
+        idx = ROUNDS.index(rnd)
         if rnd in ["pre-flop","flop","turn"]:
-            deck.pop(); cnt=3 if rnd=="pre-flop" else 1
-            state["community"] += [deck.pop() for _ in range(cnt)]; state["current_round"] = ROUNDS[idx+1]
-        elif rnd=="river": state["current_round"]="showdown"
-        if state["current_round"]=="showdown":
+            deck.pop()
+            cnt = 3 if rnd == "pre-flop" else 1
+            state["community"] += [deck.pop() for _ in range(cnt)]
+            state["current_round"] = ROUNDS[idx+1]
+        elif rnd == "river":
+            state["current_round"] = "showdown"
+        # Showdown
+        if state["current_round"] == "showdown":
             alive = [p for p in players if p not in folds]
             hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
             scores = {p: evaluate_hand(h) for p,h in hands.items()}
+            # Определение победителей и сплит банка
             best_rank = max(s[0] for s in scores.values())
-            winners = [p for p,s in scores.items() if s[0]==best_rank]
-            max_tb = max(s[1] for p,s in scores.items() if p in winners)
-            winners = [w for w in winners if scores[w][1]==max_tb]
+            candidates = [p for p,s in scores.items() if s[0] == best_rank]
+            # Ти-брейкер
+            max_tb = max(scores[p][1] for p in candidates)
+            winners = [p for p in candidates if scores[p][1] == max_tb]
             pot = state.get("pot",0)
             share, rem = divmod(pot, len(winners))
-            split = {w:share for w in winners}
-            if rem: split[players[state.get("dealer_index")]] = split.get(players[state.get("dealer_index")],0)+rem
+            split = {w: share for w in winners}
+            if rem:
+                dealer = players[state.get("dealer_index")]
+                split[dealer] = split.get(dealer,0) + rem
             state.update({
                 "revealed_hands": hands,
                 "winner": winners[0] if len(winners)==1 else winners,
+                "split_pots": split,
                 "game_over": True,
                 "game_over_reason": "showdown",
-                "split_pots": split
             })
             state["started"] = False
-            if len(players)>=MIN_PLAYERS: start_hand(table_id)
             return
-        state["current_bet"] = 0; state["contributions"] = {p:0 for p in alive}
-    # Next to act
-    if len(alive)>1 and uid in alive:
-        ai = alive.index(uid); state["current_player"] = alive[(ai+1)%len(alive)]
+        # Сброс ставок
+        state["current_bet"] = 0
+        state["contributions"] = {p:0 for p in alive}
+
+    # Смена игрока
+    if len(alive) > 1 and uid in alive:
+        ai = alive.index(uid)
+        state["current_player"] = alive[(ai+1) % len(alive)]
+
     game_states[table_id] = state
