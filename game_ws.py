@@ -46,12 +46,13 @@ async def ws_game(websocket: WebSocket, table_id: int):
     players = [str(ws_.query_params.get("user_id")) for ws_ in conns]
     state["players"] = players
 
-    # Первый broadcast: ожидание или старт
-    await broadcast(table_id)
-
-    # Старт руки при достаточном числе игроков
-    if len(players) >= MIN_PLAYERS and not state.get("started", False):
+    # Если достаточно игроков — старт раздачи, иначе — ожидание
+    if len(players) >= MIN_PLAYERS:
+        # Перезаписываем started, чтобы гарантировать рестарт
+        state["started"] = False
         start_hand(table_id)
+        await broadcast(table_id)
+    else:
         await broadcast(table_id)
 
     try:
@@ -71,11 +72,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
         remaining = [str(ws_.query_params.get("user_id")) for ws_ in conns]
         if remaining:
             state["players"] = remaining
+            # Если осталось минимум игроков, перезапускаем руку
+            if len(remaining) >= MIN_PLAYERS:
+                state["started"] = False
+                start_hand(table_id)
             await broadcast(table_id)
         else:
             game_states.pop(table_id, None)
-
-
-@router.get("/api/game_state")
-async def api_game_state(table_id: int):
-    return game_states.get(table_id, {}) or {}
