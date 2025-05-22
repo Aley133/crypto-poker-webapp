@@ -32,35 +32,41 @@ def start_hand(table_id: int):
       - Раздача карманных карт
       - Начало pre-flop
     """
-    prev = game_states.get(table_id, {})
-    players = prev.get("players") or [str(uid) for uid in seat_map.get(table_id, [])]
+    # Берём актуальный список игроков из seat_map (чтобы учесть новых)
+    players = [str(uid) for uid in seat_map.get(table_id, [])]
     if len(players) < MIN_PLAYERS:
+        # Недостаточно игроков — очищаем состояние
         game_states.pop(table_id, None)
         return
 
+    prev = game_states.get(table_id, {})
     prev_usernames = prev.get("usernames", {})
     prev_dealer = prev.get("dealer_index", -1)
     dealer_index = (prev_dealer + 1) % len(players)
 
+    # Позиции блайндов
     sb_i = (dealer_index + 1) % len(players)
     bb_i = (dealer_index + 2) % len(players)
     sb_uid = players[sb_i]
     bb_uid = players[bb_i]
 
+    # Колода и карманные карты
     deck = new_deck()
     hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
 
+    # Стеки и блайнды
     stacks = {uid: STARTING_STACK for uid in players}
-    stacks[sb_uid] = max(0, stacks[sb_uid] - BLIND_SMALL)
-    stacks[bb_uid] = max(0, stacks[bb_uid] - BLIND_BIG)
-
+    stacks[sb_uid] -= BLIND_SMALL
+    stacks[bb_uid] -= BLIND_BIG
     contributions = {uid: 0 for uid in players}
     contributions[sb_uid] = BLIND_SMALL
     contributions[bb_uid] = BLIND_BIG
-
     pot = BLIND_SMALL + BLIND_BIG
+
+    # Кто ходит первым
     first_to_act = players[(bb_i + 1) % len(players)]
 
+    # Собираем новое состояние
     state = {
         "players": players,
         "dealer_index": dealer_index,
@@ -77,6 +83,7 @@ def start_hand(table_id: int):
         "started": True,
         "folds": {},
     }
+    # Очистка прошлых результатов
     for k in ["winner", "game_over", "game_over_reason", "revealed_hands"]:
         state.pop(k, None)
 
@@ -155,11 +162,14 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         idx = active.index(uid)
         state["current_player"] = active[(idx + 1) % len(active)]
 
-    # Переход улицы при равных вкладах
+    # 4) Переход улицы при равных вкладах и переход на следующий раунд
     if all(contrib.get(p, 0) == state.get("current_bet", 0) for p in active):
         rnd = state.get("current_round")
         deck = state.get("deck", [])
+        players = state.get("players", [])
+
         if rnd == "pre-flop":
+            # burn + flop
             deck.pop()
             state["community"] = [deck.pop() for _ in range(3)]
             state["current_round"] = "flop"
@@ -173,15 +183,30 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             state["current_round"] = "river"
         elif rnd == "river":
             state["current_round"] = "showdown"
-            players = state["players"]
+            # Showdown: раскрываем руки и определяем победителя
             state["revealed_hands"] = {pid: state["hole_cards"][pid] for pid in players}
             # TODO: сравнение комбинаций
             state["winner"] = players[0]
             state["game_over"] = True
             state["game_over_reason"] = "showdown"
             state["started"] = False
+            # Рестарт новой раздачи
             if len(players) >= MIN_PLAYERS:
                 start_hand(table_id)
             return
+
+        # Сброс ставок и вкладов перед новым раундом
         state["current_bet"] = 0
-        state["contributions"] = {p: 0 for p in active}
+        state["contributions"] = {pid: 0 for pid in active}
+
+        # Устанавливаем current_player на первого активного после дилера
+        dealer_index = state.get("dealer_index", -1)
+        order = players[dealer_index+1:] + players[:dealer_index+1]
+        for pid in order:
+            if pid in active:
+                state["current_player"] = pid
+                break
+
+    # Гарантируем, что current_player всегда среди активных
+    if state.get("current_player") not in active:
+        state["current_player"] = active[0] if active else None
