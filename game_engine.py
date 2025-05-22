@@ -13,6 +13,7 @@ BLIND_SMALL    = 1
 BLIND_BIG      = 2
 MIN_PLAYERS    = 2
 DECISION_TIME  = 30  # секунда на ход
+RESULT_DELAY = 5
 
 # Порядок улиц
 ROUNDS         = ["pre-flop", "flop", "turn", "river", "showdown"]
@@ -148,6 +149,12 @@ def start_hand(table_id: int):
         "timer_deadline": time.time() + DECISION_TIME,
         "split_pots": {},
     })
+    # Фаза торгов — сбрасываем прошлый результат
+    state["phase"] = "pre-flop"
+    state.pop("result_delay_deadline", None)
+    for k in ("winner","game_over","game_over_reason","revealed_hands","split_pots"):
+        state.pop(k, None)
+        
     # Очистка результатов предыдущей руки
     for k in ["winner", "game_over", "game_over_reason", "revealed_hands"]:
         state.pop(k, None)
@@ -179,16 +186,19 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         state["folds"] = folds
         alive = [p for p in players if p not in folds]
         if len(alive) == 1:
-            winner = alive[0]
-            state.update({
-                "revealed_hands": {p: state["hole_cards"][p] for p in players},
-                "winner": winner,
-                "game_over": True,
-                "game_over_reason": "fold",
-                "split_pots": {winner: state.get("pot", 0)},
-            })
-            state["started"] = False
-            return
+        winner = alive[0]
+        state.update({
+            "revealed_hands": {p: state["hole_cards"][p] for p in players},
+            "winner": winner,
+            "game_over": True,
+            "game_over_reason": "fold",
+            "split_pots": {winner: state.get("pot",0)},
+            # переходим в фазу результата
+            "phase": "result",
+            "result_delay_deadline": time.time() + RESULT_DELAY,
+        })
+        state["started"] = False
+        return
         idx = players.index(uid)
         for i in range(1, len(players)):
             cand = players[(idx + i) % len(players)]
@@ -258,14 +268,17 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 dealer = players[state["dealer_index"]]
                 split[dealer] = split.get(dealer, 0) + rem
             state.update({
-                "revealed_hands": hands,
-                "winner": winners[0] if len(winners) == 1 else winners,
-                "split_pots": split,
-                "game_over": True,
-                "game_over_reason": "showdown",
-            })
-            state["started"] = False
-            return
+            "revealed_hands": hands,
+            "winner": winners[0] if len(winners)==1 else winners,
+            "split_pots": split,
+            "game_over": True,
+            "game_over_reason": "showdown",
+            # переходим в фазу результата
+            "phase": "result",
+            "result_delay_deadline": time.time() + RESULT_DELAY,
+        })
+        state["started"] = False
+        return
         state["current_bet"] = 0
         state["contributions"] = {p: 0 for p in alive}
 
