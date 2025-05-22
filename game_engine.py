@@ -108,7 +108,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 "winner": winner,
                 "game_over": True,
                 "game_over_reason": "fold",
-                "revealed_hands": {p: state["hole_cards"][p] for p in players},
+                "revealed_hands": {p: state.get("hole_cards", {}).get(p, []) for p in players},
                 "started": False,
             })
             if len(players) >= MIN_PLAYERS:
@@ -174,7 +174,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         elif rnd == "river":
             state["current_round"] = "showdown"
         if state["current_round"] == "showdown":
-            state["revealed_hands"] = {p: state["hole_cards"][p] for p in players}
+            state["revealed_hands"] = {p: state.get("hole_cards", {}).get(p, []) for p in players}
             state["winner"] = active[0]  # TODO: сравнение комбинаций
             state["game_over"] = True
             state["game_over_reason"] = "showdown"
