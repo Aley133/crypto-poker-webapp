@@ -142,6 +142,7 @@ def start_hand(table_id: int):
         "current_round": ROUNDS[0],
         "current_player": players[(bb + 1) % len(players)],
         "started": True,
+        "phase": "pre-flop",
         "folds": set(),
         "acted": set(),
         "timer_deadline": time.time() + DECISION_TIME,
@@ -167,7 +168,6 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
     # Тайм-аут
     if now > deadline:
-        # Авто-fold при просрочке
         action = 'fold'
 
     if uid not in stacks or state.get("current_player") != uid:
@@ -180,17 +180,15 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         alive = [p for p in players if p not in folds]
         if len(alive) == 1:
             winner = alive[0]
-            # Завершение руки
             state.update({
                 "revealed_hands": {p: state["hole_cards"][p] for p in players},
                 "winner": winner,
                 "game_over": True,
                 "game_over_reason": "fold",
-                "split_pots": {winner: state.get("pot",0)},
+                "split_pots": {winner: state.get("pot", 0)},
             })
             state["started"] = False
             return
-        # Выбор следующего активного
         idx = players.index(uid)
         for i in range(1, len(players)):
             cand = players[(idx + i) % len(players)]
@@ -215,7 +213,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         stacks[uid] -= diff
         state["pot"] += diff
         contrib[uid] = amount
-    elif action == "raise" and amount > cb and stacks[uid] >= (amount - contrib.get(uid,0)):
+    elif action == "raise" and amount > cb and stacks[uid] >= (amount - contrib.get(uid, 0)):
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
@@ -238,46 +236,42 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         rnd = state.get("current_round")
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
-        if rnd in ["pre-flop","flop","turn"]:
+        if rnd in ["pre-flop", "flop", "turn"]:
             deck.pop()
             cnt = 3 if rnd == "pre-flop" else 1
             state["community"] += [deck.pop() for _ in range(cnt)]
-            state["current_round"] = ROUNDS[idx+1]
+            state["current_round"] = ROUNDS[idx + 1]
         elif rnd == "river":
             state["current_round"] = "showdown"
-        # Showdown
         if state["current_round"] == "showdown":
             alive = [p for p in players if p not in folds]
             hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
-            scores = {p: evaluate_hand(h) for p,h in hands.items()}
-            # Определение победителей и сплит банка
+            scores = {p: evaluate_hand(h) for p, h in hands.items()}
             best_rank = max(s[0] for s in scores.values())
-            candidates = [p for p,s in scores.items() if s[0] == best_rank]
-            # Ти-брейкер
+            candidates = [p for p, s in scores.items() if s[0] == best_rank]
             max_tb = max(scores[p][1] for p in candidates)
             winners = [p for p in candidates if scores[p][1] == max_tb]
-            pot = state.get("pot",0)
+            pot = state.get("pot", 0)
             share, rem = divmod(pot, len(winners))
             split = {w: share for w in winners}
             if rem:
-                dealer = players[state.get("dealer_index")]
-                split[dealer] = split.get(dealer,0) + rem
+                dealer = players[state["dealer_index"]]
+                split[dealer] = split.get(dealer, 0) + rem
             state.update({
                 "revealed_hands": hands,
-                "winner": winners[0] if len(winners)==1 else winners,
+                "winner": winners[0] if len(winners) == 1 else winners,
                 "split_pots": split,
                 "game_over": True,
                 "game_over_reason": "showdown",
             })
             state["started"] = False
             return
-        # Сброс ставок
         state["current_bet"] = 0
-        state["contributions"] = {p:0 for p in alive}
+        state["contributions"] = {p: 0 for p in alive}
 
     # Смена игрока
     if len(alive) > 1 and uid in alive:
         ai = alive.index(uid)
-        state["current_player"] = alive[(ai+1) % len(alive)]
+        state["current_player"] = alive[(ai + 1) % len(alive)]
 
     game_states[table_id] = state
