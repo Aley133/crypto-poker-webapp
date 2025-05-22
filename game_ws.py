@@ -17,7 +17,7 @@ async def broadcast(table_id: int):
         {"user_id": uid, "username": payload.get("usernames", {}).get(uid, str(uid))}
         for uid in state.get("players", [])
     ]
-    payload["players_count"] = len(connections.get(table_id, []))
+    payload["players_count"] = len(state.get("players", []))  # используем динамический список игроков(table_id, []))
 
     for ws in list(connections.get(table_id, [])):
         try:
