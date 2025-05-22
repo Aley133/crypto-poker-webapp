@@ -12,7 +12,7 @@ async def broadcast(table_id: int):
         return
 
     payload = state.copy()
-    # Форматируем игроков
+    # Форматируем игроков для UI
     payload["players"] = [
         {"user_id": uid, "username": payload.get("usernames", {}).get(uid, str(uid))}
         for uid in state.get("players", [])
@@ -29,7 +29,7 @@ async def broadcast(table_id: int):
 async def ws_game(websocket: WebSocket, table_id: int):
     await websocket.accept()
 
-    uid = str(websocket.query_params.get("user_id"))
+    uid = str(websocket.query_params.get("user_id", ""))
     username = websocket.query_params.get("username", uid)
 
     # Регистрируем подключение
@@ -42,40 +42,42 @@ async def ws_game(websocket: WebSocket, table_id: int):
     # Инициализируем или обновляем state
     state = game_states.setdefault(table_id, {})
     state.setdefault("usernames", {})[uid] = username
-    # Динамический список игроков из активных WS
+    # Обновляем список игроков из активных WS
     players = [str(ws_.query_params.get("user_id")) for ws_ in conns]
     state["players"] = players
 
-    # Если достаточно игроков — старт раздачи, иначе — ожидание
-    if len(players) >= MIN_PLAYERS:
-        # Перезаписываем started, чтобы гарантировать рестарт
-        state["started"] = False
+    # Если достаточно игроков и рука ещё не стартовала — стартуем
+    if len(players) >= MIN_PLAYERS and not state.get("started", False):
         start_hand(table_id)
-        await broadcast(table_id)
-    else:
-        await broadcast(table_id)
+    # Отправляем текущее состояние
+    await broadcast(table_id)
 
     try:
         while True:
             data = await websocket.receive_text()
             msg = json.loads(data)
-            player_id = str(msg.get("user_id"))
+            player_id = str(msg.get("user_id", ""))
             action = msg.get("action")
             amount = int(msg.get("amount", 0) or 0)
 
             apply_action(table_id, player_id, action, amount)
+            # При любом изменении — проверяем, нужно ли стартовать новую руку
+            state = game_states.get(table_id, {})
+            if len(state.get("players", [])) >= MIN_PLAYERS and not state.get("started", False):
+                start_hand(table_id)
             await broadcast(table_id)
 
     except WebSocketDisconnect:
+        # Удаляем соединение и обновляем список игроков
         conns.remove(websocket)
-        # Обновляем список игроков
         remaining = [str(ws_.query_params.get("user_id")) for ws_ in conns]
         if remaining:
+            state = game_states.setdefault(table_id, {})
             state["players"] = remaining
-            # Если осталось минимум игроков, перезапускаем руку
-            if len(remaining) >= MIN_PLAYERS:
-                state["started"] = False
+            # Рестарт, если необходимо
+            if len(remaining) >= MIN_PLAYERS and not state.get("started", False):
                 start_hand(table_id)
             await broadcast(table_id)
         else:
+            # Удаляем состояние, если нет игроков
             game_states.pop(table_id, None)
