@@ -170,3 +170,30 @@ function updateUI(state) {
   updateUI(initState);
   renderTable(initState);
 })();
+
+# HTTP endpoint для начального состояния при загрузке страницы
+@router.get("/api/game_state")
+async def api_game_state(table_id: int):
+    state = game_states.get(table_id, {}) or {}
+    payload = {
+        "phase": state.get("phase", "waiting"),
+        "started": state.get("started", False),
+        "players_count": len(state.get("players", [])),
+        "players": [
+            {"user_id": uid, "username": state.get("usernames", {}).get(uid, uid)}
+            for uid in state.get("players", [])
+        ],
+        "community": state.get("community", []),
+        "current_player": state.get("current_player"),
+        "pot": state.get("pot", 0),
+        "current_bet": state.get("current_bet", 0),
+        "contributions": state.get("contributions", {}),
+        "stacks": state.get("stacks", {}),
+        "hole_cards": state.get("hole_cards", {}),
+        "usernames": state.get("usernames", {}),
+        "timer_deadline": state.get("timer_deadline"),
+        "winner": state.get("winner"),
+        "revealed_hands": state.get("revealed_hands"),
+        "split_pots": state.get("split_pots"),
+    }
+    return payload
