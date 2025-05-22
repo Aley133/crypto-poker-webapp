@@ -46,11 +46,16 @@ async def ws_game(websocket: WebSocket, table_id: int):
     players = [str(ws_.query_params.get("user_id")) for ws_ in conns]
     state["players"] = players
 
-    # Если достаточно игроков и рука ещё не стартовала — стартуем
+        # Если достаточно игроков и рука ещё не стартовала — стартуем
     if len(players) >= MIN_PLAYERS and not state.get("started", False):
+        # Сброс предыдущего состояния игры (кроме usernames)
+        usernames = state.get("usernames", {})
+        game_states[table_id] = {"players": players, "usernames": usernames}
+        # Запуск новой руки
         start_hand(table_id)
+        state = game_states[table_id]
     # Отправляем текущее состояние
-    await broadcast(table_id)
+    await broadcast(table_id)(table_id)
 
     try:
         while True:
