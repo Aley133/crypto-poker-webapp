@@ -98,17 +98,13 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     contrib   = state["contributions"]
     cb        = state.get("current_bet", 0)
 
-    # 1) Обработка fold — приоритет над другими
+        # 1) Обработка fold — приоритет над другими
     if action == "fold":
         # Помечаем фолд текущего игрока
         state.setdefault('folds', {})[uid] = True
 
-        # Оппонент автоматически выигрывает
+        # Оппонент выигрывает
         opponent = next(pid for pid in state.get('players', []) if pid != uid)
-
-        # Формируем финальный board (существующие community + остаток deck)
-        final_board = state.get('community', []) + state.get('deck', [])
-        state['community'] = final_board
 
         # Устанавливаем победителя и флаги конца игры
         state['winner'] = opponent
@@ -117,12 +113,12 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
         # Раскрываем руки обоих игроков
         state['revealed_hands'] = {
-            uid:       state.get('hole_cards', {}).get(uid, []),
-            opponent:  state.get('hole_cards', {}).get(opponent, [])
+            uid:      state.get('hole_cards', {}).get(uid, []),
+            opponent: state.get('hole_cards', {}).get(opponent, [])
         }
 
-        # Сброс для новой раздачи
-        state['started']   = False
+        # Подготовка к новой раздаче
+        state['started'] = False
         return
 
     # 2) Standard actions: call, check, bet, raise
