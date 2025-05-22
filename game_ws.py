@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
-from game_engine import game_states, connections, start_hand, apply_action
+import time
+from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -12,6 +13,7 @@ async def broadcast(table_id: int):
         return
 
     payload = {
+        "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
         "players_count": len(state.get("players", [])),
         "players": [
@@ -26,6 +28,10 @@ async def broadcast(table_id: int):
         "stacks": state.get("stacks", {}),
         "hole_cards": state.get("hole_cards", {}),
         "usernames": state.get("usernames", {}),
+        "timer_deadline": state.get("timer_deadline"),
+        "winner": state.get("winner"),
+        "revealed_hands": state.get("revealed_hands"),
+        "split_pots": state.get("split_pots"),
     }
 
     for ws in list(connections.get(table_id, [])):
@@ -57,43 +63,53 @@ async def ws_game(websocket: WebSocket, table_id: int):
     state["usernames"][uid] = username
     state["players"] = [ws_.query_params.get("user_id") for ws_ in conns]
 
-    # 4) Запускаем раздачу, если достаточно игроков и ещё не стартовали
-    if len(state["players"]) >= MIN_PLAYERS and not state.get("started", False):
+    # 4) При достаточном количестве игроков стартуем руку, если ещё не стартовали
+    if len(state["players"]) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
         start_hand(table_id)
 
     # 5) Первый broadcast после подключения
     await broadcast(table_id)
 
+    # 6) Проверяем рестарт после result
+    st = game_states.get(table_id, {})
+    if st.get("phase") == "result" and time.time() > st.get("result_delay_deadline", 0):
+        start_hand(table_id)
+        st["phase"] = "pre-flop"
+        st["timer_deadline"] = time.time() + DECISION_TIME
+        await broadcast(table_id)
+
     try:
         while True:
+            # 7) Принимаем действие от клиента
             data = await websocket.receive_text()
             msg = json.loads(data)
             pid = str(msg.get("user_id"))
             action = msg.get("action")
             amount = int(msg.get("amount", 0) or 0)
 
-            # 6) Применяем действие
+            # 8) Применяем действие
             apply_action(table_id, pid, action, amount)
 
-            # 7) В случае fold или завершения раунда start_hand сбросит state['started']
-            state = game_states.get(table_id, {})
-            if len(state.get("players", [])) >= MIN_PLAYERS and not state.get("started", False):
-                start_hand(table_id)
-
-            # 8) Рассылаем обновлённое состояние
+            # 9) Broadcast после хода
             await broadcast(table_id)
 
+            # 10) Проверяем рестарт после result
+            st = game_states.get(table_id, {})
+            if st.get("phase") == "result" and time.time() > st.get("result_delay_deadline", 0):
+                start_hand(table_id)
+                st["phase"] = "pre-flop"
+                st["timer_deadline"] = time.time() + DECISION_TIME
+                await broadcast(table_id)
+
     except WebSocketDisconnect:
-        # 9) Убираем соединение, обновляем players
+        # 11) Обрабатываем отключение клиента
         conns.remove(websocket)
         remaining = [ws_.query_params.get("user_id") for ws_ in conns]
         if remaining:
             state = game_states.setdefault(table_id, {})
             state["players"] = remaining
-            # 10) При необходимости рестартаем раздачу
-            if len(remaining) >= MIN_PLAYERS and not state.get("started", False):
+            if len(remaining) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
                 start_hand(table_id)
             await broadcast(table_id)
         else:
-            # 11) Все отсоединены — очищаем state
             game_states.pop(table_id, None)
