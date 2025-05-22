@@ -32,18 +32,20 @@ def start_hand(table_id: int):
       - Раздача карманных карт
       - Начало pre-flop
     """
-    players = [str(uid) for uid in seat_map.get(table_id, [])]
+    prev = game_states.get(table_id, {})
+    # Получаем список игроков из текущего состояния, или из seat_map как fallback
+    players = prev.get("players") or [str(uid) for uid in seat_map.get(table_id, [])]
     if len(players) < MIN_PLAYERS:
         # Недостаточно игроков — удаляем стейт
         game_states.pop(table_id, None)
         return
 
-    prev = game_states.get(table_id, {})
+    # Сохраняем usernames и индекс дилера
     prev_usernames = prev.get("usernames", {})
     prev_dealer = prev.get("dealer_index", -1)
     dealer_index = (prev_dealer + 1) % len(players)
 
-    # Вычисляем позиции small и big blind
+    # Определяем позиции блайндов
     sb_i = (dealer_index + 1) % len(players)
     bb_i = (dealer_index + 2) % len(players)
     sb_uid = players[sb_i]
@@ -53,21 +55,19 @@ def start_hand(table_id: int):
     deck = new_deck()
     hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
 
-    # Инициализируем стеки и блайнды
+    # Инициализируем стеки и постим блайнды
     stacks = {uid: STARTING_STACK for uid in players}
     stacks[sb_uid] = max(0, stacks[sb_uid] - BLIND_SMALL)
     stacks[bb_uid] = max(0, stacks[bb_uid] - BLIND_BIG)
-
-    contributions = {
-        uid: (BLIND_SMALL if uid == sb_uid else BLIND_BIG if uid == bb_uid else 0)
-        for uid in players
-    }
+    contributions = {uid: 0 for uid in players}
+    contributions[sb_uid] = BLIND_SMALL
+    contributions[bb_uid] = BLIND_BIG
     pot = BLIND_SMALL + BLIND_BIG
 
-    # Устанавливаем очередь хода: после big blind
+    # Определяем первого игрока после большого блайнда
     first_to_act = players[(bb_i + 1) % len(players)]
 
-    # Сохраняем новое состояние
+    # Формируем новое состояние
     state = {
         "players": players,
         "dealer_index": dealer_index,
