@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Tuple
 from game_data import seat_map
 
 # Хранилища состояний и WS-соединений
@@ -11,183 +11,187 @@ STARTING_STACK = 1000
 BLIND_SMALL    = 1
 BLIND_BIG      = 2
 MIN_PLAYERS    = 2
+ROUNDS         = ["pre-flop", "flop", "turn", "river", "showdown"]
 
-# Порядок улиц
-ROUNDS = ["pre-flop", "flop", "turn", "river", "showdown"]
+# Ранжирование комбинаций
+HAND_RANKS = {
+    'high_card': 1,
+    'one_pair': 2,
+    'two_pair': 3,
+    'three_of_a_kind': 4,
+    'straight': 5,
+    'flush': 6,
+    'full_house': 7,
+    'four_of_a_kind': 8,
+    'straight_flush': 9,
+}
+RANK_ORDER = {r: i for i, r in enumerate(['2','3','4','5','6','7','8','9','10','J','Q','K','A'], start=2)}
+SUITS = ['♠','♥','♦','♣']
 
 
 def new_deck() -> List[str]:
     ranks = [str(x) for x in range(2, 11)] + list("JQKA")
-    suits = ["♠", "♥", "♦", "♣"]
-    deck = [r + s for r in ranks for s in suits]
+    deck = [r + s for r in ranks for s in SUITS]
     random.shuffle(deck)
     return deck
 
 
+def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
+    """
+    Оценивает до 7 карт: возвращает (ранг, тье-брейкер).
+    """
+    vals = [RANK_ORDER[c[:-1]] for c in cards]
+    suits = [c[-1] for c in cards]
+    vals.sort(reverse=True)
+    # Проверка флеша
+    flush_suit = next((s for s in SUITS if suits.count(s) >= 5), None)
+    flush_cards = sorted([v for v, su in zip(vals, suits) if su == flush_suit], reverse=True)[:5] if flush_suit else []
+    # Проверка стрит
+    unique_vals = sorted(set(vals), reverse=True)
+    straight_high = 0
+    for i in range(len(unique_vals) - 4):
+        window = unique_vals[i:i+5]
+        if window[0] - window[-1] == 4:
+            straight_high = window[0]
+            break
+    if set([14,5,4,3,2]).issubset(unique_vals):
+        straight_high = 5
+    # Группы
+    counts = {v: vals.count(v) for v in set(vals)}
+    groups = sorted(counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+    # Категории
+    if flush_suit and straight_high:
+        category = 'straight_flush'; tiebreaker = [straight_high]
+    elif groups[0][1] == 4:
+        category = 'four_of_a_kind'; four = groups[0][0]
+        kicker = max(v for v in vals if v != four); tiebreaker = [four, kicker]
+    elif groups[0][1] == 3 and groups[1][1] >= 2:
+        category = 'full_house'; tiebreaker = [groups[0][0], groups[1][0]]
+    elif flush_suit:
+        category = 'flush'; tiebreaker = flush_cards
+    elif straight_high:
+        category = 'straight'; tiebreaker = [straight_high]
+    elif groups[0][1] == 3:
+        category = 'three_of_a_kind'; th = groups[0][0]
+        kickers = sorted([v for v in vals if v != th], reverse=True)[:2]; tiebreaker = [th] + kickers
+    elif groups[0][1] == 2 and groups[1][1] == 2:
+        category = 'two_pair'; hp, lp = groups[0][0], groups[1][0]
+        kicker = max(v for v in vals if v not in (hp, lp)); tiebreaker = [hp, lp, kicker]
+    elif groups[0][1] == 2:
+        category = 'one_pair'; pair = groups[0][0]
+        kickers = sorted([v for v in vals if v != pair], reverse=True)[:3]; tiebreaker = [pair] + kickers
+    else:
+        category = 'high_card'; tiebreaker = vals[:5]
+    return (HAND_RANKS[category], tiebreaker)
+
+
 def start_hand(table_id: int):
-    """
-    Запускает новую раздачу: дилер, блайнды, раздача карт, сброс состояния.
-    """
     state = game_states.get(table_id)
-    if not state:
-        return
-    players: List[str] = state.get("players", [])
+    if not state: return
+    players = state.get("players", [])
     if len(players) < MIN_PLAYERS:
         game_states.pop(table_id, None)
         return
-
-    prev_dealer = state.get("dealer_index", -1)
-    dealer_index = (prev_dealer + 1) % len(players)
-    sb_i = (dealer_index + 1) % len(players)
-    bb_i = (dealer_index + 2) % len(players)
-    sb_uid = players[sb_i]
-    bb_uid = players[bb_i]
-
-    deck = new_deck()
-    hole_cards = {uid: [deck.pop(), deck.pop()] for uid in players}
-
-    stacks = {uid: STARTING_STACK for uid in players}
-    stacks[sb_uid] -= BLIND_SMALL
-    stacks[bb_uid] -= BLIND_BIG
-
-    contributions = {uid: 0 for uid in players}
-    contributions[sb_uid] = BLIND_SMALL
-    contributions[bb_uid] = BLIND_BIG
-
+    prev = state.get("dealer_index", -1)
+    dealer = (prev + 1) % len(players)
+    sb = (dealer + 1) % len(players); bb = (dealer + 2) % len(players)
+    sb_uid, bb_uid = players[sb], players[bb]
+    deck = new_deck(); hole = {u: [deck.pop(), deck.pop()] for u in players}
+    stacks = {u: STARTING_STACK for u in players}
+    stacks[sb_uid] -= BLIND_SMALL; stacks[bb_uid] -= BLIND_BIG
+    contributions = {u: 0 for u in players}; contributions[sb_uid], contributions[bb_uid] = BLIND_SMALL, BLIND_BIG
     state.update({
-        "dealer_index": dealer_index,
+        "dealer_index": dealer,
         "deck": deck,
-        "hole_cards": hole_cards,
+        "hole_cards": hole,
         "community": [],
         "stacks": stacks,
         "pot": BLIND_SMALL + BLIND_BIG,
         "current_bet": BLIND_BIG,
         "contributions": contributions,
         "current_round": ROUNDS[0],
-        "current_player": players[(bb_i + 1) % len(players)],
+        "current_player": players[(bb + 1) % len(players)],
         "started": True,
         "folds": set(),
         "acted": set(),
     })
-    for k in ["winner", "game_over", "game_over_reason", "revealed_hands"]:
+    for k in ["winner","game_over","game_over_reason","revealed_hands","split_pots"]:
         state.pop(k, None)
-
     game_states[table_id] = state
 
 
 def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
-    """
-    Обрабатывает ход: fold, check, call, bet, raise;
-    переключает текущего игрока, улицы и завершает/рестартит раздачу.
-    """
     state = game_states.get(table_id)
-    if not state:
-        return
+    if not state: return
     uid = str(uid)
-
-    players: List[str] = state.get("players", [])
-    if uid not in state.get("stacks", {}):
-        return
-    if state.get("current_player") != uid:
-        return
-
-    folds: Set[str] = set(state.get("folds", set()))
-    stacks: Dict[str, int] = state.get("stacks", {})
-    contrib: Dict[str, int] = state.get("contributions", {})
-    cb = state.get("current_bet", 0)
-
-    # 1) Fold
+    players = state.get("players", [])
+    stacks, contrib = state["stacks"], state["contributions"]
+    folds, cb = set(state.get("folds", set())), state.get("current_bet", 0)
+    if uid not in stacks or state.get("current_player") != uid: return
+    # Fold
     if action == "fold":
-        folds.add(uid)
-        state["folds"] = folds
-        remaining = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
-        # Если остался один — завершаем руку
-        if len(remaining) == 1:
-            winner = remaining[0]
+        folds.add(uid); state["folds"] = folds
+        alive = [p for p in players if p not in folds]
+        if len(alive) == 1:
+            winner = alive[0]
             state.update({
-                "winner": winner,
-                "game_over": True,
-                "game_over_reason": "fold",
-                "revealed_hands": {p: state.get("hole_cards", {}).get(p, []) for p in players},
-                "started": False,
+                "revealed_hands": {p: state["hole_cards"][p] for p in players},
+                "winner": winner, "game_over": True,
+                "game_over_reason": "fold", "split_pots": {winner: state.get("pot",0)}
             })
-            if len(players) >= MIN_PLAYERS:
-                start_hand(table_id)
-            return
-        # Иначе находим следующего активного в порядке players
-        idx = players.index(uid)
-        for offset in range(1, len(players)):
-            cand = players[(idx + offset) % len(players)]
-            if cand not in folds and stacks.get(cand, 0) > 0:
-                state["current_player"] = cand
-                break
-        return
-
-    # 2) Check
-    if action == "check":
-        if contrib.get(uid, 0) != cb:
-            return
-    # 3) Call
-    elif action == "call":
-        to_call = cb - contrib.get(uid, 0)
-        if stacks.get(uid, 0) >= to_call:
-            stacks[uid] -= to_call
-            state["pot"] += to_call
-            contrib[uid] += to_call
-    # 4) Bet
-    elif action == "bet":
-        if amount > cb and stacks.get(uid, 0) >= amount:
-            state["current_bet"] = amount
-            diff = amount - contrib.get(uid, 0)
-            stacks[uid] -= diff
-            state["pot"] += diff
-            contrib[uid] = amount
-    # 5) Raise
-    elif action == "raise":
-        need = amount - contrib.get(uid, 0)
-        if amount > cb and stacks.get(uid, 0) >= need:
-            state["current_bet"] = amount
-            stacks[uid] -= need
-            state["pot"] += need
-            contrib[uid] = amount
-    else:
-        return
-
-    # 6) Отмечаем ход
-    acted: Set[str] = set(state.get("acted", set()))
-    acted.add(uid)
-    state["acted"] = acted
-
-    # 7) Переход улицы, когда все активные сделали ход
-    active = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
-    if acted >= set(active):
-        state["acted"] = set()
-        rnd = state.get("current_round")
-        deck = state.get("deck", [])
-        idx = ROUNDS.index(rnd)
-        # Burn и раздать следующий
-        if rnd in ["pre-flop", "flop", "turn"]:
-            deck.pop()
-            count = 3 if rnd == "pre-flop" else 1
-            state["community"] += [deck.pop() for _ in range(count)]
-            state["current_round"] = ROUNDS[idx + 1]
-        elif rnd == "river":
-            state["current_round"] = "showdown"
-        if state["current_round"] == "showdown":
-            state["revealed_hands"] = {p: state.get("hole_cards", {}).get(p, []) for p in players}
-            state["winner"] = active[0]  # TODO: сравнение комбинаций
-            state["game_over"] = True
-            state["game_over_reason"] = "showdown"
             state["started"] = False
-            if len(players) >= MIN_PLAYERS:
-                start_hand(table_id)
+            if len(players)>=MIN_PLAYERS: start_hand(table_id)
             return
-        state["current_bet"] = 0
-        state["contributions"] = {p: 0 for p in active}
-
-    # 8) Чередование хода
-    if len(active) > 1:
-        idx = active.index(uid)
-        state["current_player"] = active[(idx + 1) % len(active)]
-
+        idx = players.index(uid)
+        for i in range(1,len(players)):
+            cand = players[(idx+i)%len(players)]
+            if cand not in folds and stacks[cand]>0:
+                state["current_player"] = cand; break
+        return
+    # Actions
+    if action == "check":
+        if contrib.get(uid,0) != cb: return
+    elif action == "call":
+        to_call = cb - contrib.get(uid,0); stacks[uid]-=to_call; state["pot"]+=to_call; contrib[uid]+=to_call
+    elif action == "bet" and amount>cb and stacks[uid]>=amount:
+        state["current_bet"] = amount; diff=amount-contrib.get(uid,0); stacks[uid]-=diff; state["pot"]+=diff; contrib[uid]=amount
+    elif action == "raise" and amount>cb and stacks[uid]>=amount-contrib.get(uid,0):
+        state["current_bet"] = amount; diff=amount-contrib.get(uid,0); stacks[uid]-=diff; state["pot"]+=diff; contrib[uid]=amount
+    else: return
+    # Mark action
+    acted = set(state.get("acted", set())); acted.add(uid); state["acted"] = acted
+    # Next street?
+    alive = [p for p in players if p not in folds]
+    if acted >= set(alive):
+        state["acted"] = set(); rnd=state["current_round"]; deck=state["deck"]; idx=ROUNDS.index(rnd)
+        if rnd in ["pre-flop","flop","turn"]:
+            deck.pop(); cnt=3 if rnd=="pre-flop" else 1
+            state["community"] += [deck.pop() for _ in range(cnt)]; state["current_round"] = ROUNDS[idx+1]
+        elif rnd=="river": state["current_round"]="showdown"
+        if state["current_round"]=="showdown":
+            alive = [p for p in players if p not in folds]
+            hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
+            scores = {p: evaluate_hand(h) for p,h in hands.items()}
+            best_rank = max(s[0] for s in scores.values())
+            winners = [p for p,s in scores.items() if s[0]==best_rank]
+            max_tb = max(s[1] for p,s in scores.items() if p in winners)
+            winners = [w for w in winners if scores[w][1]==max_tb]
+            pot = state.get("pot",0)
+            share, rem = divmod(pot, len(winners))
+            split = {w:share for w in winners}
+            if rem: split[players[state.get("dealer_index")]] = split.get(players[state.get("dealer_index")],0)+rem
+            state.update({
+                "revealed_hands": hands,
+                "winner": winners[0] if len(winners)==1 else winners,
+                "game_over": True,
+                "game_over_reason": "showdown",
+                "split_pots": split
+            })
+            state["started"] = False
+            if len(players)>=MIN_PLAYERS: start_hand(table_id)
+            return
+        state["current_bet"] = 0; state["contributions"] = {p:0 for p in alive}
+    # Next to act
+    if len(alive)>1 and uid in alive:
+        ai = alive.index(uid); state["current_player"] = alive[(ai+1)%len(alive)]
     game_states[table_id] = state
