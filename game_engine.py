@@ -143,7 +143,6 @@ def start_hand(table_id: int):
         "current_round": ROUNDS[0],
         "current_player": players[(bb + 1) % len(players)],
         "started": True,
-        "phase": "pre-flop",
         "folds": set(),
         "acted": set(),
         "timer_deadline": time.time() + DECISION_TIME,
@@ -153,10 +152,6 @@ def start_hand(table_id: int):
     state["phase"] = "pre-flop"
     state.pop("result_delay_deadline", None)
     for k in ("winner","game_over","game_over_reason","revealed_hands","split_pots"):
-        state.pop(k, None)
-        
-    # Очистка результатов предыдущей руки
-    for k in ["winner", "game_over", "game_over_reason", "revealed_hands"]:
         state.pop(k, None)
 
     game_states[table_id] = state
@@ -186,8 +181,8 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         state["folds"] = folds
         alive = [p for p in players if p not in folds]
         if len(alive) == 1:
-        winner = alive[0]
-        state.update({
+            winner = alive[0]
+            state.update({
             "revealed_hands": {p: state["hole_cards"][p] for p in players},
             "winner": winner,
             "game_over": True,
