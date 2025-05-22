@@ -78,116 +78,112 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     Обрабатывает ход игрока и переключает раунды торговли:
       - только если uid == current_player
       - call/check/fold/bet/raise
-      - чередование между двумя игроками
+      - чередование между игроками
       - автоматическое выкладывание flop/turn/river/showdown
+      - fold — автоматическая победа оппонента
     """
     state = game_states.get(table_id)
     if not state:
         return
 
     uid = str(uid)
-    if uid not in state["stacks"]:
+    if uid not in state.get("stacks", {}):
         return
 
     # Только текущий игрок может ходить
-    if state["current_player"] != uid:
+    if state.get("current_player") != uid:
         return
 
-    stacks  = state["stacks"]
-    contrib = state["contributions"]
-    cb      = state["current_bet"]
+    stacks    = state["stacks"]
+    contrib   = state["contributions"]
+    cb        = state.get("current_bet", 0)
 
-    # 1) Выполняем действие
-    if action == "call":
-        to_call = cb - contrib[uid]
-        if stacks[uid] >= to_call:
-            stacks[uid]     -= to_call
-            state["pot"]    += to_call
-            contrib[uid]    += to_call
-
-    elif action == "check":
-        if contrib[uid] != cb:
-            return
-
-    # Обработка сброса (fold)
-    if action == 'fold':
+    # 1) Обработка fold — приоритет над другими
+    if action == "fold":
         # Помечаем фолд текущего игрока
-        state.setdefault('folds', {})[player_id] = True
+        state.setdefault('folds', {})[uid] = True
 
-        # Находим оппонента
-        opponent = next(pid for pid in state['players'] if pid != player_id)
+        # Оппонент автоматически выигрывает
+        opponent = next(pid for pid in state.get('players', []) if pid != uid)
 
-        # Формируем финальный массив общих карт (community + оставшиеся)
-        remaining = state.get('remaining_cards', [])
-        final_board = state.get('community', []) + remaining
-
-        # Обновляем state для конца игры
+        # Формируем финальный board (существующие community + остаток deck)
+        final_board = state.get('community', []) + state.get('deck', [])
         state['community'] = final_board
+
+        # Устанавливаем победителя и флаги конца игры
         state['winner'] = opponent
         state['game_over'] = True
         state['game_over_reason'] = 'fold'
 
-        # Составляем раскрытые руки
-        # hole_cards хранится в state
+        # Раскрываем руки обоих игроков
         state['revealed_hands'] = {
-            player_id: state['hole_cards'].get(player_id, []),
-            opponent: state['hole_cards'].get(opponent, [])
+            uid:       state.get('hole_cards', {}).get(uid, []),
+            opponent:  state.get('hole_cards', {}).get(opponent, [])
         }
 
-        # Очищаем флаг started для следующей раздачи
-        state['started'] = False
+        # Сброс для новой раздачи
+        state['started']   = False
         return
 
+    # 2) Standard actions: call, check, bet, raise
+    if action == "call":
+        to_call = cb - contrib.get(uid, 0)
+        if stacks.get(uid, 0) >= to_call:
+            stacks[uid]        -= to_call
+            state['pot']      += to_call
+            contrib[uid]      += to_call
+    elif action == "check":
+        if contrib.get(uid, 0) != cb:
+            return
     elif action == "bet":
-        if amount > cb and stacks[uid] >= amount:
-            state["current_bet"] = amount
-            diff = amount - contrib[uid]
-            stacks[uid]    -= diff
-            state["pot"]   += diff
-            contrib[uid]   = amount
-
+        if amount > cb and stacks.get(uid, 0) >= amount:
+            state['current_bet'] = amount
+            diff = amount - contrib.get(uid, 0)
+            stacks[uid]        -= diff
+            state['pot']       += diff
+            contrib[uid]       = amount
     elif action == "raise":
-        if amount > cb and stacks[uid] >= (amount - contrib[uid]):
-            state["current_bet"] = amount
-            diff = amount - contrib[uid]
-            stacks[uid]    -= diff
-            state["pot"]   += diff
-            contrib[uid]   = amount
-
+        if amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
+            state['current_bet'] = amount
+            diff = amount - contrib.get(uid, 0)
+            stacks[uid]        -= diff
+            state['pot']       += diff
+            contrib[uid]       = amount
     else:
         return
 
-    # 2) Чередование хода
+    # 3) Чередование хода
     active = [p for p, s in stacks.items() if s > 0]
     if len(active) == 2:
-        # если двое — просто переключаем
         a, b = active
-        state["current_player"] = b if uid == a else a
+        state['current_player'] = b if uid == a else a
     else:
         idx = active.index(uid)
-        state["current_player"] = active[(idx + 1) % len(active)]
+        state['current_player'] = active[(idx + 1) % len(active)]
 
-    # 3) Переход улицы, если все сравняли вклад
-    if all(contrib[p] == state["current_bet"] for p in active):
-        rnd = state["current_round"]
-        deck = state["deck"]
+    # 4) Переход улицы при равных вкладках
+    if all(contrib.get(p, 0) == state.get('current_bet', 0) for p in active):
+        rnd  = state.get('current_round')
+        deck = state.get('deck', [])
 
         if rnd == "pre-flop":
+            # burn + flop
             deck.pop()
-            state["community"] = [deck.pop() for _ in range(3)]
-            state["current_round"] = "flop"
+            state['community'] = [deck.pop() for _ in range(3)]
+            state['current_round'] = 'flop'
         elif rnd == "flop":
             deck.pop()
-            state["community"].append(deck.pop())
-            state["current_round"] = "turn"
+            state['community'].append(deck.pop())
+            state['current_round'] = 'turn'
         elif rnd == "turn":
             deck.pop()
-            state["community"].append(deck.pop())
-            state["current_round"] = "river"
+            state['community'].append(deck.pop())
+            state['current_round'] = 'river'
         elif rnd == "river":
-            state["current_round"] = "showdown"
+            state['current_round'] = 'showdown'
 
-        # Сброс для нового раунда
-        state["current_bet"] = 0
-        state["contributions"] = {p: 0 for p in active}
+        # Сброс текущей ставки и вкладов
+        state['current_bet']    = 0
+        state['contributions']  = {p: 0 for p in active}
         # current_player остаётся тем, кто ходил последним
+
