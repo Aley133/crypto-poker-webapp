@@ -109,8 +109,34 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         if contrib[uid] != cb:
             return
 
-    elif action == "fold":
-        stacks[uid] = 0
+    # Обработка сброса (fold)
+    if action == 'fold':
+        # Помечаем фолд текущего игрока
+        state.setdefault('folds', {})[player_id] = True
+
+        # Находим оппонента
+        opponent = next(pid for pid in state['players'] if pid != player_id)
+
+        # Формируем финальный массив общих карт (community + оставшиеся)
+        remaining = state.get('remaining_cards', [])
+        final_board = state.get('community', []) + remaining
+
+        # Обновляем state для конца игры
+        state['community'] = final_board
+        state['winner'] = opponent
+        state['game_over'] = True
+        state['game_over_reason'] = 'fold'
+
+        # Составляем раскрытые руки
+        # hole_cards хранится в state
+        state['revealed_hands'] = {
+            player_id: state['hole_cards'].get(player_id, []),
+            opponent: state['hole_cards'].get(opponent, [])
+        }
+
+        # Очищаем флаг started для следующей раздачи
+        state['started'] = False
+        return
 
     elif action == "bet":
         if amount > cb and stacks[uid] >= amount:
