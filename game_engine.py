@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List
+from typing import Dict, List, Set
 from game_data import seat_map
 
 # В памяти: состояния столов и WS-соединения
@@ -28,8 +28,9 @@ def new_deck() -> List[str]:
 def start_hand(table_id: int):
     """
     Запускает новую раздачу:
-      - Ротация дилера и блайндов
+      - Ротация дилера, постинг блайндов
       - Раздача карманных карт
+      - Сброс историй действий
       - Начало pre-flop
     """
     state = game_states.get(table_id, {})
@@ -39,8 +40,8 @@ def start_hand(table_id: int):
         return
 
     prev_usernames = state.get("usernames", {})
-    prev_dealer    = state.get("dealer_index", -1)
-    dealer_index   = (prev_dealer + 1) % len(players)
+    prev_dealer = state.get("dealer_index", -1)
+    dealer_index = (prev_dealer + 1) % len(players)
 
     sb_i = (dealer_index + 1) % len(players)
     bb_i = (dealer_index + 2) % len(players)
@@ -61,6 +62,10 @@ def start_hand(table_id: int):
     pot = BLIND_SMALL + BLIND_BIG
     first_to_act = players[(bb_i + 1) % len(players)]
 
+    # Инициализируем историю действий для нового раунда
+    acted: Set[str] = set()
+
+    # Обновляем состояние
     state.update({
         "players": players,
         "dealer_index": dealer_index,
@@ -76,6 +81,7 @@ def start_hand(table_id: int):
         "current_player": first_to_act,
         "started": True,
         "folds": {},
+        "acted": acted,
     })
 
     # Очистка прошлых результатов
@@ -90,7 +96,8 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     Обрабатывает ход игрока и переключает раунды торговли:
       - call/check/fold/bet/raise
       - чередование ходов
-      - переходы улиц и showdown
+      - переходы улиц только после действий всех
+      - обработка fold и showdown с рестартом
     """
     state = game_states.get(table_id)
     if not state:
@@ -103,68 +110,75 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if state.get("current_player") != uid:
         return
 
-    stacks  = state["stacks"]
+    stacks = state["stacks"]
     contrib = state["contributions"]
-    cb      = state.get("current_bet", 0)
+    cb = state.get("current_bet", 0)
+    acted: Set[str] = state.get("acted", set())
+    active = [p for p, s in stacks.items() if s > 0]
 
     # 1) Fold — автоматическая победа
     if action == "fold":
         state["folds"][uid] = True
         opponent = next(pid for pid in state["players"] if pid != uid)
-        state["winner"] = opponent
-        state["game_over"] = True
-        state["game_over_reason"] = "fold"
-        state["revealed_hands"] = {uid: state["hole_cards"][uid], opponent: state["hole_cards"][opponent]}
-        state["started"] = False
-        # Перезапуск при двух и более игроках
+        state.update({
+            "winner": opponent,
+            "game_over": True,
+            "game_over_reason": "fold",
+            "revealed_hands": {uid: state["hole_cards"][uid], opponent: state["hole_cards"][opponent]},
+            "started": False,
+        })
+        # Рестарт
         if len(state["players"]) >= MIN_PLAYERS:
             start_hand(table_id)
         return
 
-    # 2) Call
+    # 2) Standard actions
     if action == "call":
         to_call = cb - contrib.get(uid, 0)
-        if stacks.get(uid, 0) >= to_call:
+        if stacks[uid] >= to_call:
             stacks[uid] -= to_call
             state["pot"] += to_call
             contrib[uid] += to_call
-    # 3) Check
     elif action == "check":
         if contrib.get(uid, 0) != cb:
             return
-    # 4) Bet
     elif action == "bet":
-        if amount > cb and stacks.get(uid, 0) >= amount:
+        if amount > cb and stacks[uid] >= amount:
             state["current_bet"] = amount
             diff = amount - contrib.get(uid, 0)
             stacks[uid] -= diff
             state["pot"] += diff
             contrib[uid] = amount
-    # 5) Raise
     elif action == "raise":
-        if amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
+        need = amount - contrib.get(uid, 0)
+        if amount > cb and stacks[uid] >= need:
             state["current_bet"] = amount
-            diff = amount - contrib.get(uid, 0)
-            stacks[uid] -= diff
-            state["pot"] += diff
+            stacks[uid] -= need
+            state["pot"] += need
             contrib[uid] = amount
     else:
         return
 
-    # 6) Чередование
-    active = [p for p, s in stacks.items() if s > 0]
+    # Добавляем игрока в список уже сделавших ход
+    acted.add(uid)
+    state["acted"] = acted
+
+    # 3) Чередование
     if len(active) == 2:
         a, b = active
-        state["current_player"] = b if uid == a else a
+        next_player = b if uid == a else a
     else:
         idx = active.index(uid)
-        state["current_player"] = active[(idx + 1) % len(active)]
+        next_player = active[(idx + 1) % len(active)]
+    state["current_player"] = next_player
 
-    # 7) Переход улицы
-    if all(contrib.get(p, 0) == state.get("current_bet", 0) for p in active):
+    # 4) Переход улицы: когда все активные игроки совершили ход
+    if acted >= set(active):
+        # Сброс истории действий
+        state["acted"] = set()
         rnd = state.get("current_round")
         deck = state.get("deck", [])
-        # pre-flop -> flop
+
         if rnd == "pre-flop":
             deck.pop()
             state["community"] = [deck.pop() for _ in range(3)]
@@ -179,9 +193,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             state["current_round"] = "river"
         elif rnd == "river":
             state["current_round"] = "showdown"
-            # Showdown: раскрываем все
+            # Showdown: раскрываем все карты и определяем победителя
             state["revealed_hands"] = {pid: state["hole_cards"][pid] for pid in state["players"]}
-            # TODO: определение победителя по комбинации
+            # TODO: реализовать сравнение комбинаций и определить winner
             state["winner"] = state["players"][0]
             state["game_over"] = True
             state["game_over_reason"] = "showdown"
@@ -189,6 +203,8 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             if len(state["players"]) >= MIN_PLAYERS:
                 start_hand(table_id)
             return
-        # Сброс ставок
+        # После флопа/терна/ривера готовимся к следующему кругу ставок
         state["current_bet"] = 0
         state["contributions"] = {p: 0 for p in active}
+
+    game_states[table_id] = state
