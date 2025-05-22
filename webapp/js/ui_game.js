@@ -161,19 +161,21 @@ function renderTable(state) {
 }
 
 // Инициализация
-(async function init() {
+(function init() {
   document.getElementById('table-id').textContent = tableId;
 
-  const initState = await getGameState(tableId);
-  updateUI(initState);
-  renderTable(initState);
-
+  // Создаём WebSocket и обновляем UI только по сообщениям сервера
   ws = createWebSocket(tableId, userId, username, e => {
     const state = JSON.parse(e.data);
     updateUI(state);
     renderTable(state);
   });
 
+  ws.onopen = () => console.log('WS connected');
+  ws.onclose = () => console.log('WS closed');
+  ws.onerror = err => console.error('WS error', err);
+
+  // Кнопка «Покинуть стол»
   leaveBtn.onclick = async () => {
     await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
     window.location.href = 'index.html';
