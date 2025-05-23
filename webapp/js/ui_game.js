@@ -176,11 +176,14 @@ function renderTable(state) {
   // 2) Игроки вокруг стола без расчёта позиционирования
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
-
+  
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    seat.dataset.pos = String((i % 6) + 1);
+    // relIndex = 0 для вас, 1 для следующего игрока по часовой, и т.д.
+    const relIndex = (i - userIndex + players.length) % players.length;
+    seat.dataset.pos = String(relIndex + 1);
 
     // Имя и стек
     const infoEl = document.createElement('div');
