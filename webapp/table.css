@@ -67,10 +67,9 @@ body {
   z-index: 15;
 }
 
-/* Сиденье игрока */
 #game-info .seat {
   position: absolute;
-  width: 100px;
+  width: 132px; /* стало чуть шире */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -80,91 +79,94 @@ body {
   box-shadow: none;
 }
 
-/* --- Карты и crypto-рубашка --- */
 #game-info .cards {
   display: flex;
-  gap: 6px;
-  margin-bottom: 2px;
+  gap: 0;
+  margin-bottom: 0px;
+  margin-top: 0px;
+  z-index: 5;
 }
 #game-info .card {
-  width: 48px;
-  height: 68px;
+  width: 58px;
+  height: 82px;
   background: #fff;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 9px;
-  box-shadow: 0 2px 8px #202c;
+  border: 1.7px solid #e0e0e0;
+  border-radius: 13px;
+  box-shadow: 0 3px 14px #202c;
   font-family: 'Inter', Arial, sans-serif;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  margin-left: -7px;
+  margin-left: -28px; /* Сильный overlap */
 }
 #game-info .card:first-child { margin-left: 0; }
-#game-info .card.back {
-  background: #1e2135;
-  border: 2px solid #4bf0c7;
-  box-shadow: 0 2px 8px #16d4c1b8;
-  position: relative;
-  overflow: hidden;
-}
-#game-info .card.back .pattern {
-  width: 28px;
-  height: 40px;
-  border-radius: 6px;
-  background: url('data:image/svg+xml;utf8,<svg width="28" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="28" height="40" rx="6" fill="%231e2135"/><g stroke="%234bf0c7" stroke-width="1.1"><line x1="4" y1="6" x2="24" y2="34"/><line x1="24" y1="6" x2="4" y2="34"/><line x1="14" y1="3" x2="14" y2="37"/><line x1="3" y1="20" x2="25" y2="20"/><circle cx="14" cy="20" r="7.5" fill="none" stroke="%2362b6f5" stroke-width="1.1"/><polygon points="14,10 17,20 14,30 11,20" fill="none" stroke="%23c47fff" stroke-width="1.1"/></g></svg>');
-  opacity: 0.35;
-  margin: auto;
-  display: block;
-  border: none;
-}
 
-/* Ранг и масть */
 #game-info .card .rank {
   position: absolute;
-  top: 8px;
-  left: 10px;
-  font-size: 1.08em;
-  font-weight: bold;
+  left: 12px;
+  bottom: 8px;
+  font-size: 1.41em;
+  font-weight: 800;
   color: #191919;
-  letter-spacing: -1px;
+  z-index: 2;
+  background: transparent;
+  letter-spacing: -1.5px;
 }
-
 #game-info .card .suit {
   position: absolute;
-  bottom: 8px;
-  right: 11px;
-  font-size: 1.75em;
+  right: 9px;
+  top: 7px;
+  font-size: 1.25em;
   color: #222;
-  opacity: 0.88;
+  opacity: 0.92;
+  z-index: 2;
+  background: transparent;
 }
 #game-info .card.red .rank,
 #game-info .card.red .suit {
   color: #e14141;
 }
 
-/* Блоки с именем и стеком */
-#game-info .player-info, #game-info .player-stack {
-  display: block;
-  font-size: 1em;
-  line-height: 1.1em;
-  padding: 5px 13px;
-  border-radius: 8px;
-  margin-top: 7px;
-  text-align: center;
-  min-width: 54px;
-  background: rgba(15,19,23,0.93);
-  color: #fafbfc;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  box-shadow: 0 1px 7px rgba(0,0,0,0.09);
+/* Блок с ником и стеком */
+.seat-block {
+  background: #14171eeb;
+  border-radius: 15px;
+  box-shadow: 0 1.5px 11px #17171a55;
+  margin-top: -14px; /* чтобы карты чуть "выпирали" за фон */
+  padding: 9px 20px 7px 20px;
+  min-width: 84px;
+  width: 104px;
+  max-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1;
+  position: relative;
 }
-#game-info .player-stack {
-  background: rgba(37,37,37,0.97);
-  font-size: 0.93em;
-  margin-top: 2px;
-  color: #f7f7f7;
+.seat-block .player-info {
+  font-size: 1.13em;
+  color: #f2f3f8;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 2px 0;
+  text-align: center;
+}
+.seat-block .player-stack {
+  font-size: 1em;
+  color: #e0e3e8;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: none;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+}
+
+/* Блок подсвечивается для текущего игрока: */
+.seat.active .seat-block {
+  box-shadow: 0 0 0 2.5px #39fbc9, 0 1.5px 14px #19fbc969;
 }
 
 /* --- Dealer chip --- */
