@@ -170,7 +170,7 @@ function renderTable(state) {
   // 2) Параметры стола
   const cx = pokerTableEl.clientWidth / 2;
   const cy = pokerTableEl.clientHeight / 2;
-  const padding = 80;
+  const padding = 20;
   const radius = Math.min(cx, cy) - padding;
 
   // 3) Отрисовка игроков: вы всегда снизу
