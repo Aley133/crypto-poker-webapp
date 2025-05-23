@@ -156,45 +156,44 @@ function renderTable(state) {
   const seatsContainer     = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
 
+  // Очищаем предыдущий рендер
   seatsContainer.innerHTML     = '';
   communityContainer.innerHTML = '';
 
- / 1) Отрисовка общих карт
-state.community.forEach(card => {
-  const cEl = document.createElement('div');
-  cEl.className = 'card';
-  // разбираем ранг и масть
-  const rank = card.slice(0, -1);
-  const suit = card.slice(-1);
-  // вставляем HTML с классами для стилей
-  cEl.innerHTML = `
-    <span class="rank">${rank}</span>
-    <span class="suit">${suit}</span>
-  `;
-  communityContainer.appendChild(cEl);
-});
+  // 1) Общие карты
+  (state.community || []).forEach(card => {
+    const cEl = document.createElement('div');
+    cEl.className = 'card';
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    cEl.innerHTML = `
+      <span class="rank">${rank}</span>
+      <span class="suit">${suit}</span>
+    `;
+    communityContainer.appendChild(cEl);
+  });
 
   // 2) Параметры стола
-  const cx = pokerTableEl.clientWidth / 2;
-  const cy = pokerTableEl.clientHeight / 2;
-  const padding = 20;
-  const radius = Math.min(cx, cy) - padding;
+  const cx      = pokerTableEl.clientWidth  / 2;
+  const cy      = pokerTableEl.clientHeight / 2;
+  const padding = 20;  // отступ к краю овала
+  const radius  = Math.min(cx, cy) - padding;
 
-  // 3) Отрисовка игроков: вы всегда снизу
-  const players = state.players || [];
-  const holeMap = state.hole_cards || {};
-  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+  // 3) Игроки вокруг стола: вы всегда снизу
+  const players    = state.players    || [];
+  const holeMap    = state.hole_cards || {};
+  const userIndex  = players.findIndex(p => String(p.user_id) === String(userId));
 
   players.forEach((p, i) => {
     const relIndex = (i - userIndex + players.length) % players.length;
-    const angle = 360 * (relIndex / players.length) + 180;
+    const angle    = 360 * (relIndex / players.length) + 180;
     const { x, y } = polarToCartesian(cx, cy, radius, angle);
 
     const seat = document.createElement('div');
     seat.className = 'seat';
-    seat.style.left = `${x}px`;
-    seat.style.top  = `${y}px`;
-    seat.style.transform = 'translate(-50%, -50%)';
+    seat.style.left      = `${x}px`;
+    seat.style.top       = `${y}px`;
+    seat.style.transform = 'translate(-50%, -100%)'; // над краем стола
 
     // Имя и стек
     const infoEl = document.createElement('div');
@@ -203,13 +202,23 @@ state.community.forEach(card => {
     infoEl.textContent = `${p.username} (${stack})`;
     seat.appendChild(infoEl);
 
-    // Карты
+    // Карты игрока
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
       const cd = document.createElement('div');
       cd.className = 'card';
-      cd.textContent = String(p.user_id) === String(userId) ? c : '🂠';
+      const rk = c.slice(0, -1);
+      const st = c.slice(-1);
+      cd.innerHTML = `
+        <span class="rank">${rk}</span>
+        <span class="suit">${st}</span>
+      `;
+      // показываем скрытую карту, если это не ваш юзер
+      if (String(p.user_id) !== String(userId)) {
+        cd.querySelector('.suit').textContent = '🂠';
+        cd.querySelector('.rank').textContent = '';
+      }
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
@@ -218,13 +227,14 @@ state.community.forEach(card => {
   });
 }
 
-// WebSocket и инициализация
+// Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   updateUI(state);
   renderTable(state);
 });
 
+// Leave button
 leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
