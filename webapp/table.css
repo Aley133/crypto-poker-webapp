@@ -238,12 +238,10 @@ header h1 {
 
 /* --- Кнопки --- */
 #actions {
+   pointer-events: auto;
   display: flex;
-  gap: 7px;
-  margin: 11px auto 0 auto;
   justify-content: center;
-  position: relative;
-  z-index: 15;
+  align-items: center;
 }
 #actions button, .poker-action-btn {
   background: #24282f;
