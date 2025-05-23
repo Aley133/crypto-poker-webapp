@@ -148,6 +148,7 @@ def start_hand(table_id: int):
         "timer_deadline": time.time() + DECISION_TIME,
         "split_pots": {},
     })
+    
     # Фаза торгов — сбрасываем прошлый результат
     state["phase"] = "pre-flop"
     state.pop("result_delay_deadline", None)
