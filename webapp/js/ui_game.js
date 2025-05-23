@@ -160,7 +160,7 @@ function renderTable(state) {
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1) Общие карты
+  // 1) Общие карты (борд)
   (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -170,37 +170,46 @@ function renderTable(state) {
       <span class="rank">${rank}</span>
       <span class="suit">${suit}</span>
     `;
-    if (suit === '♥' || suit === '♦') {
-      cEl.classList.add('red');
-    }
+    if (suit === '♥' || suit === '♦') cEl.classList.add('red');
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Игроки вокруг стола
+  // Игроки по кругу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
+  const N = players.length;
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
 
-  // Сначала создаём/находим dealer-chip (один на всех)
+  // Dealer chip (перед игроками, один на всех)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
     dealerChipEl.className = 'dealer-chip';
     dealerChipEl.id = 'dealer-chip-main';
     dealerChipEl.textContent = 'D';
-    // Важно! appendChild не к seat, а к seatsContainer!
     seatsContainer.appendChild(dealerChipEl);
   }
-  // Сначала скрываем chip, покажем если будет дилер
   dealerChipEl.style.display = 'none';
 
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    const relIndex = (i - userIndex + players.length) % players.length;
-    seat.dataset.pos = String(relIndex + 1);
 
-    // 2.1) Карты
+    // 2.1) Круговое позиционирование
+    // Первый игрок всегда "внизу", потом против часовой (по покерной классике)
+    const place = (i - userIndex + N) % N;
+    const angle = (360 / N) * place + 90; // 90 — чтобы 1й игрок был снизу!
+    const rad = angle * Math.PI / 180;
+    const RADIUS = 42; // радиус в процентах (отцентровать у края)
+    const cx = 50, cy = 50;
+    const x = cx + RADIUS * Math.cos(rad);
+    const y = cy + RADIUS * Math.sin(rad);
+    seat.style.position = 'absolute';
+    seat.style.left = `${x}%`;
+    seat.style.top = `${y}%`;
+    seat.style.transform = 'translate(-50%, -50%)';
+
+    // 2.2) Карты игрока
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -219,13 +228,12 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // 2.2) Имя игрока
+    // 2.3) Имя и стек игрока
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
     seat.appendChild(infoEl);
 
-    // 2.3) Стек игрока
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
@@ -234,18 +242,12 @@ function renderTable(state) {
     // Вставляем сиденье
     seatsContainer.appendChild(seat);
 
-    // 2.4) Dealer chip — плавно перемещаем к нужному месту
+    // 2.4) Dealer chip — плавно перемещаем
     if (state.dealer_index !== undefined && state.dealer_index === i) {
-      // Берём позицию seat относительно контейнера
-      // Смещение можно подогнать для красоты (здесь - 5px от карт)
       setTimeout(() => {
-        const seatRect = seat.getBoundingClientRect();
-        const containerRect = seatsContainer.getBoundingClientRect();
-        // Позиционируем chip левее первой карты и чуть ниже (по вертикали)
-        dealerChipEl.style.left = (seat.offsetLeft + 10) + 'px';
-        dealerChipEl.style.top = (seat.offsetTop + 45) + 'px';
+        dealerChipEl.style.left = (seat.offsetLeft - 26) + 'px'; // -26px — левее первой карты
+        dealerChipEl.style.top = (seat.offsetTop + 16) + 'px';   // +16px — чуть ниже центра карт
         dealerChipEl.style.display = 'flex';
-        // --- ВРАЩЕНИЕ КНОПКИ ---
         dealerChipEl.style.animation = 'dealer-spin 0.7s';
         dealerChipEl.addEventListener('animationend', () => {
           dealerChipEl.style.animation = '';
@@ -267,6 +269,7 @@ function renderTable(state) {
     }
   });
 }
+
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
