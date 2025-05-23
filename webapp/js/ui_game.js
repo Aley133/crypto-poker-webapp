@@ -174,13 +174,13 @@ function renderTable(state) {
     communityContainer.appendChild(cEl);
   });
 
-  // Игроки по кругу
+  // 2) Игроки по кругу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const N = players.length;
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
 
-  // Dealer chip (перед игроками, один на всех)
+  // 3) Dealer chip (один на всех)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -195,12 +195,11 @@ function renderTable(state) {
     const seat = document.createElement('div');
     seat.className = 'seat';
 
-    // 2.1) Круговое позиционирование
-    // Первый игрок всегда "внизу", потом против часовой (по покерной классике)
+    // --- Круговое позиционирование ---
     const place = (i - userIndex + N) % N;
-    const angle = (360 / N) * place + 90; // 90 — чтобы 1й игрок был снизу!
+    const angle = (360 / N) * place + 90; // 1й игрок снизу
     const rad = angle * Math.PI / 180;
-    const RADIUS = 42; // радиус в процентах (отцентровать у края)
+    const RADIUS = 42;
     const cx = 50, cy = 50;
     const x = cx + RADIUS * Math.cos(rad);
     const y = cy + RADIUS * Math.sin(rad);
@@ -209,7 +208,7 @@ function renderTable(state) {
     seat.style.top = `${y}%`;
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // 2.2) Карты игрока
+    // --- Карты ---
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -228,25 +227,27 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // 2.3) Имя и стек игрока
+    // --- Блок для ника и стека ---
+    const block = document.createElement('div');
+    block.className = 'seat-block';
+
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
-    seat.appendChild(infoEl);
+    block.appendChild(infoEl);
 
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
-    seat.appendChild(stackEl);
+    block.appendChild(stackEl);
 
-    // Вставляем сиденье
-    seatsContainer.appendChild(seat);
+    seat.appendChild(block);
 
-    // 2.4) Dealer chip — плавно перемещаем
+    // --- Dealer chip ---
     if (state.dealer_index !== undefined && state.dealer_index === i) {
       setTimeout(() => {
-        dealerChipEl.style.left = (seat.offsetLeft - 26) + 'px'; // -26px — левее первой карты
-        dealerChipEl.style.top = (seat.offsetTop + 16) + 'px';   // +16px — чуть ниже центра карт
+        dealerChipEl.style.left = (seat.offsetLeft - 26) + 'px';
+        dealerChipEl.style.top = (seat.offsetTop + 16) + 'px';
         dealerChipEl.style.display = 'flex';
         dealerChipEl.style.animation = 'dealer-spin 0.7s';
         dealerChipEl.addEventListener('animationend', () => {
@@ -255,7 +256,7 @@ function renderTable(state) {
       }, 0);
     }
 
-    // 2.5) Экшен bubble (action)
+    // --- Экшен bubble ---
     const action = state.player_actions?.[p.user_id];
     if (action) {
       const actionEl = document.createElement('div');
@@ -267,9 +268,11 @@ function renderTable(state) {
       setTimeout(() => actionEl.classList.add('fadeout'), 1200);
       setTimeout(() => actionEl.remove(), 1800);
     }
+
+    // --- Вставляем сиденье ---
+    seatsContainer.appendChild(seat);
   });
 }
-
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
