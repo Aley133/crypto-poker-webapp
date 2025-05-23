@@ -12,7 +12,8 @@ STARTING_STACK = 1000
 BLIND_SMALL    = 1
 BLIND_BIG      = 2
 MIN_PLAYERS    = 2
-RESULT_DELAY = 5
+# Время показа результата перед новой раздачей
+RESULT_DELAY   = 5
 DECISION_TIME  = 30  # секунда на ход
 
 # Порядок улиц
@@ -148,11 +149,11 @@ def start_hand(table_id: int):
         "timer_deadline": time.time() + DECISION_TIME,
         "split_pots": {},
     })
-    
-    # Фаза торгов — сбрасываем прошлый результат
+
+    # Фаза торгов и сброс прошлых результатов
     state["phase"] = "pre-flop"
     state.pop("result_delay_deadline", None)
-    for k in ("winner","game_over","game_over_reason","revealed_hands","split_pots"):
+    for k in ("winner", "game_over", "game_over_reason", "revealed_hands", "split_pots"):
         state.pop(k, None)
 
     game_states[table_id] = state
@@ -176,6 +177,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if uid not in stacks or state.get("current_player") != uid:
         return
 
+    # Правильный блок для fold
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
@@ -202,7 +204,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 break
         state["timer_deadline"] = now + DECISION_TIME
         return
-        
+
     # ← сюда должна «впадать» эта строка
     idx = players.index(uid)
     for i in range(1, len(players)):
@@ -258,8 +260,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             state["current_round"] = ROUNDS[idx + 1]
         elif rnd == "river":
             state["current_round"] = "showdown"
-            
-         if state["current_round"] == "showdown":
+
+    # Правильный блок для showdown
+    if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds]
         hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
         scores = {p: evaluate_hand(h) for p, h in hands.items()}
@@ -285,7 +288,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         })
         state["started"] = False
         return
-        
+
         state["current_bet"] = 0
         state["contributions"] = {p: 0 for p in alive}
 
