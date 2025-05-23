@@ -46,13 +46,14 @@ z-index: 2;
 #game-info .seat {
 position: absolute;
 transform: translate(-50%, -100%);
-width: 120px;
+width: 100px;
 background: rgba(34,34,34,0.9);
 border: 2px solid #334;
 border-radius: 8px;
-padding: 6px;
+padding: 4px 6px;
 display: flex; flex-direction: column; align-items: center;
 color: #eee; font-size: 0.9em;
+font-size: 0.8em;
 }
 
 /* Info above cards */
@@ -96,35 +97,45 @@ display: flex; gap: 8px;
   line-height: 1;
 }
 
-/* 6 мест вокруг овального стола */
+/* Data-pos 1: вы внизу по центру */
 #game-info .seat[data-pos="1"] {
-  bottom: -10%;
+  bottom: -8%;         /* немного выше, чтобы не налезал */
   left: 50%;
   transform: translateX(-50%);
 }
+
+/* Data-pos 2: справа внизу */
 #game-info .seat[data-pos="2"] {
-  bottom: 25%;
-  right: -10%;
+  bottom: 20%;
+  right: -8%;
   transform: translateY(50%);
 }
+
+/* Data-pos 3: справа по центру */
 #game-info .seat[data-pos="3"] {
   top: 50%;
-  right: -10%;
+  right: -8%;
   transform: translateY(-50%);
 }
+
+/* Data-pos 4: сверху по центру */
 #game-info .seat[data-pos="4"] {
-  top: -10%;
+  top: -8%;
   left: 50%;
   transform: translateX(-50%);
 }
+
+/* Data-pos 5: слева по центру */
 #game-info .seat[data-pos="5"] {
-  top: 25%;
-  left: -10%;
+  top: 20%;
+  left: -8%;
   transform: translateY(-50%);
 }
+
+/* Data-pos 6: слева внизу */
 #game-info .seat[data-pos="6"] {
-  bottom: 25%;
-  left: -10%;
+  bottom: 20%;
+  left: -8%;
   transform: translateY(50%);
 }
 
