@@ -222,6 +222,21 @@ function renderTable(state) {
 
     seatsContainer.appendChild(seat);
   });
+
+   // Создаём блок действия, если оно есть
+  const action = state.player_actions?.[player.id];
+  if (action) {
+    const actionEl = document.createElement('div');
+    actionEl.className = 'player-action ' + action.type; // Например, 'check', 'bet'
+    actionEl.innerText = action.type === 'bet' || action.type === 'raise'
+      ? `${action.type.toUpperCase()} ${action.amount}`
+      : action.type.toUpperCase();
+    playerEl.appendChild(actionEl);
+
+    // Запускаем анимацию (например, fade-in-out)
+    setTimeout(() => actionEl.classList.add('fadeout'), 1000);
+    setTimeout(() => actionEl.remove(), 2000);
+  }
 }
 
 // Инициализация WebSocket
