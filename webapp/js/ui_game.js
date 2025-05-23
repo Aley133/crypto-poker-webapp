@@ -203,17 +203,20 @@ function renderTable(state) {
     (holeMap[p.user_id] || []).forEach(c => {
       const cd = document.createElement('div');
       cd.className = 'card';
-      const rk = c.slice(0, -1);
-      const st = c.slice(-1);
-      cd.innerHTML = `
-        <span class="rank">${rk}</span>
-        <span class="suit">${st}</span>
-      `;
-      if (st === '♥' || st === '♦') cd.classList.add('red');
-      // показываем скрытую карту, если это не ваш юзер
-      if (String(p.user_id) !== String(userId)) {
-        cd.querySelector('.suit').textContent = '🂠';
-        cd.querySelector('.rank').textContent = '';
+      if (String(p.user_id) === String(userId)) {
+        // Ваша карта — показываем ранг/масть и цвет
+        const rk = c.slice(0, -1);
+        const st = c.slice(-1);
+        cd.innerHTML = `
+         <span class="rank">${rk}</span>
+         <span class="suit">${st}</span>
+        `;
+        if (st === '♥' || st === '♦') {
+          cd.classList.add('red');
+        }
+      } else {
+        // Чужая карта — только рубашка
+        cd.innerHTML = `<span class="suit">🂠</span>`;
       }
       cardsEl.appendChild(cd);
     });
