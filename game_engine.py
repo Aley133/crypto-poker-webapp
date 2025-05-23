@@ -230,7 +230,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         rnd = state.get("current_round")
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
-        if rnd in ["pre-flop", "flop","turn"]:
+        if rnd in ["pre-flop", "flop", "turn"]:
             deck.pop()
             cnt = 3 if rnd == "pre-flop" else 1
             state["community"] += [deck.pop() for _ in range(cnt)]
@@ -279,10 +279,10 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         "amount": amount if action in ("bet", "raise") else None,
         "ts": time.time()
     }
-   # Оставляем только свежие действия (1.8 сек)
-   state["player_actions"] = {
-       k: v for k, v in state["player_actions"].items()
-       if time.time() - v["ts"] < 1.8
-   }
+    # Оставляем только свежие действия (1.8 сек)
+    state["player_actions"] = {
+        k: v for k, v in state["player_actions"].items()
+        if time.time() - v["ts"] < 1.8
+    }
 
     game_states[table_id] = state
