@@ -2,22 +2,19 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crypto Poker — Стол</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Заголовок -->
   <header>
     <h1>Стол <span id="table-id"></span></h1>
     <div class="user-info"></div>
   </header>
 
-  <!-- Инфо по игре: статус и таблица -->
   <div id="game-info">
-    <div id="status">Ожидаем игроков…</div>
-    <div id="current-bet">Текущая ставка: 0</div>
-
-    <!-- Обёртка и сам круглый стол -->
+    <div id="status"></div>
+    <div id="current-bet"></div>
     <div id="poker-table-wrapper">
       <div id="poker-table">
         <!-- Общие карты -->
@@ -30,10 +27,8 @@
     </div>
   </div>
 
-  <!-- Кнопки действий игрока -->
-  <div id="actions" style="display:none;"></div>
+  <div id="actions"></div>
 
-  <!-- Кнопка выхода из стола -->
   <div style="text-align:center; margin:20px 0;">
     <button id="leave-btn">Покинуть стол</button>
   </div>
