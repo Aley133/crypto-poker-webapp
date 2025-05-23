@@ -160,8 +160,8 @@ function renderTable(state) {
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1) Общие карты (борд)
-  (state.community || []).forEach(card => {
+  // 1) Общие карты (борд) — с анимацией раздачи!
+  (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
     const rank = card.slice(0, -1);
@@ -172,6 +172,9 @@ function renderTable(state) {
     `;
     if (suit === '♥' || suit === '♦') cEl.classList.add('red');
     communityContainer.appendChild(cEl);
+    setTimeout(() => {
+      cEl.classList.add('visible');
+    }, 150 + idx * 120);
   });
 
   // 2) Игроки по эллипсу
@@ -179,14 +182,12 @@ function renderTable(state) {
   const holeMap = state.hole_cards || {};
   const N = players.length;
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
-
-  // Получаем размеры стола для эллипса
   const tableEl = document.getElementById('poker-table');
   const wrapperRect = tableEl.getBoundingClientRect();
   const centerX = wrapperRect.width / 2;
   const centerY = wrapperRect.height / 2;
-  const RADIUS_X = wrapperRect.width * 0.48; // 48% ширины — почти по краю
-  const RADIUS_Y = wrapperRect.height * 0.40; // 40% высоты
+  const RADIUS_X = wrapperRect.width * 0.48;
+  const RADIUS_Y = wrapperRect.height * 0.40;
 
   // Dealer chip (один на всех)
   let dealerChipEl = document.getElementById('dealer-chip-main');
@@ -202,20 +203,35 @@ function renderTable(state) {
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
+
+    // Аватар (если есть)
+    if (p.avatar) {
+      const avatar = document.createElement('img');
+      avatar.src = p.avatar;
+      avatar.className = 'player-avatar';
+      seat.appendChild(avatar);
+    }
+
+    // Определяем "мой" seat
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
 
-    // Круговое позиционирование по эллипсу (как в top покер-клиентах)
-    const place = (i - userIndex + N) % N;
-    const angle = ((360 / N) * place - 90) * (Math.PI / 180); // -90 — первый снизу
+    // Glow и прогресс-таймер активного игрока
+    if (String(p.user_id) === String(state.current_player)) {
+      seat.classList.add('active');
+    } else {
+      seat.classList.remove('active');
+    }
 
+    // Эллиптическое позиционирование
+    const place = (i - userIndex + N) % N;
+    const angle = ((360 / N) * place - 90) * (Math.PI / 180);
     const x = centerX + RADIUS_X * Math.cos(angle);
     const y = centerY + RADIUS_Y * Math.sin(angle);
-
     seat.style.left = `${x}px`;
     seat.style.top = `${y}px`;
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // --- Карты игрока ---
+    // Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -234,7 +250,7 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // --- Блок для ника и стека ---
+    // Блок с ником и стеком
     const block = document.createElement('div');
     block.className = 'seat-block';
 
@@ -250,7 +266,42 @@ function renderTable(state) {
 
     seat.appendChild(block);
 
-    // --- Dealer chip ---
+    // --- Бейджи: SIT, WINNER, ALL-IN, DEALER ---
+    // SIT (если status === "sitout")
+    if (p.status === "sitout") {
+      const badge = document.createElement('div');
+      badge.className = 'player-badge badge-sit';
+      badge.innerText = "SIT";
+      seat.appendChild(badge);
+    }
+    // WINNER (если p.user_id в state.winner)
+    if (state.winner && (
+        state.winner === p.user_id ||
+        (Array.isArray(state.winner) && state.winner.includes(p.user_id))
+      )) {
+      const badge = document.createElement('div');
+      badge.className = 'player-badge badge-win';
+      badge.innerText = "WINNER";
+      seat.appendChild(badge);
+    }
+    // ALL-IN (если p.status === "allin")
+    if (p.status === "allin") {
+      const badge = document.createElement('div');
+      badge.className = 'player-badge badge-allin';
+      badge.innerText = "ALL-IN";
+      seat.appendChild(badge);
+    }
+    // DEALER бейдж (можно, но у тебя и так dealer chip — тут просто пример)
+    /*
+    if (state.dealer_index === i) {
+      const badge = document.createElement('div');
+      badge.className = 'player-badge badge-dealer';
+      badge.innerText = "DEALER";
+      seat.appendChild(badge);
+    }
+    */
+
+    // Dealer chip — плавающий кружок
     if (state.dealer_index !== undefined && state.dealer_index === i) {
       setTimeout(() => {
         dealerChipEl.style.left = (seat.offsetLeft - 19) + 'px';
@@ -263,7 +314,7 @@ function renderTable(state) {
       }, 0);
     }
 
-    // --- Экшен bubble ---
+    // Action bubble
     const action = state.player_actions?.[p.user_id];
     if (action) {
       const actionEl = document.createElement('div');
@@ -276,10 +327,11 @@ function renderTable(state) {
       setTimeout(() => actionEl.remove(), 1800);
     }
 
-    // --- Вставляем сиденье ---
+    // Добавляем сиденье
     seatsContainer.appendChild(seat);
   });
 }
+
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
