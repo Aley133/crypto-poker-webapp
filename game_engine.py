@@ -2,6 +2,8 @@ import random
 import time
 from typing import Dict, List, Set, Tuple, Optional
 from game_data import seat_map
+from game_engine import RESULT_DELAY 
+import asyncio
 
 # Хранилища состояний и WS-соединений
 game_states: Dict[int, dict] = {}
