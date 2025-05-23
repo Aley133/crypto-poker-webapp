@@ -175,33 +175,32 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if uid not in stacks or state.get("current_player") != uid:
         return
 
-    # Обработка fold
     if action == "fold":
-        folds.add(uid)
-        state["folds"] = folds
-        alive = [p for p in players if p not in folds]
-        if len(alive) == 1:
-            winner = alive[0]
-            state.update({
+    folds.add(uid)
+    state["folds"] = folds
+    alive = [p for p in players if p not in folds]
+    if len(alive) == 1:
+        winner = alive[0]
+        state.update({
             "revealed_hands": {p: state["hole_cards"][p] for p in players},
             "winner": winner,
             "game_over": True,
             "game_over_reason": "fold",
-            "split_pots": {winner: state.get("pot",0)},
-            # переходим в фазу результата
+            "split_pots": {winner: state.get("pot", 0)},
             "phase": "result",
             "result_delay_deadline": time.time() + RESULT_DELAY,
         })
         state["started"] = False
         return
-        idx = players.index(uid)
-        for i in range(1, len(players)):
-            cand = players[(idx + i) % len(players)]
-            if cand not in folds and stacks[cand] > 0:
-                state["current_player"] = cand
-                break
-        state["timer_deadline"] = now + DECISION_TIME
-        return
+    # ← сюда должна «впадать» эта строка
+    idx = players.index(uid)
+    for i in range(1, len(players)):
+        cand = players[(idx + i) % len(players)]
+        if cand not in folds and stacks[cand] > 0:
+            state["current_player"] = cand
+            break
+    state["timer_deadline"] = now + DECISION_TIME
+    return
 
     # Check, call, bet, raise
     if action == "check":
@@ -248,27 +247,27 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             state["current_round"] = ROUNDS[idx + 1]
         elif rnd == "river":
             state["current_round"] = "showdown"
-        if state["current_round"] == "showdown":
-            alive = [p for p in players if p not in folds]
-            hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
-            scores = {p: evaluate_hand(h) for p, h in hands.items()}
-            best_rank = max(s[0] for s in scores.values())
-            candidates = [p for p, s in scores.items() if s[0] == best_rank]
-            max_tb = max(scores[p][1] for p in candidates)
-            winners = [p for p in candidates if scores[p][1] == max_tb]
-            pot = state.get("pot", 0)
-            share, rem = divmod(pot, len(winners))
-            split = {w: share for w in winners}
-            if rem:
-                dealer = players[state["dealer_index"]]
-                split[dealer] = split.get(dealer, 0) + rem
-            state.update({
+         if state["current_round"] == "showdown":
+        alive = [p for p in players if p not in folds]
+        hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
+        scores = {p: evaluate_hand(h) for p, h in hands.items()}
+        best_rank = max(s[0] for s in scores.values())
+        candidates = [p for p, s in scores.items() if s[0] == best_rank]
+        max_tb = max(scores[p][1] for p in candidates)
+        winners = [p for p in candidates if scores[p][1] == max_tb]
+        pot = state.get("pot", 0)
+        share, rem = divmod(pot, len(winners))
+        split = {w: share for w in winners}
+        if rem:
+            dealer = players[state["dealer_index"]]
+            split[dealer] = split.get(dealer, 0) + rem
+
+        state.update({
             "revealed_hands": hands,
-            "winner": winners[0] if len(winners)==1 else winners,
+            "winner": winners[0] if len(winners) == 1 else winners,
             "split_pots": split,
             "game_over": True,
             "game_over_reason": "showdown",
-            # переходим в фазу результата
             "phase": "result",
             "result_delay_deadline": time.time() + RESULT_DELAY,
         })
