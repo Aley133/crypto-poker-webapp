@@ -180,8 +180,8 @@ function renderTable(state) {
   const wrapperRect = tableEl.getBoundingClientRect();
   const centerX = wrapperRect.width / 2;
   const centerY = wrapperRect.height / 2;
-  const RADIUS_X = wrapperRect.width * 0.46;
-  const RADIUS_Y = wrapperRect.height * 0.39;
+  const RADIUS_X = wrapperRect.width * 0.36;
+  const RADIUS_Y = wrapperRect.height * 0.29;
 
   // Dealer chip
   let dealerChipEl = document.getElementById('dealer-chip-main');
