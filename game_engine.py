@@ -12,8 +12,8 @@ STARTING_STACK = 1000
 BLIND_SMALL    = 1
 BLIND_BIG      = 2
 MIN_PLAYERS    = 2
-DECISION_TIME  = 30  # секунда на ход
 RESULT_DELAY = 5
+DECISION_TIME  = 30  # секунда на ход
 
 # Порядок улиц
 ROUNDS         = ["pre-flop", "flop", "turn", "river", "showdown"]
@@ -176,22 +176,32 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         return
 
     if action == "fold":
-    folds.add(uid)
-    state["folds"] = folds
-    alive = [p for p in players if p not in folds]
-    if len(alive) == 1:
-        winner = alive[0]
-        state.update({
-            "revealed_hands": {p: state["hole_cards"][p] for p in players},
-            "winner": winner,
-            "game_over": True,
-            "game_over_reason": "fold",
-            "split_pots": {winner: state.get("pot", 0)},
-            "phase": "result",
-            "result_delay_deadline": time.time() + RESULT_DELAY,
-        })
-        state["started"] = False
+        folds.add(uid)
+        state["folds"] = folds
+        alive = [p for p in players if p not in folds]
+        if len(alive) == 1:
+            winner = alive[0]
+            state.update({
+                "revealed_hands": {p: state["hole_cards"][p] for p in players},
+                "winner": winner,
+                "game_over": True,
+                "game_over_reason": "fold",
+                "split_pots": {winner: state.get("pot", 0)},
+                "phase": "result",
+                "result_delay_deadline": time.time() + RESULT_DELAY,
+            })
+            state["started"] = False
+            return
+        # если больше одного — ищем следующего активного
+        idx = players.index(uid)
+        for i in range(1, len(players)):
+            cand = players[(idx + i) % len(players)]
+            if cand not in folds and stacks[cand] > 0:
+                state["current_player"] = cand
+                break
+        state["timer_deadline"] = now + DECISION_TIME
         return
+        
     # ← сюда должна «впадать» эта строка
     idx = players.index(uid)
     for i in range(1, len(players)):
@@ -247,6 +257,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             state["current_round"] = ROUNDS[idx + 1]
         elif rnd == "river":
             state["current_round"] = "showdown"
+            
          if state["current_round"] == "showdown":
         alive = [p for p in players if p not in folds]
         hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
@@ -273,6 +284,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         })
         state["started"] = False
         return
+        
         state["current_bet"] = 0
         state["contributions"] = {p: 0 for p in alive}
 
