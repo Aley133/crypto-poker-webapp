@@ -194,6 +194,7 @@ function renderTable(state) {
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
+    if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
 
     // --- Круговое позиционирование ---
     const place = (i - userIndex + N) % N;
