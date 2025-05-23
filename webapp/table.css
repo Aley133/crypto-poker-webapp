@@ -1,4 +1,4 @@
-/* Контейнер для стола */
+/* Контейнер стола */
 #game-info #poker-table-wrapper {
   position: relative;
   margin: 20px auto;
@@ -8,7 +8,7 @@
   max-height: 400px;
 }
 
-/* Овальный покерный стол */
+/* Овал стола */
 #game-info #poker-table {
   position: relative;
   width: 100%;
@@ -19,18 +19,18 @@
   overflow: visible;
 }
 
-/* Центрирование общих карт */
+/* Общие карты */
 #game-info #community-cards {
   position: absolute;
   top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
-  gap: 4px;  
+  gap: 4px;    /* ближе друг к другу */
   z-index: 1;
 }
 
-/* Отображение банка */
+/* Банк */
 #game-info #pot {
   position: absolute;
   top: 60%;
@@ -44,7 +44,7 @@
   z-index: 1;
 }
 
-/* Контейнер для сидений */
+/* Контейнер сидений */
 #game-info #seats {
   position: absolute;
   top: 0;
@@ -55,57 +55,52 @@
   z-index: 2;
 }
 
+/* Сиденье игрока */
 #game-info .seat {
-  background: transparent;      /* убираем общий фон */
-  box-shadow: none;             /* убираем тень у всего блока */
+  position: absolute;
+  width: 100px;
+  background: transparent; /* фон разбит на два блока ниже */
+  box-shadow: none;
   display: flex;
-  flex-direction: column;       /* карты вверх, инфо вниз */
+  flex-direction: column; /* карты сверху, затем имя, затем стек */
   align-items: center;
-  padding: 0;                   /* убираем внутренние отступы */
+  padding: 0;
 }
 
-/* Инфо об игроке */
-#game-info .player-info {
-  background: #000000;
-  color: #fff;
-  padding: 4px 6px;
-  border-radius: 4px;
-  margin-top: 6px;
-  width: max-content;
-}
-
-/* Раскладка карт в руке */
+/* Общие стили для карт */
 #game-info .cards {
-  background: transparent;
+  display: flex;
 }
 #game-info .cards > .card {
-  margin-left: -14px;/* было -8px */
+  margin-left: -14px;      /* сильный нахлест */
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
 }
 
-/* Стилизация карточки */
+/* Стилизация карты */
 #game-info .card {
   position: relative;
+  width: 54px;             /* чуть шире */
+  height: 76px;            /* чуть выше */
   background: #fff;
   border: 1px solid #333;
   border-radius: 12px;
-  width: 54px;           /* чуть шире */
-  height: 76px;          /* пропорционально */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* более мягкая тень */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* более мягкая тень */
   overflow: hidden;
   font-family: sans-serif;
 }
 
-/* Стиль ранга */
+/* Ранг */
 #game-info .card .rank {
   position: absolute;
   top: 8px;
   left: 8px;
-  font-size: 1em;
+  font-size: 1em;          /* чуть меньше */
   font-weight: bold;
   line-height: 1;
+  color: #000;
 }
 
-/* Стиль масти */
+/* Масть */
 #game-info .card .suit {
   position: absolute;
   top: 65%;
@@ -113,13 +108,8 @@
   transform: translate(-50%, -50%);
   font-size: 2.4em;
   line-height: 1;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 3px rgba(0,0,0,0.3);
   pointer-events: none;
-}
-
-/* Чёрные масти */
-#game-info .card .rank,
-#game-info .card .suit {
   color: #000;
 }
 
@@ -129,7 +119,27 @@
   color: #e60000;
 }
 
-/* Позиции сидений вокруг стола */
+/* Имя игрока под картами */
+#game-info .player-info {
+  background: #000000;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  width: max-content;
+}
+
+/* Стек игрока под именем */
+#game-info .player-stack {
+  background: #222222;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 2px;
+  width: max-content;
+}
+
+/* Позиционирование сидений */
 #game-info .seat[data-pos="1"] {
   bottom: -12%;
   left: 50%;
@@ -160,31 +170,16 @@
   left: -12%;
   transform: translate(-50%, 50%);
 }
-/* Секция стека (счёта) */
-#game-info .player-stack {
-  background: #222222;
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-top: 2px;
-  width: max-content;
-}
 
-/* Адаптив для широких экранов */
+/* Адаптив */
 @media (min-width: 600px) {
   #game-info #poker-table-wrapper {
     width: 600px;
     height: 400px;
   }
   #game-info .seat {
-    background: transparent; 
     width: 140px;
-    padding: 0;   
     font-size: 1em;
-    box-shadow: none;   
-    display: flex;
-    flex-direction: column;     /* имя вниз, карты вверх */
-    align-items: center;
   }
   #game-info .card {
     width: 50px;
