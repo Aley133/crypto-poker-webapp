@@ -13,12 +13,13 @@ header { background:#000; padding:10px; display:flex; align-items:center }
 #actions button { background:#ff0; border:none; padding:5px 10px; cursor:pointer; }
 /* ---- Визуал покерного стола ---- */
 /* ---- Визуал покерного стола: овал ---- */
+/* ----- Овальный покерный стол ----- */
 #poker-table-wrapper {
   width: 90vw;
   max-width: 600px;
   height: 60vw;
   max-height: 400px;
-  margin: 0 auto;
+  margin: 20px auto;
   position: relative;
 }
 #poker-table {
@@ -33,12 +34,11 @@ header { background:#000; padding:10px; display:flex; align-items:center }
 
 /* Общие карты */
 #community-cards {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
   position: absolute;
   top: 45%; left: 50%;
   transform: translate(-50%, -50%);
+  display: flex;
+  gap: 8px;
   pointer-events: none;
 }
 
@@ -67,10 +67,10 @@ header { background:#000; padding:10px; display:flex; align-items:center }
   background: rgba(34,34,34,0.9);
   border: 2px solid #334;
   border-radius: 8px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px;
   color: #eee;
   font-size: 0.9em;
 }
