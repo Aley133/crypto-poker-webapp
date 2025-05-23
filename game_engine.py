@@ -169,7 +169,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
-        alive = [p for p in players if p not in folds]
+        alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
         if len(alive) == 1:
             winner = alive[0]
             state.update({
@@ -186,11 +186,10 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         idx = players.index(uid)
         for i in range(1, len(players)):
             cand = players[(idx + i) % len(players)]
-            if cand not in folds and stacks[cand] > 0:
+            if cand not in folds and stacks.get(cand, 0) > 0:
                 state["current_player"] = cand
                 break
         state["timer_deadline"] = now + DECISION_TIME
-        # продолжение игры без преждевременного return
 
     # Обработка ставок и коллов
     if action == "check":
@@ -201,13 +200,13 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         stacks[uid] -= to_call
         state["pot"] += to_call
         contrib[uid] += to_call
-    elif action == "bet" and amount > cb and stacks[uid] >= amount:
+    elif action == "bet" and amount > cb and stacks.get(uid, 0) >= amount:
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
         state["pot"] += diff
         contrib[uid] = amount
-    elif action == "raise" and amount > cb and stacks[uid] >= (amount - contrib.get(uid, 0)):
+    elif action == "raise" and amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
@@ -222,7 +221,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     state["timer_deadline"] = now + DECISION_TIME
 
     # Переход улицы
-    alive = [p for p in players if p not in folds]
+    alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if acted >= set(alive):
         state["acted"] = set()
         state["timer_deadline"] = now + DECISION_TIME
@@ -230,17 +229,16 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
         if rnd in ["pre-flop", "flop", "turn"]:
-            deck.pop()  # сброс карты
+            deck.pop()
             cnt = 3 if rnd == "pre-flop" else 1
-            # раздача community-карт
             state["community"] += [deck.pop() for _ in range(cnt)]
             state["current_round"] = ROUNDS[idx + 1]
         elif rnd == "river":
             state["current_round"] = "showdown"
 
     # Showdown
-    if state["current_round"] == "showdown":
-        alive = [p for p in players if p not in folds]
+    if state.get("current_round") == "showdown":
+        alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
         hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
         scores = {p: evaluate_hand(h) for p, h in hands.items()}
         best_rank = max(s[0] for s in scores.values())
@@ -266,7 +264,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         state["started"] = False
 
     # Смена игрока
-    alive = [p for p in players if p not in folds]
+    alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if len(alive) > 1 and uid in alive:
         ai = alive.index(uid)
         state["current_player"] = alive[(ai + 1) % len(alive)]
