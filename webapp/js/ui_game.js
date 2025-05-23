@@ -162,8 +162,13 @@ function renderTable(state) {
   // 1) Отрисовка общих карт
   (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
+    // Сделай так:
     cEl.className = 'card';
-    cEl.textContent = card;
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    cEl.innerHTML = `
+    <span class="rank">${rank}</span>
+    <span class="suit">${suit}</span>`;
     communityContainer.appendChild(cEl);
   });
 
