@@ -245,6 +245,11 @@ function renderTable(state) {
         dealerChipEl.style.left = (seat.offsetLeft + 10) + 'px';
         dealerChipEl.style.top = (seat.offsetTop + 45) + 'px';
         dealerChipEl.style.display = 'flex';
+        // --- ВРАЩЕНИЕ КНОПКИ ---
+        dealerChipEl.style.animation = 'dealer-spin 0.7s';
+        dealerChipEl.addEventListener('animationend', () => {
+          dealerChipEl.style.animation = '';
+        }, { once: true });
       }, 0);
     }
 
