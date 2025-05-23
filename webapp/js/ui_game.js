@@ -155,10 +155,11 @@ function polarToCartesian(cx, cy, r, deg) {
 function renderTable(state) {
   const seatsContainer     = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
+
   seatsContainer.innerHTML     = '';
   communityContainer.innerHTML = '';
 
-  // 1) Общие карты
+  // 1) Отрисовка общих карт
   (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -166,17 +167,17 @@ function renderTable(state) {
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Центр и радиус стола
+  // 2) Параметры стола
   const cx = pokerTableEl.clientWidth / 2;
   const cy = pokerTableEl.clientHeight / 2;
-  // отступ от края стола для сидений
   const padding = 80;
   const radius = Math.min(cx, cy) - padding;
 
-  // 3) Игроки вокруг стола: вы всегда снизу
+  // 3) Отрисовка игроков: вы всегда снизу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+
   players.forEach((p, i) => {
     const relIndex = (i - userIndex + players.length) % players.length;
     const angle = 360 * (relIndex / players.length) + 180;
@@ -184,52 +185,9 @@ function renderTable(state) {
 
     const seat = document.createElement('div');
     seat.className = 'seat';
-    // позиционируем по центру элемента
-    seat.style.position = 'absolute';
     seat.style.left = `${x}px`;
     seat.style.top  = `${y}px`;
     seat.style.transform = 'translate(-50%, -50%)';
-
-    // Инфо: имя и стек
-    const infoEl = document.createElement('div');
-    infoEl.className = 'player-info';
-    const stack = state.stacks?.[p.user_id] || 0;
-    infoEl.textContent = `${p.username} (${stack})`;
-    seat.appendChild(infoEl);
-
-    // Собственные карты
-    const cardsEl = document.createElement('div');
-    cardsEl.className = 'cards';
-    (holeMap[p.user_id] || []).forEach(c => {
-      const cd = document.createElement('div');
-      cd.className = 'card';
-      cd.textContent = String(p.user_id) === String(userId) ? c : '🂠';
-      cardsEl.appendChild(cd);
-    });
-    seat.appendChild(cardsEl);
-
-    seatsContainer.appendChild(seat);
-  });
-});
-
-  // 2) Центр и радиус стола
-  const cx = pokerTableEl.clientWidth / 2;
-  const cy = pokerTableEl.clientHeight / 2;
-  const radius = Math.min(cx, cy) - 80;
-
-  // 3) Игроки вокруг стола: вы всегда снизу (180°)
-  const players = state.players || [];
-  const holeMap = state.hole_cards || {};
-  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
-  players.forEach((p, i) => {
-    const relIndex = i - userIndex;
-    const angle = 360 * (relIndex / players.length) + 180;
-    const { x, y } = polarToCartesian(cx, cy, radius, angle);
-
-    const seat = document.createElement('div');
-    seat.className = 'seat';
-    seat.style.left = `${x}px`;
-    seat.style.top  = `${y}px`;
 
     // Имя и стек
     const infoEl = document.createElement('div');
@@ -253,7 +211,7 @@ function renderTable(state) {
   });
 }
 
-// Вызов в ws.onmessage:
+// WebSocket и инициализация
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   updateUI(state);
