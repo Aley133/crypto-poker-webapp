@@ -192,6 +192,54 @@
   transform: translate(-50%, 50%);
 }
 
+.dealer-chip {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  background: radial-gradient(circle, #fff 60%, #FFD700 100%);
+  border: 2px solid #bba501;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  color: #222;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  z-index: 20;
+  transition: top 0.5s cubic-bezier(.23,1.1,.36,1);
+}
+
+.player-action {
+  position: absolute;
+  left: 50%;
+  top: -40px;
+  transform: translateX(-50%);
+  background: rgba(32,32,32,0.93);
+  color: #fff;
+  border-radius: 14px;
+  padding: 5px 20px;
+  font-weight: 700;
+  font-size: 1.1em;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.7s;
+  z-index: 30;
+}
+.player-action.fadeout {
+  opacity: 0;
+}
+.player-action.check   { background: #222; border: 1.5px solid #aaa; }
+.player-action.fold    { background: #471313; border: 1.5px solid #D94343;}
+.player-action.call    { background: #1c1d3c; border: 1.5px solid #6AC7F7;}
+.player-action.bet,
+.player-action.raise   { background: #143D13; border: 1.5px solid #3DDA30;}
+
+
 /* Адаптив */
 @media (min-width: 600px) {
   #game-info #poker-table-wrapper {
