@@ -176,7 +176,7 @@ function renderTable(state) {
   // 2) Параметры стола
   const cx      = pokerTableEl.clientWidth  / 2;
   const cy      = pokerTableEl.clientHeight / 2;
-  const padding = -40; // отступ к краю овала
+  const padding = 10; // отступ к краю овала
   const radius  = Math.min(cx, cy) - padding;
 
   // 3) Игроки вокруг стола: вы всегда снизу
@@ -193,7 +193,7 @@ function renderTable(state) {
     seat.className = 'seat';
     seat.style.left      = `${x}px`;
     seat.style.top       = `${y}px`;
-    seat.style.transform = 'translate(-50%, 0)'; // верх сиденья по краю
+    seat.style.transform = 'translate(-50%, -100%)';
 
     // Имя и стек
     const infoEl = document.createElement('div');
