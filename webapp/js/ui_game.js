@@ -166,10 +166,15 @@ function renderTable(state) {
     cEl.className = 'card';
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
+    cEl.className = 'card';
     cEl.innerHTML = `
       <span class="rank">${rank}</span>
       <span class="suit">${suit}</span>
     `;
+    // если красная масть — помечаем
+    if (suit === '♥' || suit === '♦') {
+      cEl.classList.add('red');
+    }
     communityContainer.appendChild(cEl);
   });
 
@@ -204,6 +209,7 @@ function renderTable(state) {
         <span class="rank">${rk}</span>
         <span class="suit">${st}</span>
       `;
+      if (st === '♥' || st === '♦') cd.classList.add('red');
       // показываем скрытую карту, если это не ваш юзер
       if (String(p.user_id) !== String(userId)) {
         cd.querySelector('.suit').textContent = '🂠';
