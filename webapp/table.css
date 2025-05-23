@@ -3,6 +3,22 @@ body {
   min-height: 100vh;
 }
 
+header {
+  background: none;
+  margin: 0;
+  padding: 6px 0 0 12px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+}
+header h1 {
+  color: #fff;
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+}
+
 /* Контейнер стола */
 #game-info #poker-table-wrapper {
   position: relative;
