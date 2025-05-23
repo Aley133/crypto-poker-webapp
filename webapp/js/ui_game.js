@@ -181,6 +181,19 @@ function renderTable(state) {
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
 
+  // Сначала создаём/находим dealer-chip (один на всех)
+  let dealerChipEl = document.getElementById('dealer-chip-main');
+  if (!dealerChipEl) {
+    dealerChipEl = document.createElement('div');
+    dealerChipEl.className = 'dealer-chip';
+    dealerChipEl.id = 'dealer-chip-main';
+    dealerChipEl.textContent = 'D';
+    // Важно! appendChild не к seat, а к seatsContainer!
+    seatsContainer.appendChild(dealerChipEl);
+  }
+  // Сначала скрываем chip, покажем если будет дилер
+  dealerChipEl.style.display = 'none';
+
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
@@ -218,12 +231,21 @@ function renderTable(state) {
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
     seat.appendChild(stackEl);
 
-    // 2.4) Dealer chip
+    // Вставляем сиденье
+    seatsContainer.appendChild(seat);
+
+    // 2.4) Dealer chip — плавно перемещаем к нужному месту
     if (state.dealer_index !== undefined && state.dealer_index === i) {
-      const dealerEl = document.createElement('div');
-      dealerEl.className = 'dealer-chip';
-      dealerEl.textContent = 'D';
-      seat.appendChild(dealerEl);
+      // Берём позицию seat относительно контейнера
+      // Смещение можно подогнать для красоты (здесь - 5px от карт)
+      setTimeout(() => {
+        const seatRect = seat.getBoundingClientRect();
+        const containerRect = seatsContainer.getBoundingClientRect();
+        // Позиционируем chip левее первой карты и чуть ниже (по вертикали)
+        dealerChipEl.style.left = (seat.offsetLeft + 10) + 'px';
+        dealerChipEl.style.top = (seat.offsetTop + 45) + 'px';
+        dealerChipEl.style.display = 'flex';
+      }, 0);
     }
 
     // 2.5) Экшен bubble (action)
@@ -238,10 +260,8 @@ function renderTable(state) {
       setTimeout(() => actionEl.classList.add('fadeout'), 1200);
       setTimeout(() => actionEl.remove(), 1800);
     }
-
-    // Вставляем сиденье
-    seatsContainer.appendChild(seat);
   });
+}
 
    // Создаём блок действия, если оно есть
   const action = state.player_actions?.[player.id];
