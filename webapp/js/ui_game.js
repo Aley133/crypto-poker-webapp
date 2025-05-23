@@ -166,66 +166,58 @@ function renderTable(state) {
     cEl.className = 'card';
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
-    cEl.className = 'card';
     cEl.innerHTML = `
-      <span class="rank">${rank}</span>
-      <span class="suit">${suit}</span>
+      <span class=\"rank\">${rank}</span>
+      <span class=\"suit\">${suit}</span>
     `;
-    // если красная масть — помечаем
     if (suit === '♥' || suit === '♦') {
       cEl.classList.add('red');
     }
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Игроки вокруг стола без расчёта позиционирования
+  // 2) Игроки вокруг стола
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
-  
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+
+  seatsContainer.innerHTML = '';
+
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    // relIndex = 0 для вас, 1 для следующего игрока по часовой, и т.д.
     const relIndex = (i - userIndex + players.length) % players.length;
     seat.dataset.pos = String(relIndex + 1);
 
-        // Имя игрока
-    const infoEl = document.createElement('div');
-    infoEl.className = 'player-info';
-    infoEl.textContent = p.username;
-    seat.appendChild(infoEl);
-
-    // Стек (счёт) игрока
-    const stackEl = document.createElement('div');
-    stackEl.className = 'player-stack';
-    stackEl.textContent = state.stacks?.[p.user_id] ?? 0;
-    seat.appendChild(stackEl);
-
-    // Карты игрока
+    // 2.1) Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
       const cd = document.createElement('div');
       cd.className = 'card';
       if (String(p.user_id) === String(userId)) {
-        // Ваша карта — показываем ранг/масть и цвет
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
-        cd.innerHTML = `
-         <span class="rank">${rk}</span>
-         <span class="suit">${st}</span>
-        `;
-        if (st === '♥' || st === '♦') {
-          cd.classList.add('red');
-        }
+        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
+        if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
-        // Чужая карта — только рубашка
-        cd.innerHTML = `<span class="suit">🂠</span>`;
+        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
       }
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
+
+    // 2.2) Имя
+    const infoEl = document.createElement('div');
+    infoEl.className = 'player-info';
+    infoEl.textContent = p.username;
+    seat.appendChild(infoEl);
+
+    // 2.3) Стек
+    const stackEl = document.createElement('div');
+    stackEl.className = 'player-stack';
+    stackEl.textContent = state.stacks?.[p.user_id] || 0;
+    seat.appendChild(stackEl);
 
     seatsContainer.appendChild(seat);
   });
