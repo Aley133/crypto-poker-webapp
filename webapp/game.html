@@ -9,29 +9,25 @@
   <!-- Заголовок -->
   <header>
     <h1>Стол <span id="table-id"></span></h1>
-    <div class="user-info">
-      <!-- Здесь можете показывать аватарки, баланс и т.п. -->
-    </div>
+    <div class="user-info"></div>
   </header>
 
-  <!-- Круглый стол -->
-  <div id="poker-table"></div>
-
-  <!-- Статус, Пот и Ставка -->
+  <!-- Инфо по игре: статус и таблица -->
   <div id="game-info">
     <div id="status">Ожидаем игроков…</div>
-    <div id="pot">Пот: 0</div>
     <div id="current-bet">Текущая ставка: 0</div>
+
+    <!-- Обёртка и сам круглый стол -->
     <div id="poker-table-wrapper">
-    <div id="poker-table">
-      <!-- Общие карты -->
-      <div id="community-cards"></div>
-      <!-- Инфо о банке -->
-      <div id="pot">Пот: <span id="pot-amount"></span></div>
-      <!-- Сиденья -->
-      <div id="seats"></div>
+      <div id="poker-table">
+        <!-- Общие карты -->
+        <div id="community-cards"></div>
+        <!-- Банк -->
+        <div id="pot">Пот: <span id="pot-amount"></span></div>
+        <!-- Сиденья игроков -->
+        <div id="seats"></div>
+      </div>
     </div>
-  </div>
   </div>
 
   <!-- Кнопки действий игрока -->
@@ -42,7 +38,6 @@
     <button id="leave-btn">Покинуть стол</button>
   </div>
 
-  <!-- Подключаем только наш UI-модуль -->
   <script type="module" src="/js/ui_game.js"></script>
 </body>
 </html>
