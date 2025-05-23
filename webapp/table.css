@@ -96,6 +96,38 @@ display: flex; gap: 8px;
   line-height: 1;
 }
 
+/* 6 мест вокруг овального стола */
+#game-info .seat[data-pos="1"] {
+  bottom: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+#game-info .seat[data-pos="2"] {
+  bottom: 25%;
+  right: -10%;
+  transform: translateY(50%);
+}
+#game-info .seat[data-pos="3"] {
+  top: 50%;
+  right: -10%;
+  transform: translateY(-50%);
+}
+#game-info .seat[data-pos="4"] {
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+#game-info .seat[data-pos="5"] {
+  top: 25%;
+  left: -10%;
+  transform: translateY(-50%);
+}
+#game-info .seat[data-pos="6"] {
+  bottom: 25%;
+  left: -10%;
+  transform: translateY(50%);
+}
+
 .seat[data-pos="1"] { bottom: -10%; left: 50%; transform: translateX(-50%); }
 .seat[data-pos="2"] { bottom: 20%; right: -10%; transform: translateY(50%); }
 .seat[data-pos="3"] { top: 50%; right: -10%; transform: translateY(-50%); }
