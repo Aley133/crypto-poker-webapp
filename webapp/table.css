@@ -42,13 +42,12 @@
   box-shadow: none;
   transition: left 0.2s, top 0.2s;
 }
-#game-info .seat[data-pos="1"] { left: 50%; top: 88%; transform: translate(-50%, -55%); }
-#game-info .seat[data-pos="2"] { left: 85%; top: 72%; transform: translate(-50%, -50%); }
-#game-info .seat[data-pos="3"] { left: 92%; top: 36%; transform: translate(-50%, -50%); }
-#game-info .seat[data-pos="4"] { left: 70%; top: 8%;  transform: translate(-50%, -50%); }
-#game-info .seat[data-pos="5"] { left: 30%; top: 8%;  transform: translate(-50%, -50%); }
-#game-info .seat[data-pos="6"] { left: 8%;  top: 36%; transform: translate(-50%, -50%); }
-#game-info .seat[data-pos="7"] { left: 15%; top: 72%; transform: translate(-50%, -50%); }
+#game-info .seat[data-pos="1"] { left: 50%; top: 87%; transform: translate(-50%, -52%);}
+#game-info .seat[data-pos="2"] { left: 84%; top: 64%;  transform: translate(-50%,-50%);}
+#game-info .seat[data-pos="3"] { left: 92%; top: 32%;  transform: translate(-50%,-50%);}
+#game-info .seat[data-pos="4"] { left: 50%; top: 10%;  transform: translate(-50%,-40%);}
+#game-info .seat[data-pos="5"] { left: 8%;  top: 32%;  transform: translate(-50%,-50%);}
+#game-info .seat[data-pos="6"] { left: 16%; top: 64%;  transform: translate(-50%,-50%);}
 
 /* --- Карты --- */
 #game-info .cards {
@@ -74,19 +73,21 @@
 #game-info .card:first-child { margin-left: 0; }
 
 #game-info .card.back {
-  background: repeating-linear-gradient(135deg, #e8e8ec 0, #e8e8ec 7px, #c62a45 7px, #c62a45 14px);
-  border: 1px solid #b12235;
-  box-shadow: 0 2px 8px rgba(196,42,69,0.06);
+  background: #1a1d32;
+  border: 2px solid #7cf9b1;
+  box-shadow: 0 2px 8px #3bb99499;
+  position: relative;
+  overflow: hidden;
 }
 #game-info .card.back .pattern {
-  width: 19px;
-  height: 38px;
-  border-radius: 5px;
-  background: repeating-linear-gradient(45deg, #fff 0 2px, #c62a45 2px 4px);
-  border: 1px solid #b12235;
-  opacity: 0.23;
+  width: 28px;
+  height: 40px;
+  border-radius: 6px;
+  background: url('data:image/svg+xml;utf8,<svg width="28" height="40" xmlns="http://www.w3.org/2000/svg"><rect width="28" height="40" rx="6" fill="%231a1d32"/><g stroke="%237cf9b1" stroke-width="1"><line x1="4" y1="6" x2="24" y2="34"/><line x1="24" y1="6" x2="4" y2="34"/><line x1="14" y1="3" x2="14" y2="37"/><line x1="3" y1="20" x2="25" y2="20"/><circle cx="14" cy="20" r="7.5" fill="none" stroke="%2362b6f5" stroke-width="1.2"/><polygon points="14,10 17,20 14,30 11,20" fill="none" stroke="%23c47fff" stroke-width="1.1"/></g></svg>');
+  opacity: 0.42;
   margin: auto;
   display: block;
+  border: none;
 }
 
 #game-info .card .rank {
@@ -113,7 +114,9 @@
   color: #e14141;
 }
 
-#game-info .cards > .card { margin-left: -13px; }
+#game-info .cards > .card {
+ margin-left: -7px;
+}
 
 /* --- Блок с именем и стеком под картами --- */
 #game-info .player-info, #game-info .player-stack {
@@ -142,25 +145,30 @@
 /* --- Dealer chip --- */
 .dealer-chip {
   position: absolute;
-  top: -18px;
-  left: 55%;
-  transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
-  background: #fffbe7;
-  border: 1.4px solid #ffd600;
+  left: 55%; /* Для карты — скорректируй, если нужно */
+  top: 43px;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border: 1.2px solid #eee;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
-  font-size: 1.03em;
+  font-weight: 800;
+  font-size: 1.05em;
   color: #202020;
-  box-shadow: 0 1px 4px rgba(130,120,18,0.14);
-  z-index: 18;
-  transition: top 0.4s cubic-bezier(.23,1.1,.36,1);
+  box-shadow: 0 1px 5px #d6f3eaab;
+  z-index: 8;
   pointer-events: none;
-  letter-spacing: -1px;
+  transition: left 0.7s cubic-bezier(.6,-0.15,.4,1.2), top 0.7s cubic-bezier(.6,-0.15,.4,1.2);
+  transform: scale(1.06)
+}
+@keyframes dealer-spin {
+  0% { transform: scale(0.6) rotate(-120deg);}
+  60% { transform: scale(1.18) rotate(14deg);}
+  85% { transform: scale(1) rotate(0);}
+  100% { transform: scale(1) rotate(0);}
 }
 
 /* --- Action bubble --- */
