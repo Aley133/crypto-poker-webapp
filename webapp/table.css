@@ -70,7 +70,7 @@ body {
 /* Сиденье игрока */
 #game-info .seat {
   position: absolute;
-  width: 116px;
+  width: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -79,15 +79,6 @@ body {
   border: none;
   box-shadow: none;
 }
-
-/* Круговая раскладка мест (до 6 игроков) */
-#game-info .seat[data-pos="1"] { left: 50%; top: 97%; transform: translate(-50%, -96%);}
-#game-info .seat[data-pos="2"] { left: 92%; top: 68%;  transform: translate(-60%,-50%);}
-#game-info .seat[data-pos="3"] { left: 92%; top: 28%;  transform: translate(-60%,-50%);}
-#game-info .seat[data-pos="4"] { left: 50%; top: 3%;  transform: translate(-50%, -6%);}
-#game-info .seat[data-pos="5"] { left: 8%;  top: 28%;  transform: translate(-40%,-50%);}
-#game-info .seat[data-pos="6"] { left: 8%; top: 68%;  transform: translate(-40%,-50%);}
-#game-info .seat[data-pos="7"] { left: 50%; top: 49%; transform: translate(-50%, -50%);} /* если вдруг 7 игроков */
 
 /* --- Карты и crypto-рубашка --- */
 #game-info .cards {
@@ -233,7 +224,6 @@ body {
 /* --- Мелкая адаптивность --- */
 @media (max-width: 700px) {
   #game-info #poker-table-wrapper { max-width: 100vw; }
-  #game-info .seat { width: 85px; }
   #game-info .card { width: 34px; height: 46px; }
   #game-info .cards { gap: 2px; }
 }
