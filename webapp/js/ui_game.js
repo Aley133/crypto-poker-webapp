@@ -323,6 +323,19 @@ function renderTable(state) {
     }
 
     seatsContainer.appendChild(seat);
+
+    // Теперь переместим #actions под твои карты:
+  const actionsBlock = document.getElementById('actions');
+  if (actionsBlock) {
+    const rect = seat.getBoundingClientRect();
+    const containerRect = seatsContainer.getBoundingClientRect();
+    actionsBlock.style.position = "absolute";
+    actionsBlock.style.left = (rect.left - containerRect.left + rect.width / 2) + "px";
+    actionsBlock.style.top = (rect.bottom - containerRect.top + 10) + "px";
+    actionsBlock.style.transform = "translate(-50%, 0)";
+    actionsBlock.style.zIndex = 40;
+    seatsContainer.appendChild(actionsBlock);
+  }
   });
 }
 
