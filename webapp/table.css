@@ -1,6 +1,3 @@
-/\* webapp/table.css \*/
-
-/\* Container for table (scoped) \*/
 \#game-info #poker-table-wrapper {
 position: relative;
 margin: 20px auto;
@@ -10,7 +7,6 @@ height: 60vw;
 max-height: 400px;
 }
 
-/\* Oval poker table \*/
 \#game-info #poker-table {
 position: relative;
 width: 100%;
@@ -21,7 +17,6 @@ border-radius: 50% / 40%;
 overflow: visible;
 }
 
-/\* Community cards centered \*/
 \#game-info #community-cards {
 position: absolute;
 top: 45%;
@@ -32,7 +27,6 @@ gap: 8px;
 z-index: 1;
 }
 
-/\* Pot overlay \*/
 \#game-info #pot {
 position: absolute;
 top: 60%;
@@ -46,7 +40,6 @@ border-radius: 4px;
 z-index: 1;
 }
 
-/\* Seats container covers only table area \*/
 \#game-info #seats {
 position: absolute;
 top: 0;
@@ -57,7 +50,6 @@ pointer-events: none;
 z-index: 2;
 }
 
-/\* Seat box common \*/
 \#game-info .seat {
 position: absolute;
 background: rgba(34,34,34,0.9);
@@ -76,7 +68,6 @@ pointer-events: none;
 margin-bottom: 4px;
 }
 
-/\* Overlapping cards in hand \*/
 \#game-info .cards {
 display: flex;
 }
@@ -85,7 +76,6 @@ display: flex;
 margin-left: -10px;
 }
 
-/\* Poker card styling \*/
 \#game-info .card {
 position: relative;
 width: 56px;
@@ -98,7 +88,6 @@ overflow: hidden;
 font-family: sans-serif;
 }
 
-/\* Rank styling \*/
 \#game-info .card .rank {
 position: absolute;
 top: 4px;
@@ -109,7 +98,6 @@ line-height: 1;
 pointer-events: none;
 }
 
-/\* Suit styling \*/
 \#game-info .card .suit {
 position: absolute;
 top: 55%;
@@ -121,19 +109,16 @@ pointer-events: none;
 text-shadow: 0 0 4px rgba(0,0,0,0.3);
 }
 
-/\* Default black suits \*/
 \#game-info .card .rank,
 \#game-info .card .suit {
 color: #000;
 }
 
-/\* Red suits \*/
 \#game-info .card.red .rank,
 \#game-info .card.red .suit {
 color: #c00;
 }
 
-/\* Seat positions around table \*/
 \#game-info .seat\[data-pos="1"] {
 bottom: -12%;
 left: 50%;
@@ -170,7 +155,6 @@ left: -12%;
 transform: translate(-50%, 50%);
 }
 
-/\* Responsive tweaks \*/
 @media (min-width: 600px) {
 \#game-info #poker-table-wrapper { width: 600px; height: 400px; }
 \#game-info .seat { width: 140px; font-size: 1em; }
