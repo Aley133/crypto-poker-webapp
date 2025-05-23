@@ -156,10 +156,11 @@ function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
 
+  // Очищаем предыдущий рендер
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Борд с анимацией
+  // 1) Борд с анимацией
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -171,7 +172,7 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Игроки по эллипсу
+  // 2) Игроки по кругу (эллипс)
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const N = players.length;
@@ -180,10 +181,10 @@ function renderTable(state) {
   const wrapperRect = tableEl.getBoundingClientRect();
   const centerX = wrapperRect.width / 2;
   const centerY = wrapperRect.height / 2;
-  const RADIUS_X = wrapperRect.width * 0.36;
+  const RADIUS_X = wrapperRect.width * 0.36;  // Можно чуть уменьшить если нужно плотнее к центру
   const RADIUS_Y = wrapperRect.height * 0.29;
 
-  // Dealer chip
+  // Dealer chip (один на всех)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -194,16 +195,26 @@ function renderTable(state) {
   }
   dealerChipEl.style.display = 'none';
 
+  // Для кнопок — удаляем абсолютный actions из DOM (если был)
+  const actionsBlock = document.getElementById('actions');
+  if (actionsBlock && actionsBlock.parentNode) {
+    actionsBlock.parentNode.removeChild(actionsBlock);
+  }
+
+  // В цикле рендерим все seats
+  let mySeatRect = null; // Для вычисления позиции кнопок
+
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
 
-    // Эллиптическое позиционирование
+    // --- Круговое позиционирование (по эллипсу) ---
     const place = (i - userIndex + N) % N;
     const angle = ((360 / N) * place - 90) * (Math.PI / 180);
     const x = centerX + RADIUS_X * Math.cos(angle);
     const y = centerY + RADIUS_Y * Math.sin(angle);
+
     seat.style.left = `${x}px`;
     seat.style.top = `${y}px`;
     seat.style.transform = 'translate(-50%, -50%)';
@@ -227,83 +238,20 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // --- Блок для ника и стека ---
+    // --- Блок с ником и стеком ---
     const block = document.createElement('div');
     block.className = 'seat-block';
-
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
     block.appendChild(infoEl);
-
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
     block.appendChild(stackEl);
-
-    // --- Прогресс-таймер для активного игрока ---
-    if (String(p.user_id) === String(state.current_player) && state.timer_deadline) {
-      const now = Date.now() / 1000;
-      const total = Math.max(state.timer_deadline - now, 0);
-      const maxTime = 16; // секунд на ход
-      const progress = Math.min(total / maxTime, 1);
-      const radius = 32, stroke = 3;
-      const norm = 2 * Math.PI * (radius - stroke);
-      const offset = norm * (1 - progress);
-      const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      ring.setAttribute('class', 'progress-ring');
-      ring.setAttribute('width', radius * 2);
-      ring.setAttribute('height', radius * 2);
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('class', 'progress-ring__circle');
-      circle.setAttribute('cx', radius);
-      circle.setAttribute('cy', radius);
-      circle.setAttribute('r', radius - stroke);
-      circle.setAttribute('stroke-dasharray', norm);
-      circle.setAttribute('stroke-dashoffset', offset);
-      ring.appendChild(circle);
-      block.appendChild(ring);
-    }
-
     seat.appendChild(block);
 
-    // --- Бейджи: SIT, WINNER, ALL-IN ---
-    if (p.status === "sitout") {
-      const badge = document.createElement('div');
-      badge.className = 'player-badge badge-sit';
-      badge.innerText = "SIT";
-      seat.appendChild(badge);
-    }
-    if (state.winner && (
-        state.winner === p.user_id ||
-        (Array.isArray(state.winner) && state.winner.includes(p.user_id))
-      )) {
-      const badge = document.createElement('div');
-      badge.className = 'player-badge badge-win';
-      badge.innerText = "WINNER";
-      seat.appendChild(badge);
-    }
-    if (p.status === "allin") {
-      const badge = document.createElement('div');
-      badge.className = 'player-badge badge-allin';
-      badge.innerText = "ALL-IN";
-      seat.appendChild(badge);
-    }
-
-    // Dealer chip — только если сейчас дилер
-    if (state.dealer_index !== undefined && state.dealer_index === i) {
-      setTimeout(() => {
-        dealerChipEl.style.left = (seat.offsetLeft - 14) + 'px';
-        dealerChipEl.style.top = (seat.offsetTop + 10) + 'px';
-        dealerChipEl.style.display = 'flex';
-        dealerChipEl.style.animation = 'dealer-spin 0.7s';
-        dealerChipEl.addEventListener('animationend', () => {
-          dealerChipEl.style.animation = '';
-        }, { once: true });
-      }, 0);
-    }
-
-    // Экшен bubble
+    // --- Экшен bubble ---
     const action = state.player_actions?.[p.user_id];
     if (action) {
       const actionEl = document.createElement('div');
@@ -316,29 +264,40 @@ function renderTable(state) {
       setTimeout(() => actionEl.remove(), 1800);
     }
 
-    // --- Если это ты — экшен кнопки под своими картами!
+    // --- Dealer chip ---
+    if (state.dealer_index !== undefined && state.dealer_index === i) {
+      setTimeout(() => {
+        dealerChipEl.style.left = (seat.offsetLeft - 14) + 'px';
+        dealerChipEl.style.top = (seat.offsetTop + 10) + 'px';
+        dealerChipEl.style.display = 'flex';
+        dealerChipEl.style.animation = 'dealer-spin 0.7s';
+        dealerChipEl.addEventListener('animationend', () => {
+          dealerChipEl.style.animation = '';
+        }, { once: true });
+      }, 0);
+    }
+
+    // --- Это твой seat — сохраним его координаты для экшен-кнопок
     if (String(p.user_id) === String(userId)) {
-      const actionsBlock = document.getElementById('actions');
-      if (actionsBlock) seat.appendChild(actionsBlock);
+      // Сохраняем DOMRect для своего seat
+      mySeatRect = seat.getBoundingClientRect();
     }
 
     seatsContainer.appendChild(seat);
+  });
 
-    // Теперь переместим #actions под твои карты:
-  const actionsBlock = document.getElementById('actions');
-  if (actionsBlock) {
-    const rect = seat.getBoundingClientRect();
+  // === ВСТАВЛЯЕМ КНОПКИ только один раз и только под своими картами ===
+  if (actionsBlock && mySeatRect) {
+    // Позиционируем блок кнопок по координатам своего seat
     const containerRect = seatsContainer.getBoundingClientRect();
     actionsBlock.style.position = "absolute";
-    actionsBlock.style.left = (rect.left - containerRect.left + rect.width / 2) + "px";
-    actionsBlock.style.top = (rect.bottom - containerRect.top + 10) + "px";
+    actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
+    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 10) + "px";
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 40;
     seatsContainer.appendChild(actionsBlock);
   }
-  });
 }
-
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
