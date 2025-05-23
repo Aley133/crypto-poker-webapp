@@ -1,9 +1,7 @@
 import random
 import time
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Set, Tuple
 from game_data import seat_map
-from game_engine import RESULT_DELAY 
-import asyncio
 
 # Хранилища состояний и WS-соединений
 game_states: Dict[int, dict] = {}
@@ -16,10 +14,10 @@ BLIND_BIG      = 2
 MIN_PLAYERS    = 2
 # Время показа результата перед новой раздачей
 RESULT_DELAY   = 5
-DECISION_TIME  = 30  # секунда на ход
+DECISION_TIME  = 30  # секута на ход
 
 # Порядок улиц
-ROUNDS         = ["pre-flop", "flop", "turn", "river", "showdown"]
+ROUNDS = ["pre-flop", "flop", "turn", "river", "showdown"]
 
 # Ранжирование комбинаций
 HAND_RANKS = {
@@ -34,8 +32,7 @@ HAND_RANKS = {
     'straight_flush': 9,
 }
 RANK_ORDER = {r: i for i, r in enumerate(
-    ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], start=2)
-}
+    ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], start=2)}
 SUITS = ['♠','♥','♦','♣']
 
 
@@ -47,19 +44,14 @@ def new_deck() -> List[str]:
 
 
 def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
-    """
-    Оценивает до 7 карт: возвращает (ранг, тье-брейкер).
-    """
     vals = [RANK_ORDER[c[:-1]] for c in cards]
     suits = [c[-1] for c in cards]
     vals.sort(reverse=True)
-    # Проверка флеша
     flush_suit = next((s for s in SUITS if suits.count(s) >= 5), None)
     flush_cards = sorted(
         [v for v, su in zip(vals, suits) if su == flush_suit],
-        reverse=True
-    )[:5] if flush_suit else []
-    # Проверка стрит
+        reverse=True)[:5] if flush_suit else []
+
     unique_vals = sorted(set(vals), reverse=True)
     straight_high = 0
     for i in range(len(unique_vals) - 4):
@@ -67,15 +59,13 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
         if window[0] - window[-1] == 4:
             straight_high = window[0]
             break
-    # Wheel A-5
-    if set([14,5,4,3,2]).issubset(unique_vals):
+    if set([14, 5, 4, 3, 2]).issubset(unique_vals):
         straight_high = 5
-    # Группы
+
     counts = {v: vals.count(v) for v in set(vals)}
     groups = sorted(
-        counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True
-    )
-    # Категории
+        counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+
     if flush_suit and straight_high:
         category, tiebreaker = 'straight_flush', [straight_high]
     elif groups[0][1] == 4:
@@ -102,7 +92,8 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
         category, tiebreaker = 'one_pair', [pair] + kickers
     else:
         category, tiebreaker = 'high_card', vals[:5]
-    return (HAND_RANKS[category], tiebreaker)
+
+    return HAND_RANKS[category], tiebreaker
 
 
 def start_hand(table_id: int):
@@ -114,17 +105,14 @@ def start_hand(table_id: int):
         game_states.pop(table_id, None)
         return
 
-    # Ротация дилера и блайнды
     prev = state.get("dealer_index", -1)
     dealer = (prev + 1) % len(players)
     sb, bb = (dealer + 1) % len(players), (dealer + 2) % len(players)
     sb_uid, bb_uid = players[sb], players[bb]
 
-    # Создание колоды и раздача
     deck = new_deck()
     hole = {u: [deck.pop(), deck.pop()] for u in players}
 
-    # Стеки и блайнды
     stacks = {u: STARTING_STACK for u in players}
     stacks[sb_uid] -= BLIND_SMALL
     stacks[bb_uid] -= BLIND_BIG
@@ -133,7 +121,6 @@ def start_hand(table_id: int):
     contributions[sb_uid] = BLIND_SMALL
     contributions[bb_uid] = BLIND_BIG
 
-    # Инициализация состояния
     state.update({
         "dealer_index": dealer,
         "deck": deck,
@@ -152,7 +139,6 @@ def start_hand(table_id: int):
         "split_pots": {},
     })
 
-    # Фаза торгов и сброс прошлых результатов
     state["phase"] = "pre-flop"
     state.pop("result_delay_deadline", None)
     for k in ("winner", "game_over", "game_over_reason", "revealed_hands", "split_pots"):
@@ -168,18 +154,18 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         return
     uid = str(uid)
     players = state.get("players", [])
-    stacks, contrib = state["stacks"], state["contributions"]
-    folds, cb = set(state.get("folds", set())), state.get("current_bet", 0)
+    stacks = state["stacks"]
+    contrib = state["contributions"]
+    folds = set(state.get("folds", set()))
+    cb = state.get("current_bet", 0)
     deadline = state.get("timer_deadline", now)
 
-    # Тайм-аут
     if now > deadline:
-        action = 'fold'
+        action = "fold"
 
     if uid not in stacks or state.get("current_player") != uid:
         return
 
-    # Правильный блок для fold
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
@@ -197,7 +183,6 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             })
             state["started"] = False
             return
-        # если больше одного — ищем следующего активного
         idx = players.index(uid)
         for i in range(1, len(players)):
             cand = players[(idx + i) % len(players)]
@@ -205,19 +190,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 state["current_player"] = cand
                 break
         state["timer_deadline"] = now + DECISION_TIME
-        return
+        # продолжение игры без преждевременного return
 
-    # ← сюда должна «впадать» эта строка
-    idx = players.index(uid)
-    for i in range(1, len(players)):
-        cand = players[(idx + i) % len(players)]
-        if cand not in folds and stacks[cand] > 0:
-            state["current_player"] = cand
-            break
-    state["timer_deadline"] = now + DECISION_TIME
-    return
-
-    # Check, call, bet, raise
+    # Обработка ставок и коллов
     if action == "check":
         if contrib.get(uid, 0) != cb:
             return
@@ -241,7 +216,6 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     else:
         return
 
-    # Пометка хода и сброс таймера
     acted = set(state.get("acted", set()))
     acted.add(uid)
     state["acted"] = acted
@@ -256,15 +230,16 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
         if rnd in ["pre-flop", "flop", "turn"]:
-            deck.pop()
+            deck.pop()  # сброс карты
             cnt = 3 if rnd == "pre-flop" else 1
+            # раздача community-карт
             state["community"] += [deck.pop() for _ in range(cnt)]
             state["current_round"] = ROUNDS[idx + 1]
         elif rnd == "river":
             state["current_round"] = "showdown"
 
-    # Правильный блок для showdown
-    if state.get("current_round") == "showdown":
+    # Showdown
+    if state["current_round"] == "showdown":
         alive = [p for p in players if p not in folds]
         hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
         scores = {p: evaluate_hand(h) for p, h in hands.items()}
@@ -289,12 +264,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             "result_delay_deadline": time.time() + RESULT_DELAY,
         })
         state["started"] = False
-        return
-
-        state["current_bet"] = 0
-        state["contributions"] = {p: 0 for p in alive}
 
     # Смена игрока
+    alive = [p for p in players if p not in folds]
     if len(alive) > 1 and uid in alive:
         ai = alive.index(uid)
         state["current_player"] = alive[(ai + 1) % len(alive)]
