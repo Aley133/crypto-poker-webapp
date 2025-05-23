@@ -63,8 +63,7 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
         straight_high = 5
 
     counts = {v: vals.count(v) for v in set(vals)}
-    groups = sorted(
-        counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+    groups = sorted(counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
 
     if flush_suit and straight_high:
         category, tiebreaker = 'straight_flush', [straight_high]
@@ -169,11 +168,14 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
+        # Фильтруем игроков по наличию стека и не в fold
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
         if len(alive) == 1:
             winner = alive[0]
+            # раскрываем только те руки, которые были разданы
+            revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
             state.update({
-                "revealed_hands": {p: state["hole_cards"][p] for p in players},
+                "revealed_hands": revealed,
                 "winner": winner,
                 "game_over": True,
                 "game_over_reason": "fold",
@@ -228,7 +230,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         rnd = state.get("current_round")
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
-        if rnd in ["pre-flop", "flop", "turn"]:
+        if rnd in ["pre-flop", "flop","turn"]:
             deck.pop()
             cnt = 3 if rnd == "pre-flop" else 1
             state["community"] += [deck.pop() for _ in range(cnt)]
@@ -239,7 +241,8 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     # Showdown
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
-        hands = {p: state["hole_cards"][p] + state["community"] for p in alive}
+        # раскрываем только те руки, которые были разданы
+        hands = {p: state["hole_cards"].get(p, []) + state["community"] for p in state["hole_cards"].keys()}
         scores = {p: evaluate_hand(h) for p, h in hands.items()}
         best_rank = max(s[0] for s in scores.values())
         candidates = [p for p, s in scores.items() if s[0] == best_rank]
