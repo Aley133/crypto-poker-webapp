@@ -201,7 +201,8 @@ function renderTable(state) {
         cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
         if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
-        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
+        cd.classList.add('back');
+        cd.innerHTML = `<span class="pattern"></span>`;
       }
       cardsEl.appendChild(cd);
     });
