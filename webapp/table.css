@@ -65,13 +65,35 @@ margin-bottom: 4px;
 display: flex; gap: 8px;
 }
 
+/* Покерная карта */
 #game-info .card {
-width: 44px; height: 64px;
-background: #fff; color: #000;
-border: 1px solid #333; border-radius: 4px;
-display: flex; align-items: center; justify-content: center;
-font-size: 1.1em;
-box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  position: relative;
+  width: 50px;
+  height: 70px;
+  background: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  overflow: hidden;
+  font-family: sans-serif;
+}
+
+/* Ранк в левом верхнем углу */
+#game-info .card .rank {
+  position: absolute;
+  top: 4px; left: 6px;
+  font-size: 1.2em;
+  font-weight: bold;
+  line-height: 1;
+}
+
+/* Масть по центру */
+#game-info .card .suit {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2em;
+  line-height: 1;
 }
 
 /* Responsive tweaks */
