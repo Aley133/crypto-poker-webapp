@@ -167,8 +167,8 @@ function renderTable(state) {
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
     cEl.innerHTML = `
-      <span class=\"rank\">${rank}</span>
-      <span class=\"suit\">${suit}</span>
+      <span class="rank">${rank}</span>
+      <span class="suit">${suit}</span>
     `;
     if (suit === '♥' || suit === '♦') {
       cEl.classList.add('red');
@@ -180,8 +180,6 @@ function renderTable(state) {
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
-
-  seatsContainer.innerHTML = '';
 
   players.forEach((p, i) => {
     const seat = document.createElement('div');
@@ -198,7 +196,7 @@ function renderTable(state) {
       if (String(p.user_id) === String(userId)) {
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
-        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
+        cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
         if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
         cd.classList.add('back');
@@ -208,18 +206,40 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // 2.2) Имя
+    // 2.2) Имя игрока
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
     seat.appendChild(infoEl);
 
-    // 2.3) Стек
+    // 2.3) Стек игрока
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
     seat.appendChild(stackEl);
 
+    // 2.4) Dealer chip
+    if (state.dealer_index !== undefined && state.dealer_index === i) {
+      const dealerEl = document.createElement('div');
+      dealerEl.className = 'dealer-chip';
+      dealerEl.textContent = 'D';
+      seat.appendChild(dealerEl);
+    }
+
+    // 2.5) Экшен bubble (action)
+    const action = state.player_actions?.[p.user_id];
+    if (action) {
+      const actionEl = document.createElement('div');
+      actionEl.className = 'player-action ' + action.type;
+      actionEl.textContent = (action.type === 'bet' || action.type === 'raise')
+        ? `${action.type.toUpperCase()} ${action.amount}`
+        : action.type.toUpperCase();
+      seat.appendChild(actionEl);
+      setTimeout(() => actionEl.classList.add('fadeout'), 1200);
+      setTimeout(() => actionEl.remove(), 1800);
+    }
+
+    // Вставляем сиденье
     seatsContainer.appendChild(seat);
   });
 
