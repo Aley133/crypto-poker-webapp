@@ -98,46 +98,46 @@ display: flex; gap: 4px;
   line-height: 1;
 }
 
-/* Data-pos 1: вы внизу по центру */
+/* Data-pos 1: вы внизу по центру — можно оставить чуть ниже */
 #game-info .seat[data-pos="1"] {
-  bottom: -8%;         /* немного выше, чтобы не налезал */
+  bottom: -12%;
   left: 50%;
   transform: translateX(-50%);
 }
 
-/* Data-pos 2: справа внизу */
+/* Data-pos 2: справа-снизу — отодвинем по диагонали наружу */
 #game-info .seat[data-pos="2"] {
-  bottom: 20%;
-  right: -8%;
-  transform: translateY(50%);
+  bottom: 8%;
+  right: -12%;
+  transform: translate(50%, 50%);
 }
 
-/* Data-pos 3: справа по центру */
+/* Data-pos 3: справа-сверху */
 #game-info .seat[data-pos="3"] {
-  top: 50%;
-  right: -8%;
-  transform: translateY(-50%);
+  top: 8%;
+  right: -12%;
+  transform: translate(50%, -50%);
 }
 
-/* Data-pos 4: сверху по центру */
+/* Data-pos 4: вверху по центру */
 #game-info .seat[data-pos="4"] {
-  top: -8%;
+  top: -12%;
   left: 50%;
   transform: translateX(-50%);
 }
 
-/* Data-pos 5: слева по центру */
+/* Data-pos 5: слева-сверху */
 #game-info .seat[data-pos="5"] {
-  top: 20%;
-  left: -8%;
-  transform: translateY(-50%);
+  top: 8%;
+  left: -12%;
+  transform: translate(-50%, -50%);
 }
 
-/* Data-pos 6: слева внизу */
+/* Data-pos 6: слева-снизу */
 #game-info .seat[data-pos="6"] {
-  bottom: 20%;
-  left: -8%;
-  transform: translateY(50%);
+  bottom: 8%;
+  left: -12%;
+  transform: translate(-50%, 50%);
 }
 
 /* Responsive tweaks */
