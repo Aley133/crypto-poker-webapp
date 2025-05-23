@@ -155,11 +155,10 @@ function polarToCartesian(cx, cy, r, deg) {
 
 // Обновлённая функция renderTable — рисует в #seats и #community-cards, не трогая логику
 function renderTable(state) {
-  // Контейнеры для визуальных блоков
   const seatsContainer     = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
 
-  // Очищаем старые элементы
+  // Очищаем предыдущие элементы
   seatsContainer.innerHTML     = '';
   communityContainer.innerHTML = '';
 
@@ -167,36 +166,37 @@ function renderTable(state) {
   (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
+    // rank + suit
     cEl.textContent = card;
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Расчёт центра и радиуса стола
+  // 2) Вычисление центра и радиуса
   const cx     = pokerTableEl.clientWidth / 2;
   const cy     = pokerTableEl.clientHeight / 2;
-  const radius = Math.min(cx, cy) - 60;
+  const radius = Math.min(cx, cy) - 80;
 
-  // 3) Отрисовка игроков
+  // 3) Отрисовка игроков с полярным расположением +180°
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   players.forEach((p, i) => {
-    // Позиция по полярным координатам
-    const angle = 360 * i / players.length;
+    const angle = 360 * i / players.length + 180;
     const { x, y } = polarToCartesian(cx, cy, radius, angle);
 
-    // Сиденье
     const seat = document.createElement('div');
     seat.className = 'seat';
     seat.style.position = 'absolute';
-    seat.style.left     = x + 'px';
-    seat.style.top      = y + 'px';
+    seat.style.left     = `${x}px`;
+    seat.style.top      = `${y}px`;
 
-    // Имя игрока
-    const nameEl = document.createElement('div');
-    nameEl.textContent = p.username;
-    seat.appendChild(nameEl);
+    // Имя и стек
+    const infoEl = document.createElement('div');
+    infoEl.className = 'player-info';
+    const stack = state.stacks?.[p.user_id] || 0;
+    infoEl.textContent = `${p.username} (${stack})`;
+    seat.appendChild(infoEl);
 
-    // Карты игрока
+    // Собственные карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
