@@ -174,13 +174,21 @@ function renderTable(state) {
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Игроки по кругу
+  // 2) Игроки по эллипсу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const N = players.length;
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
 
-  // 3) Dealer chip (один на всех)
+  // Получаем размеры стола для эллипса
+  const tableEl = document.getElementById('poker-table');
+  const wrapperRect = tableEl.getBoundingClientRect();
+  const centerX = wrapperRect.width / 2;
+  const centerY = wrapperRect.height / 2;
+  const RADIUS_X = wrapperRect.width * 0.48; // 48% ширины — почти по краю
+  const RADIUS_Y = wrapperRect.height * 0.40; // 40% высоты
+
+  // Dealer chip (один на всех)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -196,20 +204,18 @@ function renderTable(state) {
     seat.className = 'seat';
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
 
-    // --- Круговое позиционирование ---
+    // Круговое позиционирование по эллипсу (как в top покер-клиентах)
     const place = (i - userIndex + N) % N;
-    const angle = (360 / N) * place + 90; // 1й игрок снизу
-    const rad = angle * Math.PI / 180;
-    const RADIUS = 42;
-    const cx = 50, cy = 50;
-    const x = cx + RADIUS * Math.cos(rad);
-    const y = cy + RADIUS * Math.sin(rad);
-    seat.style.position = 'absolute';
-    seat.style.left = `${x}%`;
-    seat.style.top = `${y}%`;
+    const angle = ((360 / N) * place - 90) * (Math.PI / 180); // -90 — первый снизу
+
+    const x = centerX + RADIUS_X * Math.cos(angle);
+    const y = centerY + RADIUS_Y * Math.sin(angle);
+
+    seat.style.left = `${x}px`;
+    seat.style.top = `${y}px`;
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // --- Карты ---
+    // --- Карты игрока ---
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -247,8 +253,8 @@ function renderTable(state) {
     // --- Dealer chip ---
     if (state.dealer_index !== undefined && state.dealer_index === i) {
       setTimeout(() => {
-        dealerChipEl.style.left = (seat.offsetLeft - 26) + 'px';
-        dealerChipEl.style.top = (seat.offsetTop + 16) + 'px';
+        dealerChipEl.style.left = (seat.offsetLeft - 19) + 'px';
+        dealerChipEl.style.top = (seat.offsetTop + 14) + 'px';
         dealerChipEl.style.display = 'flex';
         dealerChipEl.style.animation = 'dealer-spin 0.7s';
         dealerChipEl.addEventListener('animationend', () => {
