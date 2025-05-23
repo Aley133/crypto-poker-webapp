@@ -89,6 +89,27 @@
   font-family: sans-serif;
 }
 
+#game-info .card.back {
+  background: repeating-linear-gradient(135deg, #e60000 0, #e60000 8px, #fff 8px, #fff 16px);
+  border: 2px solid #b10000;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+#game-info .card.back .pattern {
+  width: 26px;
+  height: 38px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #fff 0 2px, #e60000 2px 4px);
+  border: 1.5px solid #b10000;
+  opacity: 0.6;
+  margin: auto;
+  display: block;
+}
+
 /* Ранг */
 #game-info .card .rank {
   position: absolute;
