@@ -190,12 +190,17 @@ function renderTable(state) {
     const relIndex = (i - userIndex + players.length) % players.length;
     seat.dataset.pos = String(relIndex + 1);
 
-    // Имя и стек
+        // Имя игрока
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
-    const stack = state.stacks?.[p.user_id] || 0;
-    infoEl.textContent = `${p.username} (${stack})`;
+    infoEl.textContent = p.username;
     seat.appendChild(infoEl);
+
+    // Стек (счёт) игрока
+    const stackEl = document.createElement('div');
+    stackEl.className = 'player-stack';
+    stackEl.textContent = state.stacks?.[p.user_id] ?? 0;
+    seat.appendChild(stackEl);
 
     // Карты игрока
     const cardsEl = document.createElement('div');
