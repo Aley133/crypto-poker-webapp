@@ -87,8 +87,8 @@ body {
   z-index: 5;
 }
 #game-info .card {
-  width: 58px;
-  height: 82px;
+  width: 62px;
+  height: 85px;
   background: #fff;
   border: 1.7px solid #e0e0e0;
   border-radius: 13px;
@@ -99,15 +99,15 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  margin-left: -28px; /* Сильный overlap */
+  margin-left: -33px; /* Сильный overlap */
 }
 #game-info .card:first-child { margin-left: 0; }
 
 #game-info .card .rank {
   position: absolute;
-  left: 12px;
-  bottom: 8px;
-  font-size: 1.41em;
+  left: 13px;
+  bottom: 18px;
+  font-size: 1.42em;
   font-weight: 800;
   color: #191919;
   z-index: 2;
@@ -116,8 +116,8 @@ body {
 }
 #game-info .card .suit {
   position: absolute;
-  right: 9px;
-  top: 7px;
+  right: 10px;
+  top: 21px;
   font-size: 1.25em;
   color: #222;
   opacity: 0.92;
@@ -131,10 +131,10 @@ body {
 
 /* Блок с ником и стеком */
 .seat-block {
-  background: #14171eeb;
+   background: #14171eeb;
   border-radius: 15px;
   box-shadow: 0 1.5px 11px #17171a55;
-  margin-top: -14px; /* чтобы карты чуть "выпирали" за фон */
+  margin-top: 8px;   /* <-- тут! */
   padding: 9px 20px 7px 20px;
   min-width: 84px;
   width: 104px;
@@ -167,6 +167,31 @@ body {
 /* Блок подсвечивается для текущего игрока: */
 .seat.active .seat-block {
   box-shadow: 0 0 0 2.5px #39fbc9, 0 1.5px 14px #19fbc969;
+}
+
+#game-info .card.back {
+  background: #212338;
+  border: 1.7px solid #4bf0c7;
+  box-shadow: 0 2px 6px #1dbd9091;
+  position: relative;
+  overflow: hidden;
+}
+#game-info .card.back .pattern {
+  width: 35px;
+  height: 60px;
+  border-radius: 10px;
+  background: url('data:image/svg+xml;utf8,<svg width="35" height="60" xmlns="http://www.w3.org/2000/svg"><rect width="35" height="60" rx="10" fill="%23212338"/><g stroke="%234bf0c7" stroke-width="1.4"><line x1="6" y1="12" x2="29" y2="48"/><line x1="29" y1="12" x2="6" y2="48"/><circle cx="17.5" cy="30" r="12" fill="none"/><polygon points="17.5,18 22,30 17.5,42 13,30" fill="none" stroke="%23c47fff" stroke-width="1.2"/></g></svg>');
+  opacity: 0.29;
+  margin: auto;
+  display: block;
+  border: none;
+}
+
+.seat:not(.my-seat) .card.back {
+  transform: scale(0.83);
+  margin-left: -20px !important;
+  margin-top: 8px;
+  z-index: 1;
 }
 
 /* --- Dealer chip --- */
