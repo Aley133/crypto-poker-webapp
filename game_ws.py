@@ -34,6 +34,8 @@ async def broadcast(table_id: int):
         "winner": state.get("winner"),
         "revealed_hands": state.get("revealed_hands"),
         "split_pots": state.get("split_pots"),
+        "dealer_index": state.get("dealer_index"),
+        "player_actions": state.get("player_actions", {}),
     }
 
     for ws in list(connections.get(table_id, [])):
