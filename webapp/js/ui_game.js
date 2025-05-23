@@ -1,10 +1,10 @@
 import { createWebSocket } from './ws.js';
 
 // URL parameters
-const params      = new URLSearchParams(window.location.search);
-const tableId     = params.get('table_id');
-const userId      = params.get('user_id');
-const username    = params.get('username') || userId;
+const params   = new URLSearchParams(window.location.search);
+const tableId  = params.get('table_id');
+const userId   = params.get('user_id');
+const username = params.get('username') || userId;
 
 // DOM elements
 const statusEl     = document.getElementById('status');
@@ -147,47 +147,47 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-// Функция для полярных координат (может понадобиться для позиционирования)
+// Функция для полярных координат
 function polarToCartesian(cx, cy, r, deg) {
   const rad = (deg - 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-// Обновлённая функция renderTable — рисует в #seats и #community-cards, не трогая логику
+// Обновлённая функция renderTable — рисует в #seats и #community-cards
 function renderTable(state) {
   const seatsContainer     = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
 
-  // Очищаем предыдущие элементы
+  // Очищаем старые элементы
   seatsContainer.innerHTML     = '';
   communityContainer.innerHTML = '';
 
-  // 1) Отрисовка общих карт
+  // 1) Общие карты
   (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
-    // rank + suit
     cEl.textContent = card;
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Вычисление центра и радиуса
+  // 2) Центр и радиус стола
   const cx     = pokerTableEl.clientWidth / 2;
   const cy     = pokerTableEl.clientHeight / 2;
   const radius = Math.min(cx, cy) - 80;
 
-  // 3) Отрисовка игроков с полярным расположением +180°
-  const players = state.players || [];
-  const holeMap = state.hole_cards || {};
+  // 3) Игроки вокруг стола — вы всегда снизу (180°)
+  const players   = state.players || [];
+  const holeMap   = state.hole_cards || {};
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
   players.forEach((p, i) => {
-    const angle = 360 * i / players.length + 180;
+    const relIndex = i - userIndex;
+    const angle    = 360 * (relIndex / players.length) + 180;
     const { x, y } = polarToCartesian(cx, cy, radius, angle);
 
     const seat = document.createElement('div');
     seat.className = 'seat';
-    seat.style.position = 'absolute';
-    seat.style.left     = `${x}px`;
-    seat.style.top      = `${y}px`;
+    seat.style.left = `${x}px`;
+    seat.style.top  = `${y}px`;
 
     // Имя и стек
     const infoEl = document.createElement('div');
@@ -196,7 +196,7 @@ function renderTable(state) {
     infoEl.textContent = `${p.username} (${stack})`;
     seat.appendChild(infoEl);
 
-    // Собственные карты
+    // Карты игрока
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
