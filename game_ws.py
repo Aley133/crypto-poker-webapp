@@ -1,7 +1,8 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
 import time
-from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME
+import asyncio
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -41,6 +42,17 @@ async def broadcast(table_id: int):
         except:
             pass
 
+async def _auto_restart(table_id: int):
+    # Ждём RESULT_DELAY секунд
+    await asyncio.sleep(RESULT_DELAY)
+    state = game_states.get(table_id)
+    # Если всё ещё в фазе result — рестартим
+    if state and state.get("phase") == "result":
+        start_hand(table_id)
+        state["phase"] = "pre-flop"
+        state["timer_deadline"] = time.time() + DECISION_TIME
+        await broadcast(table_id)
+
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
     await websocket.accept()
@@ -71,13 +83,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
     # Первый broadcast
     await broadcast(table_id)
 
-    # Проверка рестарта после фазы result
+    # Если только что перешли в result — запускаем фоновый рестарт
     st = game_states.get(table_id, {})
-    if st.get("phase") == "result" and time.time() > st.get("result_delay_deadline", 0):
-        start_hand(table_id)
-        st["phase"] = "pre-flop"
-        st["timer_deadline"] = time.time() + DECISION_TIME
-        await broadcast(table_id)
+    if st.get("phase") == "result":
+        asyncio.create_task(_auto_restart(table_id))
 
     try:
         while True:
@@ -92,13 +101,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
             # После каждого хода рассылаем обновлённое состояние
             await broadcast(table_id)
 
-            # Проверка рестарта после фазы result
+            # Если мы сейчас в result — создаём таск, чтобы рестартить через RESULT_DELAY
             st = game_states.get(table_id, {})
-            if st.get("phase") == "result" and time.time() > st.get("result_delay_deadline", 0):
-                start_hand(table_id)
-                st["phase"] = "pre-flop"
-                st["timer_deadline"] = time.time() + DECISION_TIME
-                await broadcast(table_id)
+            if st.get("phase") == "result":
+                asyncio.create_task(_auto_restart(table_id))
 
     except WebSocketDisconnect:
         conns.remove(websocket)
