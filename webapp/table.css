@@ -26,7 +26,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
-  gap: 8px;
+  gap: 4px;  
   z-index: 1;
 }
 
@@ -55,49 +55,42 @@
   z-index: 2;
 }
 
-/* Сиденье игрока */
 #game-info .seat {
-  position: absolute;
-  width: 100px;
-  background: rgba(34, 34, 34, 0.9);
-  border: 2px solid #334;
-  border-radius: 8px;
-  padding: 4px 6px;
+  background: transparent;      /* убираем общий фон */
+  box-shadow: none;             /* убираем тень у всего блока */
   display: flex;
-  flex-direction: column;
+  flex-direction: column;       /* карты вверх, инфо вниз */
   align-items: center;
-  color: #eee;
-  font-size: 0.8em;
+  padding: 0;                   /* убираем внутренние отступы */
 }
 
 /* Инфо об игроке */
 #game-info .player-info {
-  margin-top: 6px; /* вместо margin-bottom */
-  margin-bottom: 0;
-  background: rgba(0,0,0,0.6);
-  padding: 4px 8px;
+  background: #000000;
+  color: #fff;
+  padding: 4px 6px;
   border-radius: 4px;
+  margin-top: 6px;
   width: max-content;
 }
 
 /* Раскладка карт в руке */
 #game-info .cards {
-  display: flex;
+  background: transparent;
 }
 #game-info .cards > .card {
-  margin-left: -12px; /* было -8px */
-  box-shadow: 0 3px 6px rgba(0,0,0,0.4); /* чуть более глубокая тень */
+  margin-left: -14px;/* было -8px */
 }
 
 /* Стилизация карточки */
 #game-info .card {
   position: relative;
-  width: 50px;
-  height: 70px;
   background: #fff;
   border: 1px solid #333;
   border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  width: 54px;           /* чуть шире */
+  height: 76px;          /* пропорционально */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* более мягкая тень */
   overflow: hidden;
   font-family: sans-serif;
 }
@@ -167,6 +160,15 @@
   left: -12%;
   transform: translate(-50%, 50%);
 }
+/* Секция стека (счёта) */
+#game-info .player-stack {
+  background: #222222;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
+  width: max-content;
+}
 
 /* Адаптив для широких экранов */
 @media (min-width: 600px) {
@@ -175,11 +177,13 @@
     height: 400px;
   }
   #game-info .seat {
+    background: transparent; 
     width: 140px;
+    padding: 0;   
     font-size: 1em;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    box-shadow: none;   
     display: flex;
-    flex-direction: column-reverse; /* имя вниз, карты вверх */
+    flex-direction: column;     /* имя вниз, карты вверх */
     align-items: center;
   }
   #game-info .card {
