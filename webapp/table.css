@@ -72,7 +72,12 @@
 
 /* Инфо об игроке */
 #game-info .player-info {
-  margin-bottom: 4px;
+  margin-top: 6px; /* вместо margin-bottom */
+  margin-bottom: 0;
+  background: rgba(0,0,0,0.6);
+  padding: 4px 8px;
+  border-radius: 4px;
+  width: max-content;
 }
 
 /* Раскладка карт в руке */
@@ -80,7 +85,8 @@
   display: flex;
 }
 #game-info .cards > .card {
-  margin-left: -8px;
+  margin-left: -12px; /* было -8px */
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4); /* чуть более глубокая тень */
 }
 
 /* Стилизация карточки */
@@ -101,7 +107,7 @@
   position: absolute;
   top: 8px;
   left: 8px;
-  font-size: 1.2em;
+  font-size: 1em;
   font-weight: bold;
   line-height: 1;
 }
@@ -171,6 +177,10 @@
   #game-info .seat {
     width: 140px;
     font-size: 1em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column-reverse; /* имя вниз, карты вверх */
+    align-items: center;
   }
   #game-info .card {
     width: 50px;
