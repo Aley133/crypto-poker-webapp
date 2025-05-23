@@ -159,18 +159,20 @@ function renderTable(state) {
   seatsContainer.innerHTML     = '';
   communityContainer.innerHTML = '';
 
-  // 1) Отрисовка общих карт
-  (state.community || []).forEach(card => {
-    const cEl = document.createElement('div');
-    // Сделай так:
-    cEl.className = 'card';
-    const rank = card.slice(0, -1);
-    const suit = card.slice(-1);
-    cEl.innerHTML = `
+ / 1) Отрисовка общих карт
+state.community.forEach(card => {
+  const cEl = document.createElement('div');
+  cEl.className = 'card';
+  // разбираем ранг и масть
+  const rank = card.slice(0, -1);
+  const suit = card.slice(-1);
+  // вставляем HTML с классами для стилей
+  cEl.innerHTML = `
     <span class="rank">${rank}</span>
-    <span class="suit">${suit}</span>`;
-    communityContainer.appendChild(cEl);
-  });
+    <span class="suit">${suit}</span>
+  `;
+  communityContainer.appendChild(cEl);
+});
 
   // 2) Параметры стола
   const cx = pokerTableEl.clientWidth / 2;
