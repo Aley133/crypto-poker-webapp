@@ -92,22 +92,24 @@ display: flex; gap: 4px;
   font-family: sans-serif;
 }
 
-/* Ранк в левом верхнем углу */
 #game-info .card .rank {
   position: absolute;
-  top: 4px; left: 6px;
-  font-size: 1.2em;
+  top: 6px;
+  left: 8px;
+  font-size: 1.6em;      /* увеличили размер цифры/буквы */
   font-weight: bold;
   line-height: 1;
 }
 
-/* Масть по центру */
+/* Масть — большой символ, чуть ниже центра */
 #game-info .card .suit {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 55%;              /* чуть ниже середины */
+  left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 2em;
+  font-size: 3em;        /* почти половина высоты карты */
   line-height: 1;
+  pointer-events: none;
 }
 
 /* Data-pos 1: вы внизу по центру — можно оставить чуть ниже */
