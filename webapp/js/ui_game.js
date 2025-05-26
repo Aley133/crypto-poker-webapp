@@ -190,7 +190,8 @@ function renderTable(state) {
   }
 
   const N = state.players.length;
-  const myIdx = state.players.findIndex(p => p.user_id === state.user_id);
+  const myUserId = state.user_id;
+  const myIdx = state.players.findIndex(p => p.user_id === myUserId);
   const positions = getSeatPositions(N);
 
   // Дилер чип (создаём один раз)
@@ -216,7 +217,6 @@ function renderTable(state) {
     if (i === myIdx) seat.classList.add('my-seat');
     if (state.current_player === String(i) || state.current_player === p.user_id) seat.classList.add('active');
 
-    // Абсолютное позиционирование по эллипсу
     seat.style.position = 'absolute';
     seat.style.left = px + '%';
     seat.style.top = py + '%';
@@ -233,7 +233,14 @@ function renderTable(state) {
     // Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
-    (state.hole_cards[p.user_id] || []).forEach(c => {
+
+    let playerCards = state.hole_cards[p.user_id] || [];
+    // Если не ты — рисуй всегда рубашку!
+    if (p.user_id !== myUserId) {
+      playerCards = playerCards.map(_ => '??');
+    }
+
+    playerCards.forEach(c => {
       const cd = document.createElement('div');
       cd.className = 'card';
       if (c === '??') {
@@ -277,7 +284,7 @@ function renderTable(state) {
     seatsContainer.appendChild(seat);
   });
 
-  // Кнопки строго под своим seat
+  // Кнопки под своим seat — просто стилизуем!
   if (actionsBlock && positions[0]) {
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = positions[0][0] + '%';
@@ -285,9 +292,10 @@ function renderTable(state) {
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 999;
     actionsBlock.style.display = "flex";
-    // Не нужно appendChild, actions уже есть в DOM!
+    // Не делай seatsContainer.appendChild(actionsBlock);
   }
 }
+
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
