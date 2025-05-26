@@ -33,6 +33,7 @@ header h1 {
   letter-spacing: 0.02em;
 }
 
+/* Контейнер для стола — и он только фон/борд! */
 #game-info #poker-table-wrapper {
   position: absolute;
   left: 50%; top: 50%;
@@ -42,52 +43,29 @@ header h1 {
   min-width: 320px; min-height: 180px;
   display: flex; align-items: center; justify-content: center;
   z-index: 1;
+  pointer-events: none;
 }
 
+/* Сам стол — эллипс, только фон и борд-карты */
 #game-info #poker-table {
    width: 99%; height: 99%;
   background: radial-gradient(ellipse at 50% 60%, #3e6859 0%, #264b39 80%, #202e2b 100%);
-  border-radius: 49% 49% 49% 49% / 43% 43% 53% 53%; /* почти идеальная "8" */
+  border-radius: 49% 49% 49% 49% / 43% 43% 53% 53%; /* эллипс-"8" */
   box-shadow: 0 0 36px 5px #222b2b20;
   border: 3.5px solid #445851;
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
 }
 
-#game-info #community-cards {
-  position: absolute; top: 44.5%; left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex; gap: 12px; z-index: 10;
-}
-#game-info #community-cards .card {
-  opacity: 0;
-  transform: scale(0.95) translateY(4px);
-  transition: opacity 0.26s, transform 0.3s cubic-bezier(.18,.51,.51,1.2);
-}
-#game-info #community-cards .card.visible {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-}
-
-#game-info #pot {
-  position: absolute; top: 55.5%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: #23282ce0;
-  color: #fff;
-  font-weight: 600;
-  padding: 10px 26px;
-  border-radius: 13px;
-  font-size: 1.18em;
-  z-index: 12;
-  box-shadow: 0 2px 12px #0003;
-  border: none;
-  letter-spacing: 0.01em;
-}
-
+/* Посадка игроков — верхний слой */
 #game-info #seats {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; z-index: 16;
+  position: absolute; 
+  left: 0; top: 0; width: 100%; height: 100%;
+  pointer-events: none; 
+  z-index: 10;
 }
 
 #game-info .seat {
@@ -101,6 +79,7 @@ header h1 {
   box-shadow: none;
   border: none;
   transition: filter 0.15s;
+  pointer-events: none;
 }
 #game-info .seat.active {
   filter: drop-shadow(0 0 16px #2ee7ff78);
@@ -175,6 +154,7 @@ header h1 {
   background: none; padding: 0; margin: 0; text-align: center;
 }
 
+/* Кнопки действий — ровно как на скрине */
 #actions {
   position: absolute;
   display: flex;
