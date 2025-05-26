@@ -12,23 +12,29 @@
     <h1>Стол <span id="table-id"></span></h1>
   </header>
 
-  <div id="game-info">
-    <div id="status"></div>
-    <div id="current-bet"></div>
+  <div id="game-info" class="poker-root">
+    <div id="status" class="status"></div>
+    <div id="current-bet" class="current-bet"></div>
 
-    <div id="poker-table-wrapper">
-      <div id="poker-table">
-        <div id="community-cards"></div>
-        <div id="pot">Пот: <span id="pot-amount"></span></div>
-        <div id="seats"></div>
+    <div id="poker-table-wrapper" class="poker-table-wrapper">
+      <div id="poker-table" class="poker-table">
+        <div class="table-logo-watermark"></div>
+        <div id="community-cards" class="community-cards"></div>
+        <div id="pot" class="pot-on-table">
+          <span class="pot-chip">
+            <!-- SVG/иконка (по желанию, можно пустым оставить, если не нужен) -->
+          </span>
+          <span id="pot-amount" class="pot-amount"></span>
+        </div>
+        <div id="seats" class="seats"></div>
       </div>
     </div>
 
-    <div id="actions"></div>
+    <div id="actions" class="actions"></div>
   </div>
 
   <div style="text-align:center; margin:20px;">
-    <button id="leave-btn">Покинуть стол</button>
+    <button id="leave-btn" class="leave-btn">Покинуть стол</button>
   </div>
 
   <script type="module" src="/js/ui_game.js"></script>
