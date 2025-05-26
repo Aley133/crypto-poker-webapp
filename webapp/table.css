@@ -45,10 +45,9 @@ header h1 {
 }
 
 #game-info #poker-table {
-  width: 99%; height: 99%;
-  background: radial-gradient(ellipse at 50% 60%, #4b7261 0%, #2c4638 90%, #1b2421 100%);
-  border-radius: 49% 49% 49% 49% / 42% 42% 57% 57%;
-  /* magic to make shape like "8", tune these numbers for ideal look */
+   width: 99%; height: 99%;
+  background: radial-gradient(ellipse at 50% 60%, #3e6859 0%, #264b39 80%, #202e2b 100%);
+  border-radius: 49% 49% 49% 49% / 43% 43% 53% 53%; /* почти идеальная "8" */
   box-shadow: 0 0 36px 5px #222b2b20;
   border: 3.5px solid #445851;
   position: absolute;
@@ -198,11 +197,11 @@ header h1 {
   color: #fff;
   font-weight: 900;
   border: 2.3px solid #50b9e6;
-  border-radius: 19px;
+  border-radius: 13px;
   box-shadow: 0 2px 16px #02182e29;
   margin: 0 7px 0 0;
-  padding: 12px 34px 12px 34px;
-  font-size: 1.23em;
+  padding: 8px 22px 8px 22px;
+  font-size: 1.06em;
   letter-spacing: 0.07em;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
