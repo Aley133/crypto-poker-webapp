@@ -154,73 +154,139 @@ function polarToCartesian(cx, cy, r, deg) {
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
-  const communityContainer = document.getElementById('community-cards');
-
-  // Очищаем предыдущий рендер
+  const pokerTable = document.getElementById('poker-table');
+  const actionsBlock = document.getElementById('actions');
   seatsContainer.innerHTML = '';
-  communityContainer.innerHTML = '';
 
-  // 1) Общие карты
-  (state.community || []).forEach(card => {
+  // Общие карты (флоп, терн, ривер)
+  const communityContainer = document.getElementById('community-cards');
+  communityContainer.innerHTML = '';
+  (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
-    cEl.innerHTML = `
-      <span class=\"rank\">${rank}</span>
-      <span class=\"suit\">${suit}</span>
-    `;
-    if (suit === '♥' || suit === '♦') {
-      cEl.classList.add('red');
-    }
+    cEl.innerHTML = `<span class="rank">${rank}</span><span class="suit">${suit}</span>`;
+    if ('♥♦'.includes(suit) || 'hd'.includes(suit)) cEl.classList.add('red');
     communityContainer.appendChild(cEl);
+    setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // 2) Игроки вокруг стола
-  const players = state.players || [];
-  const holeMap = state.hole_cards || {};
-  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+  // Ключевые точки (проценты по эллипсу, 6-max стиль)
+  const seatPercents = [
+    [50, 96],    // Ты (снизу)
+    [96, 50],    // Справа
+    [81, 17],    // Верх-право
+    [50, 5],     // Верх-центр
+    [19, 17],    // Верх-лево
+    [4, 50],     // Слева
+  ];
+  function getSeatPositions(N) {
+    if (N === 2) return [seatPercents[0], seatPercents[3]];
+    if (N === 3) return [seatPercents[0], seatPercents[2], seatPercents[4]];
+    if (N === 4) return [seatPercents[0], seatPercents[1], seatPercents[3], seatPercents[5]];
+    if (N === 5) return [seatPercents[0], seatPercents[1], seatPercents[2], seatPercents[4], seatPercents[5]];
+    return seatPercents.slice(0, N);
+  }
 
-  seatsContainer.innerHTML = '';
+  const N = state.players.length;
+  const myIdx = state.players.findIndex(p => p.user_id === state.user_id);
+  const positions = getSeatPositions(N);
 
-  players.forEach((p, i) => {
+  // Дилер чип (создаём один раз)
+  let dealerChipEl = document.getElementById('dealer-chip-main');
+  if (!dealerChipEl) {
+    dealerChipEl = document.createElement('div');
+    dealerChipEl.className = 'dealer-chip';
+    dealerChipEl.id = 'dealer-chip-main';
+    dealerChipEl.textContent = 'D';
+    seatsContainer.appendChild(dealerChipEl);
+  }
+  dealerChipEl.style.display = 'none';
+
+  // Рендерим игроков вокруг стола
+  state.players.forEach((p, i) => {
+    // place=0 — всегда твой seat снизу
+    const place = (i - myIdx + N) % N;
+    const [px, py] = positions[place];
     const seat = document.createElement('div');
     seat.className = 'seat';
-    const relIndex = (i - userIndex + players.length) % players.length;
-    seat.dataset.pos = String(relIndex + 1);
+    seat.dataset.uid = p.user_id;
 
-    // 2.1) Карты
+    if (i === myIdx) seat.classList.add('my-seat');
+    if (state.current_player === String(i) || state.current_player === p.user_id) seat.classList.add('active');
+
+    // Абсолютное позиционирование по эллипсу
+    seat.style.position = 'absolute';
+    seat.style.left = px + '%';
+    seat.style.top = py + '%';
+    seat.style.transform = 'translate(-50%, -50%)';
+
+    // Аватар
+    const avatarEl = document.createElement('div');
+    avatarEl.className = 'avatar';
+    avatarEl.style.backgroundImage = p.avatar ? `url('${p.avatar}')` : '';
+    avatarEl.style.width = '32px';
+    avatarEl.style.height = '32px';
+    seat.appendChild(avatarEl);
+
+    // Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
-    (holeMap[p.user_id] || []).forEach(c => {
+    (state.hole_cards[p.user_id] || []).forEach(c => {
       const cd = document.createElement('div');
       cd.className = 'card';
-      if (String(p.user_id) === String(userId)) {
+      if (c === '??') {
+        cd.classList.add('back');
+        cd.innerHTML = `<span class="pattern"></span>`;
+      } else {
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
-        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
-        if (st === '♥' || st === '♦') cd.classList.add('red');
-      } else {
-        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
+        cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
+        if ('♥♦'.includes(st) || 'hd'.includes(st)) cd.classList.add('red');
       }
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
 
-    // 2.2) Имя
+    // Имя и стек
+    const block = document.createElement('div');
+    block.className = 'seat-block';
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
-    seat.appendChild(infoEl);
-
-    // 2.3) Стек
+    block.appendChild(infoEl);
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
-    stackEl.textContent = state.stacks?.[p.user_id] || 0;
-    seat.appendChild(stackEl);
+    stackEl.textContent = state.stacks[p.user_id];
+    block.appendChild(stackEl);
+    seat.appendChild(block);
+
+    // Дилерская фишка
+    if (
+      state.dealer_index === i ||
+      state.dealer_index === p.user_id
+    ) {
+      setTimeout(() => {
+        dealerChipEl.style.left = `calc(${px}% + 28px)`;
+        dealerChipEl.style.top = `calc(${py}% - 25px)`;
+        dealerChipEl.style.display = 'flex';
+      }, 0);
+    }
 
     seatsContainer.appendChild(seat);
   });
+
+  // Кнопки строго под своим seat
+  if (actionsBlock && positions[0]) {
+    actionsBlock.style.position = "absolute";
+    actionsBlock.style.left = positions[0][0] + '%';
+    actionsBlock.style.top = (positions[0][1] + 12) + '%';
+    actionsBlock.style.transform = "translate(-50%, 0)";
+    actionsBlock.style.zIndex = 999;
+    actionsBlock.style.display = "flex";
+    // Не нужно appendChild, actions уже есть в DOM!
+  }
 }
 
 // Инициализация WebSocket
