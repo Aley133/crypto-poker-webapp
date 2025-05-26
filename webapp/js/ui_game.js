@@ -160,7 +160,7 @@ function renderTable(state) {
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Рендерим борд
+  // Борд
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -172,7 +172,7 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // --- Игроки: ты всегда place=0 снизу по центру ---
+  // Ты всегда place=0 (снизу), остальные по кругу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const N = players.length;
@@ -180,17 +180,15 @@ function renderTable(state) {
   const seatsRect = seatsContainer.getBoundingClientRect();
   const tableEl = document.getElementById('poker-table');
   const tableRect = tableEl.getBoundingClientRect();
-  // Эллипс вокруг стола, но чуть шире и выше (т.к. seatsContainer больше чем сам стол)
+  // Эллипс: чуть шире и выше, чтобы seats были всегда за столом
   const centerX = seatsRect.width / 2;
   const centerY = seatsRect.height / 2;
-  // Радиусы эллипса: чуть больше, чем #poker-table
-  const RADIUS_X = tableRect.width * 0.52;
-  const RADIUS_Y = tableRect.height * 0.38;
+  const RADIUS_X = tableRect.width * 0.58;  // можно подогнать под свой вкус
+  const RADIUS_Y = tableRect.height * 0.43;
 
   let mySeatRect = null;
 
   players.forEach((p, i) => {
-    // Визуальный порядок: я всегда place==0 (угол -90°), остальные по кругу
     const place = (i - myIdx + N) % N;
     const angle = ((360 / N) * place - 90) * (Math.PI / 180);
     const x = centerX + RADIUS_X * Math.cos(angle);
@@ -243,12 +241,12 @@ function renderTable(state) {
     seatsContainer.appendChild(seat);
   });
 
-  // Кнопки действий строго под твоим seat
+  // Кнопки — строго под твоим seat!
   if (actionsBlock && mySeatRect) {
     const containerRect = seatsContainer.getBoundingClientRect();
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
-    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 10) + "px";
+    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 18) + "px";
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 50;
     actionsBlock.style.display = "flex";
