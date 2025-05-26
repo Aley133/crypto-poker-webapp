@@ -217,22 +217,46 @@ header h1 {
 .player-action.bet,
 .player-action.raise   { background: #232c23eb; color: #6efdab; }
 #actions {
-   pointer-events: auto;
+   position: absolute;
   display: flex;
+  flex-direction: row;
+  gap: 12px;
+  background: none;
   justify-content: center;
   align-items: center;
+  pointer-events: auto;
+  z-index: 50;
+  min-width: 140px;
+  animation: fadeInBtns 0.18s;
+}
+@keyframes fadeInBtns {
+  from { opacity: 0; transform: translateY(18px) scale(0.97);}
+  to   { opacity: 1; transform: translateY(0) scale(1);}
 }
 #actions button, .poker-action-btn {
-  background: #24282f;
-  color: #fff; font-weight: 700;
-  border: 1px solid #87a2b6;
-  border-radius: 6px; margin: 0 6px 0 0;
-  padding: 6px 15px; font-size: 1em;
+  background: linear-gradient(180deg, #232833 60%, #101217 100%);
+  color: #fff;
+  font-weight: 800;
+  border: 2px solid #4cb8ff;
+  border-radius: 17px;
+  box-shadow: 0 2px 16px #02182e1a;
+  margin: 0 6px 0 0;
+  padding: 10px 28px 10px 28px;
+  font-size: 1.18em;
+  letter-spacing: 0.05em;
   cursor: pointer;
-  transition: background 0.16s, border-color 0.16s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  outline: none;
 }
+#actions button:last-child {
+ margin-right: 0;
+}
+
 #actions button:hover, .poker-action-btn:hover {
-  background: #30333a; color: #eee; border-color: #5094b8;
+  background: #2995ec;
+  color: #fff;
+  border-color: #aef2fa;
+  box-shadow: 0 0 8px #6ec4fa8c;
 }
 @media (max-width: 700px), (max-height: 480px) {
   #game-info #poker-table-wrapper { width: 99vw; height: 68vw; max-width: 99vw; max-height: 68vw; }
