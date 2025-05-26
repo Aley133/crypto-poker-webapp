@@ -1,4 +1,4 @@
-import { createWebSocket } from './ws.js';
+
 
 // URL parameters
 const params   = new URLSearchParams(window.location.search);
