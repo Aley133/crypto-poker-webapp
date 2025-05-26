@@ -15,21 +15,31 @@
   <div id="game-info">
     <div id="status"></div>
     <div id="current-bet"></div>
+  </div>
 
-    <div id="poker-table-wrapper">
-      <div id="poker-table">
-        <div id="community-cards"></div>
-        <div id="pot">Пот: <span id="pot-amount"></span></div>
-        <div id="seats"></div>
-      </div>
+  <!-- Новый контейнер для стола с современным оформлением -->
+  <div id="poker-table-container">
+    <div id="poker-table-border"></div>
+    <div id="poker-table"></div>
+    <canvas id="table-gloss"></canvas>
+    <div id="table-glow-segments"></div>
+    <div class="table-logo-watermark"></div>
+    <!-- Новый блок банка -->
+    <div id="pot-on-table">
+      <span class="pot-chip">💰</span>
+      <span id="pot-amount" class="pot-amount">0</span>
     </div>
-
-    <div id="actions"></div>
+    <!-- Блок общих карт -->
+    <div id="community-cards"></div>
+    <!-- Блок мест игроков -->
+    <div id="seats"></div>
+    <!-- Дилерский жетон будет добавляться динамически -->
   </div>
 
-  <div style="text-align:center; margin:20px;">
-    <button id="leave-btn">Покинуть стол</button>
-  </div>
+  <!-- Кнопки действий (всегда фиксированы внизу центра) -->
+  <div id="actions"></div>
+
+  <button id="leave-btn" style="position:fixed;top:16px;right:24px;z-index:100;">Покинуть стол</button>
 
   <script type="module" src="/js/ui_game.js"></script>
 </body>
