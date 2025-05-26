@@ -43,11 +43,15 @@ header h1 {
   z-index: 1;
 }
 #game-info #poker-table {
-  width: 100%; height: 100%;
+  width: 88%; height: 93%;
+  margin: auto;
   background: radial-gradient(ellipse at 50% 60%, #34493e 0%, #263a33 90%, #1a2125 100%);
   border-radius: 54% / 44%;
   box-shadow: 0 0 18px 3px #222b2b18;
   border: 1.2px solid #23292d;
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
 }
 #game-info #community-cards {
   position: absolute; top: 45%; left: 50%;
