@@ -1,22 +1,19 @@
 import { createWebSocket } from './ws.js';
 
-// URL parameters
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// DOM elements
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
 const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
+const seatsContainer = document.getElementById('seats');
 
-let ws;
-
-// Overlay для отображения результата раздачи
+// Overlay для результата раздачи
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -34,7 +31,7 @@ function safeSend(payload) {
   }
 }
 
-// Обновление базовых UI-элементов (статус, кнопки, оверлей)
+// Обновление UI-элементов (статус, кнопки, оверлей)
 function updateUI(state) {
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
@@ -147,19 +144,17 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-function polarToCartesian(cx, cy, r, deg) {
-  const rad = (deg - 90) * Math.PI / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
+// ---------- Визуальная посадка игроков, стол, дилер, кнопки ----------
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
   const actionsBlock = document.getElementById('actions');
+
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Board (community cards)
+  // Борд (community cards)
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -171,15 +166,13 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Главный момент: ты всегда place==0!
+  // Игроки: ты всегда снизу (place==0), остальные по кругу, дилер-chip ок
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const N = players.length;
 
-  // ВСЕГДА сравнивай как строку!
   const myIdx = players.findIndex(p => String(p.user_id) === String(userId));
   if (myIdx === -1) {
-    // Фатальная ошибка — такого игрока нет в массиве
     console.error('userId не найден среди игроков:', userId, players.map(p => p.user_id));
     return;
   }
@@ -189,14 +182,25 @@ function renderTable(state) {
   const tableRect = tableEl.getBoundingClientRect();
   const centerX = seatsRect.width / 2;
   const centerY = seatsRect.height / 2;
-  // Чуть больше — чтобы не заезжать на стол (оптимально для "8"-образного овала)
   const RADIUS_X = tableRect.width * 0.51;
   const RADIUS_Y = tableRect.height * 0.45;
 
   let mySeatRect = null;
+  let dealerChipSeat = null;
+
+  // Кнопка дилера — один на всех!
+  let dealerChipEl = document.getElementById('dealer-chip-main');
+  if (!dealerChipEl) {
+    dealerChipEl = document.createElement('div');
+    dealerChipEl.className = 'dealer-chip';
+    dealerChipEl.id = 'dealer-chip-main';
+    dealerChipEl.textContent = 'D';
+    seatsContainer.appendChild(dealerChipEl);
+  }
+  dealerChipEl.style.display = 'none';
 
   players.forEach((p, i) => {
-    // place=0 — ТЫ, всегда снизу (угол -90)
+    // place=0 — ты всегда снизу!
     const place = (i - myIdx + N) % N;
     const angle = ((360 / N) * place - 90) * (Math.PI / 180);
     const x = centerX + RADIUS_X * Math.cos(angle);
@@ -210,7 +214,7 @@ function renderTable(state) {
     seat.style.top = `${y}px`;
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // --- Карты ---
+    // Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -229,7 +233,7 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // --- Имя и стек ---
+    // Имя и стек
     const block = document.createElement('div');
     block.className = 'seat-block';
     const infoEl = document.createElement('div');
@@ -242,34 +246,46 @@ function renderTable(state) {
     block.appendChild(stackEl);
     seat.appendChild(block);
 
+    // Кнопка дилера — строго рядом с seat
+    if (state.dealer_index !== undefined && state.dealer_index === i) {
+      dealerChipSeat = seat;
+      setTimeout(() => {
+        const chipRect = seat.getBoundingClientRect();
+        const parentRect = seatsContainer.getBoundingClientRect();
+        dealerChipEl.style.left = (chipRect.left - parentRect.left + 68) + "px";
+        dealerChipEl.style.top = (chipRect.top - parentRect.top - 18) + "px";
+        dealerChipEl.style.display = 'flex';
+        dealerChipEl.style.zIndex = 100;
+      }, 0);
+    }
+
     if (String(p.user_id) === String(userId)) {
       mySeatRect = seat.getBoundingClientRect();
     }
     seatsContainer.appendChild(seat);
   });
 
-  // Кнопки — строго под твоим seat!
+  // Кнопки строго под твоим seat
   if (actionsBlock && mySeatRect) {
     const containerRect = seatsContainer.getBoundingClientRect();
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
     actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 14) + "px";
     actionsBlock.style.transform = "translate(-50%, 0)";
-    actionsBlock.style.zIndex = 50;
+    actionsBlock.style.zIndex = 99;
     actionsBlock.style.display = "flex";
     seatsContainer.appendChild(actionsBlock);
   }
 }
 
+// ---------- WS + event handlers ----------
 
-// Инициализация WebSocket
-ws = createWebSocket(tableId, userId, username, e => {
+let ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   updateUI(state);
   renderTable(state);
 });
 
-// Leave button
 leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
