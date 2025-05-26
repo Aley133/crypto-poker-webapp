@@ -8,6 +8,79 @@ body, html {
   position: relative;
 }
 
+/* Карты на столе (общие и карманные) */
+#game-info .cards { display: flex; }
+#game-info .cards .card:not(:first-child) {
+  margin-left: -14px; /* карты игроков накладываются слегка одна на другую */
+}
+#game-info .card {
+  position: relative;
+  width: 54px; height: 76px;
+  background: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+/* Ранг и масть на карте */
+#game-info .card .rank {
+  position: absolute;
+  top: 5px; left: 5px;
+  font-weight: bold;
+  color: #000;
+}
+#game-info .card .suit {
+  position: absolute;
+  bottom: 4px; right: 4px;
+  font-size: 1.5em;
+  color: #000;
+}
+#game-info .card.red .rank,
+#game-info .card.red .suit {
+  color: #e60000; /* красные карты */
+}
+
+/* Позиционирование сидений (до 6 игроков) */
+#game-info #seats {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 11;  /* выше стола */
+}
+#game-info .seat {
+  position: absolute;
+  width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* фон прозрачный, тень отключена – используем отдельные блоки для имени/стека */
+}
+#game-info .seat[data-pos="1"] { bottom: -5%; left: 50%; transform: translateX(-50%); }
+#game-info .seat[data-pos="2"] { bottom: 15%; right: -5%; transform: translate(50%, 50%); }
+#game-info .seat[data-pos="3"] { top: 15%; right: -5%; transform: translate(50%, -50%); }
+#game-info .seat[data-pos="4"] { top: -5%; left: 50%; transform: translateX(-50%); }
+#game-info .seat[data-pos="5"] { top: 15%; left: -5%; transform: translate(-50%, -50%); }
+#game-info .seat[data-pos="6"] { bottom: 15%; left: -5%; transform: translate(-50%, 50%); }
+/* Примечание: позиции 2-6 учитывают стол эллиптической формы. Можно скорректировать %-значения под новый размер стола. */
+
+/* Имя и стек игрока */
+#game-info .player-info {
+  background: #000;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-size: 0.9em;
+}
+#game-info .player-stack {
+  background: #222;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 2px;
+  font-size: 0.9em;
+}
+
 body::before {
   content: "";
   position: fixed;
