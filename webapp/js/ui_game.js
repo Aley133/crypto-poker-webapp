@@ -1,19 +1,22 @@
 import { createWebSocket } from './ws.js';
 
+// URL parameters
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
+// DOM elements
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
 const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
-const seatsContainer = document.getElementById('seats');
 
-// Overlay для результата раздачи
+let ws;
+
+// Overlay для отображения результата раздачи
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -31,7 +34,7 @@ function safeSend(payload) {
   }
 }
 
-// Обновление UI-элементов (статус, кнопки, оверлей)
+// Обновление базовых UI-элементов (статус, кнопки, оверлей)
 function updateUI(state) {
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
@@ -144,54 +147,49 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-// ---------- Визуальная посадка игроков, стол, дилер, кнопки ----------
+function polarToCartesian(cx, cy, r, deg) {
+  const rad = (deg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
-  const pokerTableWrapper = document.getElementById('poker-table-wrapper');
-  const actionsBlock = document.getElementById('actions');
+  const communityContainer = document.getElementById('community-cards');
+
+  // Очищаем предыдущий рендер
+  seatsContainer.innerHTML = '';
+  communityContainer.innerHTML = '';
+
+  // 1) Общие карты
+  (state.community || []).forEach(card => {
+    const cEl = document.createElement('div');
+    cEl.className = 'card';
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    cEl.innerHTML = `
+      <span class=\"rank\">${rank}</span>
+      <span class=\"suit\">${suit}</span>
+    `;
+    if (suit === '♥' || suit === '♦') {
+      cEl.classList.add('red');
+    }
+    communityContainer.appendChild(cEl);
+  });
+
+  // 2) Игроки вокруг стола
+  const players = state.players || [];
+  const holeMap = state.hole_cards || {};
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+
   seatsContainer.innerHTML = '';
 
-  // Карты борда, пот и т.д. — не трогаем, только посадка
-  const players = state.players || [];
-  const N = players.length;
-  const myIdx = players.findIndex(p => String(p.user_id) === String(userId));
-  if (myIdx === -1) return;
-
-  // ВСЁ позиционируем относительно #poker-table-wrapper, не таблицы!
-  const rect = pokerTableWrapper.getBoundingClientRect();
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
-  // Эллипс — еще шире и выше, чтобы сидели за столом!
-  const RADIUS_X = rect.width * 0.45;
-  const RADIUS_Y = rect.height * 0.41;
-
-  let mySeatRect = null;
-  let dealerChipEl = document.getElementById('dealer-chip-main');
-  if (!dealerChipEl) {
-    dealerChipEl = document.createElement('div');
-    dealerChipEl.className = 'dealer-chip';
-    dealerChipEl.id = 'dealer-chip-main';
-    dealerChipEl.textContent = 'D';
-    seatsContainer.appendChild(dealerChipEl);
-  }
-  dealerChipEl.style.display = 'none';
-
   players.forEach((p, i) => {
-    const place = (i - myIdx + N) % N;
-    const angle = ((360 / N) * place - 90) * (Math.PI / 180);
-    const x = centerX + RADIUS_X * Math.cos(angle);
-    const y = centerY + RADIUS_Y * Math.sin(angle);
-
     const seat = document.createElement('div');
     seat.className = 'seat';
-    if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
-    if (state.current_player === p.user_id) seat.classList.add('active');
-    seat.style.left = `${x}px`;
-    seat.style.top = `${y}px`;
-    seat.style.transform = 'translate(-50%, -50%)';
+    const relIndex = (i - userIndex + players.length) % players.length;
+    seat.dataset.pos = String(relIndex + 1);
 
-    // Карты
+    // 2.1) Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -200,64 +198,39 @@ function renderTable(state) {
       if (String(p.user_id) === String(userId)) {
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
-        cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
+        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
         if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
-        cd.classList.add('back');
-        cd.innerHTML = `<span class="pattern"></span>`;
+        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
       }
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
 
-    // Имя и стек
-    const block = document.createElement('div');
-    block.className = 'seat-block';
+    // 2.2) Имя
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
-    infoEl.textContent = p.username || p.name || p.user_id;
-    block.appendChild(infoEl);
+    infoEl.textContent = p.username;
+    seat.appendChild(infoEl);
+
+    // 2.3) Стек
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
-    block.appendChild(stackEl);
-    seat.appendChild(block);
+    seat.appendChild(stackEl);
 
-    // Если нужен dealer chip
-    if (state.dealer_index !== undefined && state.dealer_index === i) {
-      setTimeout(() => {
-        dealerChipEl.style.left = (x + 36) + 'px';
-        dealerChipEl.style.top = (y - 36) + 'px';
-        dealerChipEl.style.display = 'flex';
-      }, 0);
-    }
-    if (String(p.user_id) === String(userId)) {
-      mySeatRect = seat.getBoundingClientRect();
-    }
     seatsContainer.appendChild(seat);
   });
-
-  // Кнопки строго под своим seat
-  if (actionsBlock && mySeatRect) {
-    const containerRect = seatsContainer.getBoundingClientRect();
-    actionsBlock.style.position = "absolute";
-    actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
-    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 10) + "px";
-    actionsBlock.style.transform = "translate(-50%, 0)";
-    actionsBlock.style.zIndex = 99;
-    actionsBlock.style.display = "flex";
-    seatsContainer.appendChild(actionsBlock);
-  }
 }
 
-// ---------- WS + event handlers ----------
-
-let ws = createWebSocket(tableId, userId, username, e => {
+// Инициализация WebSocket
+ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   updateUI(state);
   renderTable(state);
 });
 
+// Leave button
 leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
