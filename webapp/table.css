@@ -65,6 +65,21 @@ header {
   z-index: 2;
 }
 
+#poker-table-border {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 83%; height: 74%;    /* На 5-8% больше чем стол — тонкий ободок */
+  min-width: 410px; min-height: 210px;
+  max-width: 91vw; max-height: 91vh;
+  transform: translate(-50%, -50%);
+  border-radius: 32% 32% 32% 32% / 54% 54% 54% 54%;
+  pointer-events: none;
+  z-index: 11;
+  border: 8px solid rgba(255,255,255,0.05); /* только border! */
+  background: transparent;
+  
+  /* убрали все radial/background, только border и внешний-внутренний glow */
+}
 /* Стол */
 #poker-table, .poker-table {
   position: absolute;
