@@ -1,28 +1,33 @@
 import { createWebSocket } from './ws.js';
 
-// URL параметры
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// DOM элементы
-const statusEl     = document.getElementById('status');
-const potEl        = document.getElementById('pot');
-const currentBetEl = document.getElementById('current-bet');
-const actionsEl    = document.getElementById('actions');
-const leaveBtn     = document.getElementById('leave-btn');
-const pokerTableEl = document.getElementById('poker-table');
+// Контейнеры строго под твою структуру:
+const seatsContainer     = document.getElementById('seats');
+const communityContainer = document.getElementById('community-cards');
+const actionsEl          = document.getElementById('actions');
+const leaveBtn           = document.getElementById('leave-btn');
+const potAmountEl        = document.querySelector('.pot-amount b') || document.querySelector('.pot-amount');
+const pokerTableCont     = document.getElementById('poker-table-container');
+const statusEl           = document.getElementById('status');
+const currentBetEl       = document.getElementById('current-bet');
 
-const resultOverlayEl = document.createElement('div');
-resultOverlayEl.id = 'result-overlay';
-Object.assign(resultOverlayEl.style, {
-  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-  background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
-  alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-  fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
-});
-document.body.appendChild(resultOverlayEl);
+// Оверлей результата
+const resultOverlayEl = document.getElementById('result-overlay') || (() => {
+  const el = document.createElement('div');
+  el.id = 'result-overlay';
+  Object.assign(el.style, {
+    position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+    background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
+    alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+    fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
+  });
+  document.body.appendChild(el);
+  return el;
+})();
 
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -30,17 +35,17 @@ function safeSend(payload) {
   }
 }
 
-// Обновление UI: статусы, кнопки, оверлей
+// --- UI Update: статусы, кнопки, overlay
 function updateUI(state) {
+  if (!statusEl || !currentBetEl) return;
+
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
-    if (Array.isArray(state.winner)) {
-      msg.textContent = `Split pot: ${state.winner.map(u => state.usernames?.[u] || u).join(', ')}`;
-    } else {
-      msg.textContent = `Winner: ${state.usernames?.[state.winner] || state.winner}`;
-    }
+    msg.textContent = Array.isArray(state.winner)
+      ? `Split pot: ${state.winner.map(u => state.usernames?.[u] || u).join(', ')}`
+      : `Winner: ${state.usernames?.[state.winner] || state.winner}`;
     resultOverlayEl.appendChild(msg);
 
     const handsDiv = document.createElement('div');
@@ -62,24 +67,21 @@ function updateUI(state) {
     }
 
     resultOverlayEl.style.display = 'flex';
-    document.getElementById('poker-table-container').style.display = 'none';
-    actionsEl.style.display       = 'none';
-    statusEl.style.display        = 'none';
-    potEl.style.display           = 'none';
-    currentBetEl.style.display    = 'none';
+    pokerTableCont.style.opacity = '0.22';
+    actionsEl.style.display = 'none';
+    statusEl.style.display = 'none';
+    currentBetEl.style.display = 'none';
     return;
   }
 
-  // Скрываем оверлей результата
+  // Скрыть overlay
   resultOverlayEl.style.display = 'none';
-  document.getElementById('poker-table-container').style.display = '';
-  statusEl.style.display        = '';
-  potEl.style.display           = '';
-  currentBetEl.style.display    = '';
+  pokerTableCont.style.opacity = '';
+  statusEl.style.display = '';
+  currentBetEl.style.display = '';
 
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
-    potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
     return;
@@ -89,7 +91,6 @@ function updateUI(state) {
   if (!isMyTurn) {
     const nextName = state.usernames?.[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
-    potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
     actionsEl.style.display  = 'none';
     return;
@@ -97,7 +98,6 @@ function updateUI(state) {
 
   // Мой ход: кнопки действий
   statusEl.textContent     = 'Ваш ход';
-  potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
   actionsEl.style.display  = 'flex';
   actionsEl.innerHTML      = '';
@@ -130,14 +130,13 @@ function updateUI(state) {
   }
 }
 
-// --- Рендер игрового стола ---
+// --- Рендер игроков и карт (demo/diz структура)
 function renderTable(state) {
-  const seatsContainer = document.getElementById('seats');
-  const communityContainer = document.getElementById('community-cards');
+  if (!seatsContainer || !communityContainer) return;
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Общие карты
+  // --- Общие карты
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -146,15 +145,17 @@ function renderTable(state) {
     cEl.innerHTML = `<span class="rank">${rank}</span><span class="suit${'♥♦'.includes(suit) ? ' red' : ''}">${suit}</span>`;
     if ('♥♦'.includes(suit)) cEl.classList.add('red');
     communityContainer.appendChild(cEl);
-    setTimeout(() => cEl.classList.add('visible'), 120 + idx * 80);
+    setTimeout(() => cEl.classList.add('visible'), 90 + idx * 60);
   });
 
-  // Позиционирование игроков (ты всегда снизу)
+  // --- Игроки вокруг стола (твоя позиция всегда снизу)
   const players = state.players || [];
   const N = players.length;
   const myIdx = players.findIndex(p => String(p.user_id) === String(userId));
+
+  // Места вокруг стола, как в твоём макете
   const seatPercents = [
-    [50, 96], [96, 50], [81, 17], [50, 5], [19, 17], [4, 50]
+    [50, 95], [85, 68], [85, 27], [50, 7], [15, 27], [15, 68]
   ];
   function getSeatPositions(N) {
     if (N === 2) return [seatPercents[0], seatPercents[3]];
@@ -172,7 +173,7 @@ function renderTable(state) {
     dealerChipEl.className = 'dealer-chip';
     dealerChipEl.id = 'dealer-chip-main';
     dealerChipEl.textContent = 'D';
-    document.getElementById('poker-table-container').appendChild(dealerChipEl);
+    pokerTableCont.appendChild(dealerChipEl);
   }
   dealerChipEl.style.display = 'none';
 
@@ -182,12 +183,11 @@ function renderTable(state) {
 
     const seat = document.createElement('div');
     seat.className = 'seat';
-    if (state.current_player === String(p.user_id)) seat.classList.add('active');
     seat.style.left = px + '%';
     seat.style.top  = py + '%';
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // Карты
+    // --- Карты игрока ---
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     const hole = state.hole_cards?.[p.user_id] || [];
@@ -202,21 +202,22 @@ function renderTable(state) {
         cardsEl.appendChild(cd);
       });
     } else {
-      hole.forEach(_ => {
+      // Рубашка (или 2 скрытые карты)
+      for (let k = 0; k < 2; ++k) {
         const cd = document.createElement('div');
         cd.className = 'card back';
         cd.innerHTML = `<span class="pattern"></span>`;
         cardsEl.appendChild(cd);
-      });
+      }
     }
     seat.appendChild(cardsEl);
 
-    // Аватар (по желанию, если есть)
+    // --- Аватар (можно добавить в будущем) ---
     const avatarEl = document.createElement('div');
     avatarEl.className = 'avatar';
     seat.appendChild(avatarEl);
 
-    // Имя и стек
+    // --- Имя и стек ---
     const block = document.createElement('div');
     block.className = 'seat-block';
     const infoEl = document.createElement('div');
@@ -229,11 +230,11 @@ function renderTable(state) {
     block.appendChild(stackEl);
     seat.appendChild(block);
 
-    // Dealer chip (позиция)
+    // --- Дилер ---
     if (typeof state.dealer_index === 'number' && state.dealer_index === i) {
       setTimeout(() => {
-        dealerChipEl.style.left = `calc(${px}% + 28px)`;
-        dealerChipEl.style.top  = `calc(${py}% - 25px)`;
+        dealerChipEl.style.left = `calc(${px}% + 36px)`;
+        dealerChipEl.style.top  = `calc(${py}% - 30px)`;
         dealerChipEl.style.display = 'flex';
       }, 0);
     }
@@ -241,59 +242,67 @@ function renderTable(state) {
     seatsContainer.appendChild(seat);
   });
 
-  // Кнопки — строго снизу по центру
-  if (actionsEl && positions.length) {
-    actionsEl.style.position  = 'absolute';
-    actionsEl.style.left      = positions[0][0] + '%';
-    actionsEl.style.top       = (positions[0][1] + 12) + '%';
-    actionsEl.style.transform = 'translate(-50%, 0)';
-    actionsEl.style.zIndex    = 999;
+  // --- Пот (bank) ---
+  if (potAmountEl) {
+    if (potAmountEl.tagName === 'B') {
+      potAmountEl.innerText = state.pot || 0;
+    } else {
+      potAmountEl.textContent = state.pot || 0;
+    }
   }
-
-  // Пот на столе (новый)
-  const potAmountEl = document.getElementById('pot-amount');
-  if (potAmountEl) potAmountEl.textContent = state.pot || 0;
 }
 
-// Глянец (по желанию)
+// --- Глянец (если canvas есть)
 function drawGloss() {
   const canvas = document.getElementById('table-gloss');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   ctx.save();
-  ctx.globalAlpha = 0.65;
+  ctx.globalAlpha = 0.56;
   ctx.strokeStyle = "#fff9";
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 7;
   ctx.beginPath();
-  ctx.ellipse(canvas.width/2, canvas.height/2, canvas.width*0.46, canvas.height*0.34, 0, 0, Math.PI*2);
+  ctx.ellipse(canvas.width/2, canvas.height/2, canvas.width*0.48, canvas.height*0.38, 0, 0, Math.PI*2);
   ctx.stroke();
   ctx.restore();
 
   ctx.save();
-  const grad = ctx.createRadialGradient(canvas.width*0.52, canvas.height*0.23, 12, canvas.width*0.52, canvas.height*0.22, 120);
-  grad.addColorStop(0, "#fff6");
+  const grad = ctx.createRadialGradient(canvas.width*0.55, canvas.height*0.22, 14, canvas.width*0.52, canvas.height*0.22, 110);
+  grad.addColorStop(0, "#fff8");
   grad.addColorStop(1, "#fff0");
   ctx.fillStyle = grad;
-  ctx.globalAlpha = 0.38;
+  ctx.globalAlpha = 0.34;
   ctx.beginPath();
-  ctx.ellipse(canvas.width*0.52, canvas.height*0.23, canvas.width*0.18, canvas.height*0.08, -0.24, 0, Math.PI*2);
+  ctx.ellipse(canvas.width*0.51, canvas.height*0.20, canvas.width*0.16, canvas.height*0.08, -0.24, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
 }
-setTimeout(drawGloss, 180);
+setTimeout(drawGloss, 190);
 window.onresize = drawGloss;
 
-// WebSocket и старт рендера
-let ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
-  updateUI(state);
-  renderTable(state);
-});
+// --- WebSocket и старт рендера ---
+let ws = null;
+if (window.createWebSocket) {
+  ws = createWebSocket(tableId, userId, username, e => {
+    const state = JSON.parse(e.data);
+    updateUI(state);
+    renderTable(state);
+  });
+} else {
+  // Fallback: подключение вручную (если не через import)
+  ws = new WebSocket(`wss://${window.location.host}/ws/game/${tableId}?user_id=${userId}&username=${username}`);
+  ws.onmessage = evt => {
+    const state = JSON.parse(evt.data);
+    updateUI(state);
+    renderTable(state);
+  };
+}
 
-// Leave
-leaveBtn.onclick = async () => {
-  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-  window.location.href = 'index.html';
-};
+// --- Leave ---
+if (leaveBtn) {
+  leaveBtn.onclick = async () => {
+    await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
+    window.location.href = 'index.html';
+  };
+}
