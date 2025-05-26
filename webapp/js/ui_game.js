@@ -1,23 +1,25 @@
 import { createWebSocket } from './ws.js';
 
-// Параметры из URL
+// URL parameters
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// DOM элементы
+// DOM elements
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
 const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
+
+// Overlay для отображения результата раздачи
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
   position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-  background: 'rgba(0,0,0,0.8)', color: '#fff', display: 'none',
+  background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
   alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
   fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
 });
@@ -30,9 +32,8 @@ function safeSend(payload) {
   }
 }
 
-// --- UI обновление ---
+// Обновление базовых UI-элементов (статус, кнопки, оверлей)
 function updateUI(state) {
-  // Оверлей результата
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
@@ -65,45 +66,43 @@ function updateUI(state) {
     resultOverlayEl.style.display = 'flex';
     pokerTableEl.style.display    = 'none';
     actionsEl.style.display       = 'none';
-    if (statusEl) statusEl.style.display = 'none';
-    if (potEl) potEl.style.display = 'none';
-    if (currentBetEl) currentBetEl.style.display = 'none';
+    statusEl.style.display        = 'none';
+    potEl.style.display           = 'none';
+    currentBetEl.style.display    = 'none';
     return;
   }
 
-  // Скрыть оверлей результата
+  // Скрываем оверлей результата
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
-  if (statusEl) statusEl.style.display = '';
-  if (potEl) potEl.style.display = '';
-  if (currentBetEl) currentBetEl.style.display = '';
+  statusEl.style.display        = '';
+  potEl.style.display           = '';
+  currentBetEl.style.display    = '';
 
-  // До старта игры
   if (!state.started) {
-    if (statusEl) statusEl.textContent = `Ожидаем игроков… (${state.players_count || 0}/2)`;
-    if (potEl) potEl.textContent = '';
-    if (currentBetEl) currentBetEl.textContent = '';
-    actionsEl.style.display = 'none';
+    statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
+    potEl.textContent        = '';
+    currentBetEl.textContent = '';
+    actionsEl.style.display  = 'none';
     return;
   }
 
-  // Чей ход
   const isMyTurn = String(state.current_player) === String(userId);
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
-    if (statusEl) statusEl.textContent = `Ход игрока: ${nextName}`;
-    if (potEl) potEl.textContent = `Пот: ${state.pot || 0}`;
-    if (currentBetEl) currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-    actionsEl.style.display = 'none';
+    statusEl.textContent     = `Ход игрока: ${nextName}`;
+    potEl.textContent        = `Пот: ${state.pot || 0}`;
+    currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+    actionsEl.style.display  = 'none';
     return;
   }
 
-  // --- Мой ход: действия ---
-  if (statusEl) statusEl.textContent = 'Ваш ход';
-  if (potEl) potEl.textContent = `Пот: ${state.pot || 0}`;
-  if (currentBetEl) currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-  actionsEl.style.display = 'flex';
-  actionsEl.innerHTML = '';
+  // Мой ход: показываем кнопки
+  statusEl.textContent     = 'Ваш ход';
+  potEl.textContent        = `Пот: ${state.pot || 0}`;
+  currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+  actionsEl.style.display  = 'flex';
+  actionsEl.innerHTML      = '';
 
   const contribs  = state.contributions || {};
   const myContrib = contribs[userId] || 0;
@@ -111,23 +110,23 @@ function updateUI(state) {
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
-  // Кнопки действий
-  addAction('Fold',  () => safeSend({ user_id: userId, action: 'fold' }));
-  addAction('Check', () => safeSend({ user_id: userId, action: 'check' }), toCall !== 0);
-  addAction('Call',  () => safeSend({ user_id: userId, action: 'call' }), toCall <= 0 || myStack < toCall, toCall > 0 ? `Call ${toCall}` : 'Call');
-  addAction('Bet',   () => {
+  // Кнопки экшена — класс для покерного дизайна
+  createActionBtn('Fold',   () => safeSend({ user_id: userId, action: 'fold' }));
+  createActionBtn('Check',  () => safeSend({ user_id: userId, action: 'check' }), toCall !== 0);
+  createActionBtn('Call',   () => safeSend({ user_id: userId, action: 'call' }), toCall <= 0 || myStack < toCall, toCall > 0 ? `Call ${toCall}` : 'Call');
+  createActionBtn('Bet',    () => {
     const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
     safeSend({ user_id: userId, action: 'bet', amount });
   });
-  addAction('Raise', () => {
+  createActionBtn('Raise',  () => {
     const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
     safeSend({ user_id: userId, action: 'raise', amount: target });
   }, toCall <= 0);
 
-  function addAction(name, onClick, disabled, text) {
+  function createActionBtn(name, onClick, disabled, label) {
     const btn = document.createElement('button');
-    btn.textContent = text || name;
-    btn.className = 'poker-action-btn poker-action-' + name.toLowerCase();
+    btn.textContent = label || name;
+    btn.className = `poker-action-btn poker-action-${name.toLowerCase()}`;
     if (disabled) btn.disabled = true;
     btn.onclick = onClick;
     actionsEl.appendChild(btn);
@@ -135,12 +134,12 @@ function updateUI(state) {
 }
 
 function renderTable(state) {
-  const seatsContainer     = document.getElementById('seats');
+  const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1) Общие карты (стол)
+  // 1) Общие карты (на столе)
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -157,6 +156,7 @@ function renderTable(state) {
   const N = players.length;
   const myIdx = players.findIndex(p => String(p.user_id) === String(userId));
 
+  // Схема овального стола (позиции игроков)
   const seatPercents = [
     [50, 96], [96, 50], [81, 17], [50, 5], [19, 17], [4, 50]
   ];
@@ -169,7 +169,7 @@ function renderTable(state) {
   }
   const positions = getSeatPositions(N);
 
-  // Dealer chip
+  // Dealer chip (жетон дилера)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -180,6 +180,7 @@ function renderTable(state) {
   }
   dealerChipEl.style.display = 'none';
 
+  // --- Игроки вокруг стола ---
   players.forEach((p, i) => {
     // Место относительно тебя (ты всегда внизу)
     const place = (i - myIdx + N) % N;
@@ -196,8 +197,8 @@ function renderTable(state) {
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     const hole = state.hole_cards?.[p.user_id] || [];
-    // Ты видишь свои карты, у остальных — рубашки
     if (String(p.user_id) === String(userId)) {
+      // Свои карты
       hole.forEach(card => {
         const rk = card.slice(0, -1);
         const st = card.slice(-1);
@@ -208,6 +209,7 @@ function renderTable(state) {
         cardsEl.appendChild(cd);
       });
     } else {
+      // Остальные игроки — только рубашки, если карта есть
       hole.forEach(_ => {
         const cd = document.createElement('div');
         cd.className = 'card back';
@@ -217,7 +219,7 @@ function renderTable(state) {
     }
     seat.appendChild(cardsEl);
 
-    // --- Имя и стек игрока (seat-block) ---
+    // --- seat-block (имя, стек) ---
     const block = document.createElement('div');
     block.className = 'seat-block';
     const infoEl = document.createElement('div');
@@ -230,7 +232,7 @@ function renderTable(state) {
     block.appendChild(stackEl);
     seat.appendChild(block);
 
-    // --- Dealer chip (чип дилера) ---
+    // --- Dealer chip ---
     if (state.dealer_index === i) {
       setTimeout(() => {
         dealerChipEl.style.left = `calc(${px}% + 28px)`;
@@ -251,22 +253,50 @@ function renderTable(state) {
     actionsEl.style.zIndex    = 999;
   }
 
-  // Обновить pot (id="pot-amount")
+  // Обновить pot (id="pot-amount" в новом дизайне)
   const potAmountEl = document.getElementById('pot-amount');
   if (potAmountEl) potAmountEl.textContent = state.pot || 0;
 }
 
-// WebSocket
+// Глянцевый блик и подсветка — можно добавить из макета, если требуется:
+function drawGloss() {
+  const canvas = document.getElementById('table-gloss');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.globalAlpha = 0.65;
+  ctx.strokeStyle = "#fff9";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.ellipse(canvas.width/2, canvas.height/2, canvas.width*0.46, canvas.height*0.34, 0, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  const grad = ctx.createRadialGradient(canvas.width*0.52, canvas.height*0.23, 12, canvas.width*0.52, canvas.height*0.22, 120);
+  grad.addColorStop(0, "#fff6");
+  grad.addColorStop(1, "#fff0");
+  ctx.fillStyle = grad;
+  ctx.globalAlpha = 0.38;
+  ctx.beginPath();
+  ctx.ellipse(canvas.width*0.52, canvas.height*0.23, canvas.width*0.18, canvas.height*0.08, -0.24, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+setTimeout(drawGloss, 180);
+window.onresize = drawGloss;
+
+// Инициализация WebSocket
 let ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   updateUI(state);
   renderTable(state);
 });
 
-// Leave
-if (leaveBtn) {
-  leaveBtn.onclick = async () => {
-    await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-    window.location.href = 'index.html';
-  };
-}
+// Leave button
+leaveBtn.onclick = async () => {
+  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
+  window.location.href = 'index.html';
+};
