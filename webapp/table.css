@@ -22,7 +22,6 @@ body::before {
   background-size: 72px 72px, 72px 72px, 36px 36px;
   background-repeat: repeat;
 }
-
 #background-grid {
   position: fixed;
   left: 0; top: 0;
@@ -72,7 +71,7 @@ header {
   z-index: 2;
 }
 
-/* Стол: овальный с глянцевым эффектом и обводкой */
+/* Стол: супер-овальный с мягкими глянцевыми эффектами и обводкой */
 #poker-table {
   position: absolute;
   left: 50%; top: 50%;
@@ -80,6 +79,7 @@ header {
   min-width: 380px; min-height: 180px;
   max-width: 79vw; max-height: 79vh;
   transform: translate(-50%, -50%);
+  /* Новый linear-gradient по твоим цветам: */
   background: #457564;
   border-radius: 28% 28% 28% 28% / 50% 50% 50% 50%;
   border: 3px solid #bfbcbc;
@@ -93,16 +93,20 @@ header {
 #poker-table-border {
   position: absolute;
   left: 50%; top: 50%;
-  width: 83%; height: 74%;    /* тонкий ободок на ~5% больше стола */
+  width: 83%; height: 74%;    /* На 5-8% больше чем стол — тонкий ободок */
   min-width: 410px; min-height: 210px;
   max-width: 91vw; max-height: 91vh;
   transform: translate(-50%, -50%);
   border-radius: 32% 32% 32% 32% / 54% 54% 54% 54%;
   pointer-events: none;
   z-index: 11;
-  border: 8px solid rgba(255,255,255,0.05);
+  border: 8px solid rgba(255,255,255,0.05); /* только border! */
   background: transparent;
+  
+  /* убрали все radial/background, только border и внешний-внутренний glow */
 }
+
+
 
 #table-glow-segments {
   position: absolute;
@@ -111,8 +115,7 @@ header {
   pointer-events: none;
   z-index: 12;
 }
-
-.table-logo-watermark {
+#table-logo-watermark {
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
@@ -125,10 +128,9 @@ header {
   pointer-events: none;
   filter: grayscale(1) brightness(1.35);
 }
-
 @media (max-width: 1100px) {
-  #poker-table-container { width: 96vw; height: 53vw; min-width: 300px; min-height: 140px; }
-  #poker-table { min-width: 230px; min-height: 70px; }
+  #poker-table-container { width: 96vw; height: 53vw; min-width: 300px; min-height: 140px;}
+  #poker-table { min-width: 230px; min-height: 70px;}
 }
 
 @media (max-width: 700px), (max-height: 700px) {
@@ -167,7 +169,7 @@ header {
     height: 100% !important;
     min-width: 150px !important;
     min-height: 120px !important;
-    border-radius: 30% 30% 30% 30% / 20% 20% 20% 20% !important;
+    border-radius: 30% 30% 30% 30% / 20% 20% 20% 20%  !important;
     box-shadow: 0 0 18px 2px #bfbcbc, 0 0 17px 20px #7aa17d55 inset;
     margin: 0 auto;
     background: #457564;
@@ -206,12 +208,13 @@ header {
   #community-cards { gap: 3px; }
 }
 
-/* Для отступа под кнопки действий снизу на маленьких экранах */
+/* Для отступа под кнопки снизу (если нужны action-кнопки): */
 @media (max-width: 700px), (max-height: 700px) {
   body { padding-bottom: 80px !important; }
 }
 
-/* Места игроков и общие элементы стола */
+/* Глянцевая обводка, световые блики — рисует canvas #table-gloss */
+
 #seats {
   position: absolute;
   left: 0; top: 0; width: 100%; height: 100%;
@@ -258,6 +261,7 @@ header {
   border: 1.8px solid #282e39;
   pointer-events: auto;
 }
+
 .seat-block .player-info {
   font-size: 1.15em;
   color: #fff;
@@ -339,8 +343,7 @@ header {
   position: absolute;
   top: 44%; left: 50%;
   transform: translate(-50%, -50%);
-  display: flex; gap: 18px;
-  z-index: 40;
+  display: flex; gap: 18px; z-index: 40;
 }
 #community-cards .card {
   opacity: 0;
@@ -351,11 +354,10 @@ header {
   opacity: 1;
   transform: scale(1) translateY(0);
 }
-
 #pot-on-table {
   position: absolute;
   left: 50%;
-  top: 26%;    /* чуть выше центра стола */
+  top: 26%;    /* Было 50%, теперь выше! */
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
@@ -374,15 +376,16 @@ header {
   width: max-content;
 }
 .pot-chip {
-  width: 22px; height: 22px;
+   width: 22px; height: 22px;
   display: inline-block;
   vertical-align: middle;
 }
 .pot-amount {
   font-size: 1.06em;
-  font-weight: 900;
-}
+  font-weight: 900
 
+ }
+  
 .table-logo-watermark {
   position: absolute;
   left: 50%;
@@ -390,11 +393,11 @@ header {
   transform: translate(-50%, -50%);
   width: 185px;
   height: 110px;
-  opacity: 0.15;
+  opacity: 0.15;                        /* общая прозрачность логотипа */
   background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 190'><g transform='translate(50,70) rotate(-8) translate(-50,-70)'><rect x='0' y='0' width='100' height='140' rx='8' fill='%23FFFFFF'/><text x='10' y='28' fill='%23FFFFFF' font-size='28' font-family='Arial' font-weight='bold'>T</text></g><g transform='translate(90,80) rotate(8) translate(-90,-80)'><rect x='40' y='10' width='100' height='140' rx='8' fill='%23FFFFFF'/><text x='50' y='38' fill='%23FFFFFF' font-size='28' font-family='Arial' font-weight='bold'>P</text><path d='M90,122 L65,52 L115,52 Z' fill='%23FFFFFF'/></g></svg>") center center no-repeat;
   background-size: contain;
-  pointer-events: none;
-  filter: grayscale(1) brightness(1.35);
+  pointer-events: none;                 /* клики сквозь водяной знак */
+  filter: grayscale(1) brightness(1.35);/* осветление и обезцветивание для эффекта watermark */
 }
 .table-logo-text {
   position: fixed;
@@ -405,11 +408,10 @@ header {
   font-size: 1.5rem;
   font-weight: 700;
   color: #FFFFFF;
-  opacity: 0.1;
-  pointer-events: none;
+  opacity: 0.1;              /* полупрозрачность текста */
+  pointer-events: none;      /* текст не перекрывает клики */
 }
-
-/* Блок кнопок действий игрока */
+/* Экшн-кнопки — в стиле рума */
 #actions {
   position: absolute;
   display: flex;
@@ -424,8 +426,8 @@ header {
   animation: fadeInBtns 0.18s;
 }
 @keyframes fadeInBtns {
-  from { opacity: 0; transform: translateY(18px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(18px) scale(0.97);}
+  to   { opacity: 1; transform: translateY(0) scale(1);}
 }
 .poker-action-btn {
   background: linear-gradient(180deg, #232833 70%, #101217 100%);
@@ -448,6 +450,7 @@ header {
   border-color: #b8ffe0;
   box-shadow: 0 0 14px #5ad4fca4;
 }
-.poker-action-fold { border-color: #e74a6e; color: #ffb3c2; }
-.poker-action-raise { border-color: #78fcaf; color: #bfffcf; }
-.poker-action-bet   { border-color: #ffe05a; color: #fffbdf; }
+.poker-action-fold { border-color: #e74a6e; color: #ffb3c2;}
+.poker-action-raise { border-color: #78fcaf; color: #bfffcf;}
+.poker-action-bet { border-color: #ffe05a; color: #fffbdf;}
+
