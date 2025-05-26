@@ -1,4 +1,4 @@
-
+import { createWebSocket } from './ws.js';
 
 // URL parameters
 const params   = new URLSearchParams(window.location.search);
@@ -8,11 +8,11 @@ const username = params.get('username') || userId;
 
 // DOM elements
 const statusEl     = document.getElementById('status');
+const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
 const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
-const tableIdEl    = document.getElementById('table-id');
 
 let ws;
 
@@ -34,22 +34,8 @@ function safeSend(payload) {
   }
 }
 
+// Обновление базовых UI-элементов (статус, кнопки, оверлей)
 function updateUI(state) {
-  // Показываем tableId
-  if (tableIdEl && tableId) tableIdEl.textContent = tableId;
-
-  // Обновляем банк (новый layout: .pot-amount > b)
-  const potEl = document.getElementById('pot') || document.getElementById('pot-on-table');
-if (potEl) {
-    // Для совместимости: если есть pot-amount, обновим только число в нем
-    if (potEl.querySelector('#pot-amount') || potEl.querySelector('.pot-amount')) {
-        const amt = potEl.querySelector('#pot-amount') || potEl.querySelector('.pot-amount b') || potEl.querySelector('.pot-amount');
-        if (amt) amt.textContent = state.pot || 0;
-    } else {
-        potEl.textContent = `Пот: ${state.pot || 0}`;
-    }
-}
-
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
@@ -82,23 +68,23 @@ if (potEl) {
     resultOverlayEl.style.display = 'flex';
     pokerTableEl.style.display    = 'none';
     actionsEl.style.display       = 'none';
-    if (statusEl) statusEl.style.display = 'none';
-    if (potAmountEl) potAmountEl.style.display = 'none';
-    if (currentBetEl) currentBetEl.style.display = 'none';
+    statusEl.style.display        = 'none';
+    potEl.style.display           = 'none';
+    currentBetEl.style.display    = 'none';
     return;
   }
 
   // Скрываем оверлей результата
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
-  if (statusEl) statusEl.style.display = '';
-  if (potAmountEl) potAmountEl.style.display = '';
-  if (currentBetEl) currentBetEl.style.display = '';
+  statusEl.style.display        = '';
+  potEl.style.display           = '';
+  currentBetEl.style.display    = '';
 
   if (!state.started) {
-    if (statusEl) statusEl.textContent = `Ожидаем игроков… (${state.players_count || 0}/2)`;
-    if (potAmountEl) potAmountEl.textContent = '';
-    if (currentBetEl) currentBetEl.textContent = '';
+    statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
+    potEl.textContent        = '';
+    currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
     return;
   }
@@ -106,17 +92,17 @@ if (potEl) {
   const isMyTurn = String(state.current_player) === String(userId);
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
-    if (statusEl) statusEl.textContent = `Ход игрока: ${nextName}`;
-    if (potAmountEl) potAmountEl.textContent = state.pot || 0;
-    if (currentBetEl) currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+    statusEl.textContent     = `Ход игрока: ${nextName}`;
+    potEl.textContent        = `Пот: ${state.pot || 0}`;
+    currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
     actionsEl.style.display  = 'none';
     return;
   }
 
   // Мой ход: показываем кнопки
-  if (statusEl) statusEl.textContent = 'Ваш ход';
-  if (potAmountEl) potAmountEl.textContent = state.pot || 0;
-  if (currentBetEl) currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+  statusEl.textContent     = 'Ваш ход';
+  potEl.textContent        = `Пот: ${state.pot || 0}`;
+  currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
   actionsEl.style.display  = 'flex';
   actionsEl.innerHTML      = '';
 
@@ -126,30 +112,25 @@ if (potEl) {
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
-  // Action buttons — теперь со стилями из table.css
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
-  btnFold.classList.add('poker-action-btn', 'poker-action-fold');
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
   actionsEl.appendChild(btnFold);
 
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
-  btnCheck.classList.add('poker-action-btn', 'poker-action-check');
   btnCheck.disabled    = toCall !== 0;
   btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
   actionsEl.appendChild(btnCheck);
 
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnCall.classList.add('poker-action-btn', 'poker-action-call');
   btnCall.disabled    = toCall <= 0 || myStack < toCall;
   btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
   actionsEl.appendChild(btnCall);
 
   const btnBet = document.createElement('button');
   btnBet.textContent = 'Bet';
-  btnBet.classList.add('poker-action-btn', 'poker-action-bet');
   btnBet.onclick     = () => {
     const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
     safeSend({ user_id: userId, action: 'bet', amount });
@@ -158,7 +139,6 @@ if (potEl) {
 
   const btnRaise = document.createElement('button');
   btnRaise.textContent = 'Raise';
-  btnRaise.classList.add('poker-action-btn', 'poker-action-raise');
   btnRaise.disabled    = toCall <= 0;
   btnRaise.onclick     = () => {
     const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
@@ -173,75 +153,70 @@ function polarToCartesian(cx, cy, r, deg) {
 }
 
 function renderTable(state) {
-  const seatsContainer     = document.getElementById('seats');
+  const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
-  if (!seatsContainer || !communityContainer) return;
+
+  // Очищаем предыдущий рендер
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1. Отрисовать общие карты
+  // 1) Общие карты
   (state.community || []).forEach(card => {
-    const cardEl = document.createElement('div');
-    cardEl.className = 'card';
-    // Разбиваем код карты на ранг и масть
+    const cEl = document.createElement('div');
+    cEl.className = 'card';
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
-    cardEl.innerHTML = `<span class="rank">${rank}</span><span class="suit">${suit}</span>`;
-    // Помечаем красные масти
+    cEl.innerHTML = `
+      <span class=\"rank\">${rank}</span>
+      <span class=\"suit\">${suit}</span>
+    `;
     if (suit === '♥' || suit === '♦') {
-      cardEl.classList.add('red');
+      cEl.classList.add('red');
     }
-    // Если используем анимацию появления, сразу делаем карты видимыми:
-    cardEl.classList.add('visible');
-    communityContainer.appendChild(cardEl);
+    communityContainer.appendChild(cEl);
   });
 
-  // 2. Отрисовать игроков за столом
+  // 2) Игроки вокруг стола
   const players = state.players || [];
-  const holeCards = state.hole_cards || {};
-  // Вычисляем индекс текущего пользователя в списке (если список хранит объекты или ID)
-  const userIndex = players.findIndex(p => String((p.user_id||p)) === String(userId));
+  const holeMap = state.hole_cards || {};
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+
+  seatsContainer.innerHTML = '';
+
   players.forEach((p, i) => {
-    const playerId = (typeof p === 'object') ? p.user_id : p;  // поддержка формата ID или объекта
     const seat = document.createElement('div');
     seat.className = 'seat';
-    // Относительный индекс для позиционирования (текущий игрок -> pos 1)
-    let relIndex = i;
-    if (userIndex >= 0 && players.length > 1) {
-      relIndex = (i - userIndex + players.length) % players.length;
-    }
+    const relIndex = (i - userIndex + players.length) % players.length;
     seat.dataset.pos = String(relIndex + 1);
 
-    // Карты игрока (если есть)
+    // 2.1) Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
-    (holeCards[playerId] || []).forEach(card => {
-      const cardDiv = document.createElement('div');
-      cardDiv.className = 'card';
-      if (String(playerId) === String(userId)) {
-        // Для своих карт отображаем ранг/масть
-        const rk = card.slice(0, -1);
-        const st = card.slice(-1);
-        cardDiv.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
-        if (st === '♥' || st === '♦') cardDiv.classList.add('red');
+    (holeMap[p.user_id] || []).forEach(c => {
+      const cd = document.createElement('div');
+      cd.className = 'card';
+      if (String(p.user_id) === String(userId)) {
+        const rk = c.slice(0, -1);
+        const st = c.slice(-1);
+        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
+        if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
-        // Чужие карты – рубашкой (скрыты)
-        cardDiv.innerHTML = `<span class="suit">🂠</span>`;
+        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
       }
-      cardsEl.appendChild(cardDiv);
+      cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
 
-    // Имя игрока
+    // 2.2) Имя
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
-    infoEl.textContent = state.usernames?.[playerId] || playerId;
+    infoEl.textContent = p.username;
     seat.appendChild(infoEl);
 
-    // Стек игрока
+    // 2.3) Стек
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
-    stackEl.textContent = state.stacks?.[playerId] ?? 0;
+    stackEl.textContent = state.stacks?.[p.user_id] || 0;
     seat.appendChild(stackEl);
 
     seatsContainer.appendChild(seat);
@@ -256,9 +231,7 @@ ws = createWebSocket(tableId, userId, username, e => {
 });
 
 // Leave button
-if (leaveBtn) {
-  leaveBtn.onclick = async () => {
-    await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-    window.location.href = 'index.html';
-  };
-}
+leaveBtn.onclick = async () => {
+  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
+  window.location.href = 'index.html';
+};
