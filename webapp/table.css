@@ -7,7 +7,23 @@ body, html {
   overflow: hidden !important;
   position: relative;
 }
-
+#actions {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  /* при необходимости: z-index выше стола, но ниже оверлея результата */
+  z-index: 50;
+}
+#actions button {
+  /* стили кнопок действий (можно из старого table.css или новые) */
+  padding: 8px 12px;
+  font-size: 16px;
+}
+.card { opacity: 0; transform: scale(0.95) translateY(4px); transition: opacity 0.3s, transform 0.3s; }
+.card.visible { opacity: 1; transform: scale(1) translateY(0); }
 /* Карты на столе (общие и карманные) */
 #game-info .cards { display: flex; }
 #game-info .cards .card:not(:first-child) {
