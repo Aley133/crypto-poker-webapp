@@ -1,188 +1,453 @@
-/* Контейнер стола */
-#game-info #poker-table-wrapper {
+body, html {
+  margin: 0; padding: 0;
+  width: 100vw; height: 100vh;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 60% 100%, #3a212d 0%, #23152b 70%, #21141b 100%);
+  font-family: 'Inter', Arial, sans-serif;
+  overflow: hidden !important;
   position: relative;
-  margin: 20px auto;
-  width: 90vw;
-  max-width: 600px;
-  height: 60vw;
-  max-height: 400px;
 }
 
-/* Овал стола */
-#game-info #poker-table {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(ellipse at center, #0a700a 0%, #095a09 80%);
-  border: 4px solid #223;
-  border-radius: 50% / 40%;
-  overflow: visible;
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.17;
+  background-image:
+    repeating-linear-gradient(135deg, #fff2 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(45deg, #fff2 0 1px, transparent 1px 72px),
+    url('data:image/svg+xml;utf8,<svg width="36" height="36" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="2.1" fill="%23ffffff44" /></svg>');
+  background-size: 72px 72px, 72px 72px, 36px 36px;
+  background-repeat: repeat;
 }
 
-/* Общие карты */
-#game-info #community-cards {
-  position: absolute;
-  top: 45%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  gap: 4px;    /* ближе друг к другу */
-  z-index: 1;
+#background-grid {
+  position: fixed;
+  left: 0; top: 0;
+  width: 100vw; height: 100vh;
+  background: repeating-linear-gradient(135deg, #fff1 0 1px, transparent 1px 80px),
+              repeating-linear-gradient(45deg, #fff1 0 1px, transparent 1px 80px);
+  opacity: 0.12;
+  z-index: 0;
+  pointer-events: none;
 }
 
-/* Банк */
-#game-info #pot {
-  position: absolute;
-  top: 60%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
+header {
+  background: none;
+  padding: 0;
+  margin: 0 0 6px 0;
+  height: 48px;
+  display: flex; align-items: center;
+  font-size: 1.25em;
   color: #fff;
-  font-weight: bold;
-  padding: 6px 12px;
-  border-radius: 4px;
-  z-index: 1;
+  z-index: 10;
 }
 
-/* Контейнер сидений */
-#game-info #seats {
+#poker-root, #table-ui {
+  width: 100vw; height: 100vh; position: absolute; top: 0; left: 0;
+  overflow: hidden;
+}
+
+#poker-table-container {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 790px;    /* <= не 980px! */
+  height: 480px;   /* <= идеально для 6max, как на PokerOK/GG */
+  max-width: 92vw;
+  max-height: 84vh;
+  min-width: 320px;
+  min-height: 170px;
   pointer-events: none;
   z-index: 2;
 }
 
-/* Сиденье игрока */
-#game-info .seat {
+#table-gloss {
   position: absolute;
-  width: 100px;
-  background: transparent; /* фон разбит на два блока ниже */
-  box-shadow: none;
-  display: flex;
-  flex-direction: column; /* карты сверху, затем имя, затем стек */
-  align-items: center;
-  padding: 0;
-}
-
-/* Общие стили для карт */
-#game-info .cards {
-  display: flex;
-}
-#game-info .cards > .card {
-  margin-left: -14px;      /* сильный нахлест */
-  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-}
-
-/* Стилизация карты */
-#game-info .card {
-  position: relative;
-  width: 54px;             /* чуть шире */
-  height: 76px;            /* чуть выше */
-  background: #fff;
-  border: 1px solid #333;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* более мягкая тень */
-  overflow: hidden;
-  font-family: sans-serif;
-}
-
-/* Ранг */
-#game-info .card .rank {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  font-size: 1em;          /* чуть меньше */
-  font-weight: bold;
-  line-height: 1;
-  color: #000;
-}
-
-/* Масть */
-#game-info .card .suit {
-  position: absolute;
-  top: 65%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 2.4em;
-  line-height: 1;
-  text-shadow: 0 0 3px rgba(0,0,0,0.3);
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   pointer-events: none;
-  color: #000;
+  z-index: 2;
 }
 
-/* Красные масти */
-#game-info .card.red .rank,
-#game-info .card.red .suit {
-  color: #e60000;
-}
-
-/* Имя игрока под картами */
-#game-info .player-info {
-  background: #000000;
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-top: 6px;
-  width: max-content;
-}
-
-/* Стек игрока под именем */
-#game-info .player-stack {
-  background: #222222;
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-top: 2px;
-  width: max-content;
-}
-
-/* Позиционирование сидений */
-#game-info .seat[data-pos="1"] {
-  bottom: -12%;
-  left: 50%;
-  transform: translateX(-50%);
-}
-#game-info .seat[data-pos="2"] {
-  bottom: 8%;
-  right: -12%;
-  transform: translate(50%, 50%);
-}
-#game-info .seat[data-pos="3"] {
-  top: 8%;
-  right: -12%;
-  transform: translate(50%, -50%);
-}
-#game-info .seat[data-pos="4"] {
-  top: -12%;
-  left: 50%;
-  transform: translateX(-50%);
-}
-#game-info .seat[data-pos="5"] {
-  top: 8%;
-  left: -12%;
+/* Стол: овальный с глянцевым эффектом и обводкой */
+#poker-table {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 78%; height: 68%;
+  min-width: 380px; min-height: 180px;
+  max-width: 79vw; max-height: 79vh;
   transform: translate(-50%, -50%);
-}
-#game-info .seat[data-pos="6"] {
-  bottom: 8%;
-  left: -12%;
-  transform: translate(-50%, 50%);
+  background: #457564;
+  border-radius: 28% 28% 28% 28% / 50% 50% 50% 50%;
+  border: 3px solid #bfbcbc;
+  box-shadow:
+    0 0 20px 5px #bfbcbc,
+    0 0 33px 40px #7aa17d55 inset;
+  z-index: 10;
+  pointer-events: none;
 }
 
-/* Адаптив */
-@media (min-width: 600px) {
-  #game-info #poker-table-wrapper {
-    width: 600px;
-    height: 400px;
-  }
-  #game-info .seat {
-    width: 140px;
-    font-size: 1em;
-  }
-  #game-info .card {
-    width: 50px;
-    height: 72px;
-  }
+#poker-table-border {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 83%; height: 74%;    /* тонкий ободок на ~5% больше стола */
+  min-width: 410px; min-height: 210px;
+  max-width: 91vw; max-height: 91vh;
+  transform: translate(-50%, -50%);
+  border-radius: 32% 32% 32% 32% / 54% 54% 54% 54%;
+  pointer-events: none;
+  z-index: 11;
+  border: 8px solid rgba(255,255,255,0.05);
+  background: transparent;
 }
+
+#table-glow-segments {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.table-logo-watermark {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.16;
+  z-index: 2;
+  width: 185px;
+  height: 110px;
+  background: url('/path/to/your/logo-ton.png') center center no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  filter: grayscale(1) brightness(1.35);
+}
+
+@media (max-width: 1100px) {
+  #poker-table-container { width: 96vw; height: 53vw; min-width: 300px; min-height: 140px; }
+  #poker-table { min-width: 230px; min-height: 70px; }
+}
+
+@media (max-width: 700px), (max-height: 700px) {
+  html, body {
+    width: 100vw !important;
+    min-height: 100vh !important;
+    padding: 0;
+    margin: 0;
+    overflow: hidden !important;
+    background: #23152b;
+  }
+  #poker-root, #table-ui {
+    width: 100vw !important;
+    height: 100vh !important;
+    position: absolute;
+    top: 0; left: 0;
+    overflow: hidden !important;
+  }
+  #poker-table-container {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    width: 92vw !important;
+    height: 55vh !important;
+    min-width: 230px !important;
+    min-height: 160px !important;
+    max-width: 75vw !important;
+    max-height: 70vh !important;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    z-index: 2;
+  }
+  #poker-table {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 150px !important;
+    min-height: 120px !important;
+    border-radius: 30% 30% 30% 30% / 20% 20% 20% 20% !important;
+    box-shadow: 0 0 18px 2px #bfbcbc, 0 0 17px 20px #7aa17d55 inset;
+    margin: 0 auto;
+    background: #457564;
+  }
+  .seat {
+    width: 82px !important;
+    z-index: 15;
+  }
+  .seat-block {
+    min-width: 22px !important;
+    max-width: 36px !important;
+    padding: 2px 2px 2px 2px !important;
+    border-radius: 7px !important;
+  }
+  .seat .avatar {
+    width: 15px !important;
+    height: 15px !important;
+    margin-bottom: 1px;
+    margin-top: 0px;
+    border-width: 1px;
+  }
+  .player-info { font-size: 0.57em !important; }
+  .player-stack { font-size: 0.55em !important; }
+  .cards { gap: 0; }
+  .card {
+    width: 34px !important;
+    height: 44px !important;
+    font-size: 0.58em !important;
+    margin-left: -4px;
+    border-radius: 3px;
+    border-width: 1px;
+    box-shadow: 0 1px 7px #0003;
+  }
+  .card .rank { font-size: 1.5em !important; left: 2px !important; top: 2px !important; }
+  .card .suit { font-size: 1.5em !important; right: 2px !important; bottom: 2px !important; }
+  #community-cards { gap: 3px; }
+}
+
+/* Для отступа под кнопки действий снизу на маленьких экранах */
+@media (max-width: 700px), (max-height: 700px) {
+  body { padding-bottom: 80px !important; }
+}
+
+/* Места игроков и общие элементы стола */
+#seats {
+  position: absolute;
+  left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.seat {
+  position: absolute;
+  width: 138px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  background: none;
+  box-shadow: none;
+  border: none;
+  z-index: 15;
+  transition: filter 0.16s;
+}
+.seat.active {
+  filter: drop-shadow(0 0 24px #33fff977);
+}
+.seat .avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: #222c;
+  border: 2.4px solid #141e23;
+  margin-bottom: 2px;
+  margin-top: -2px;
+  background-size: cover;
+  box-shadow: 0 3px 16px #10193088;
+}
+.seat-block {
+  background: #171d1eec;
+  border-radius: 16px;
+  margin-top: -6px;
+  padding: 7px !important;
+  min-width: 68px !important;
+  max-width: 90px !important;
+  display: flex; flex-direction: column; align-items: center;
+  z-index: 2; position: relative;
+  box-shadow: 0 2px 12px #0006;
+  border: 1.8px solid #282e39;
+  pointer-events: auto;
+}
+.seat-block .player-info {
+  font-size: 1.15em;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 1px 0;
+  text-align: center;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 8px #000c;
+}
+.seat-block .player-stack {
+  font-size: 1.13em; color: #a2f9a2; font-weight: 700;
+  background: none; padding: 0; margin: 0; text-align: center;
+  text-shadow: 0 1px 7px #222c;
+}
+
+.cards {
+  display: flex; gap: 0;
+  margin-bottom: 2px; margin-top: 0;
+  z-index: 15;
+  pointer-events: auto;
+}
+.card {
+  width: 52px; height: 76px;
+  background: #fff;
+  border: 1.5px solid #bfcad7;
+  border-radius: 10px;
+  box-shadow: 0 3px 14px #0003;
+  font-family: 'Inter', Arial, sans-serif;
+  position: relative; overflow: hidden;
+  margin-left: -16px;
+  z-index: 2;
+  display: flex; flex-direction: column; justify-content: space-between;
+  pointer-events: auto;
+}
+.card:first-child { margin-left: 0; }
+.card .rank {
+  position: absolute; top: 9px; left: 11px;
+  font-size: 1.17em; font-weight: 800; color: #222;
+  z-index: 2; letter-spacing: 0.01em;
+}
+.card .suit {
+  position: absolute; bottom: 9px; right: 13px;
+  font-size: 1.25em; opacity: 0.85; z-index: 2;
+}
+.card.red .rank,
+.card.red .suit { color: #f34b4b; }
+.card.back {
+  background: #223233;
+  border: 1.5px solid #3cf0fd;
+  position: relative;
+}
+.card.back .pattern {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: url('data:image/svg+xml;utf8,<svg width="52" height="76" xmlns="http://www.w3.org/2000/svg"><rect width="52" height="76" rx="8" fill="%23223233"/><g stroke="%234dcaff" stroke-width="1.6"><ellipse cx="26" cy="38" rx="17" ry="22" fill="none"/><ellipse cx="26" cy="38" rx="6" ry="15" fill="none"/><rect x="20" y="28" width="12" height="20" rx="3" fill="none" stroke="%239cf8ff" stroke-width="1.3"/></g></svg>');
+  opacity: 0.16;
+  display: block;
+}
+
+.dealer-chip {
+  position: absolute;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+  color: #222;
+  border: 3px solid #ffd800;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 1.13em;
+  box-shadow: 0 2px 10px #fff6, 0 3px 18px #222a;
+  pointer-events: none;
+  z-index: 25;
+  transition: left 0.36s cubic-bezier(.57,1.49,.28,1.09), top 0.36s cubic-bezier(.57,1.49,.28,1.09);
+}
+
+#community-cards {
+  position: absolute;
+  top: 44%; left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; gap: 18px;
+  z-index: 40;
+}
+#community-cards .card {
+  opacity: 0;
+  transform: scale(0.95) translateY(4px);
+  transition: opacity 0.26s, transform 0.3s cubic-bezier(.18,.51,.51,1.2);
+}
+#community-cards .card.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+#pot-on-table {
+  position: absolute;
+  left: 50%;
+  top: 26%;    /* чуть выше центра стола */
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #23282cd7;
+  color: #fff;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 40px;
+  font-size: 0.6em;
+  z-index: 41;
+  box-shadow: 0 2px 12px #0005;
+  border: none;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 5px #0008;
+  width: max-content;
+}
+.pot-chip {
+  width: 22px; height: 22px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.pot-amount {
+  font-size: 1.06em;
+  font-weight: 900;
+}
+
+.table-logo-watermark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 185px;
+  height: 110px;
+  opacity: 0.15;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 190'><g transform='translate(50,70) rotate(-8) translate(-50,-70)'><rect x='0' y='0' width='100' height='140' rx='8' fill='%23FFFFFF'/><text x='10' y='28' fill='%23FFFFFF' font-size='28' font-family='Arial' font-weight='bold'>T</text></g><g transform='translate(90,80) rotate(8) translate(-90,-80)'><rect x='40' y='10' width='100' height='140' rx='8' fill='%23FFFFFF'/><text x='50' y='38' fill='%23FFFFFF' font-size='28' font-family='Arial' font-weight='bold'>P</text><path d='M90,122 L65,52 L115,52 Z' fill='%23FFFFFF'/></g></svg>") center center no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  filter: grayscale(1) brightness(1.35);
+}
+.table-logo-text {
+  position: fixed;
+  bottom: 5%;
+  width: 100%;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+/* Блок кнопок действий игрока */
+#actions {
+  position: absolute;
+  display: flex;
+  flex-direction: row;
+  gap: 17px;
+  background: none;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+  z-index: 99;
+  min-width: 240px;
+  animation: fadeInBtns 0.18s;
+}
+@keyframes fadeInBtns {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.poker-action-btn {
+  background: linear-gradient(180deg, #232833 70%, #101217 100%);
+  color: #fff;
+  font-weight: 800;
+  border: 2.6px solid #45caff;
+  border-radius: 18px;
+  box-shadow: 0 2px 14px #0116;
+  margin: 0 10px 0 0;
+  padding: 13px 38px;
+  font-size: 1.19em;
+  letter-spacing: 0.09em;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.14s, border-color 0.18s, box-shadow 0.16s;
+}
+.poker-action-btn:last-child { margin-right: 0; }
+.poker-action-btn:hover {
+  background: #2cc4fa;
+  border-color: #b8ffe0;
+  box-shadow: 0 0 14px #5ad4fca4;
+}
+.poker-action-fold { border-color: #e74a6e; color: #ffb3c2; }
+.poker-action-raise { border-color: #78fcaf; color: #bfffcf; }
+.poker-action-bet   { border-color: #ffe05a; color: #fffbdf; }
