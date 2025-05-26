@@ -156,11 +156,10 @@ function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
   const actionsBlock = document.getElementById('actions');
-
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Борд
+  // Board (community cards)
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -172,23 +171,32 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Ты всегда place=0 (снизу), остальные по кругу
+  // Главный момент: ты всегда place==0!
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const N = players.length;
+
+  // ВСЕГДА сравнивай как строку!
   const myIdx = players.findIndex(p => String(p.user_id) === String(userId));
+  if (myIdx === -1) {
+    // Фатальная ошибка — такого игрока нет в массиве
+    console.error('userId не найден среди игроков:', userId, players.map(p => p.user_id));
+    return;
+  }
+
   const seatsRect = seatsContainer.getBoundingClientRect();
   const tableEl = document.getElementById('poker-table');
   const tableRect = tableEl.getBoundingClientRect();
-  // Эллипс: чуть шире и выше, чтобы seats были всегда за столом
   const centerX = seatsRect.width / 2;
   const centerY = seatsRect.height / 2;
-  const RADIUS_X = tableRect.width * 0.58;  // можно подогнать под свой вкус
-  const RADIUS_Y = tableRect.height * 0.43;
+  // Чуть больше — чтобы не заезжать на стол (оптимально для "8"-образного овала)
+  const RADIUS_X = tableRect.width * 0.51;
+  const RADIUS_Y = tableRect.height * 0.45;
 
   let mySeatRect = null;
 
   players.forEach((p, i) => {
+    // place=0 — ТЫ, всегда снизу (угол -90)
     const place = (i - myIdx + N) % N;
     const angle = ((360 / N) * place - 90) * (Math.PI / 180);
     const x = centerX + RADIUS_X * Math.cos(angle);
@@ -198,12 +206,11 @@ function renderTable(state) {
     seat.className = 'seat';
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
     if (state.current_player === p.user_id) seat.classList.add('active');
-    seat.style.position = "absolute";
     seat.style.left = `${x}px`;
     seat.style.top = `${y}px`;
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // Карты
+    // --- Карты ---
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -222,7 +229,7 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // Имя и стек
+    // --- Имя и стек ---
     const block = document.createElement('div');
     block.className = 'seat-block';
     const infoEl = document.createElement('div');
@@ -246,13 +253,14 @@ function renderTable(state) {
     const containerRect = seatsContainer.getBoundingClientRect();
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
-    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 18) + "px";
+    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 14) + "px";
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 50;
     actionsBlock.style.display = "flex";
     seatsContainer.appendChild(actionsBlock);
   }
 }
+
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
