@@ -32,31 +32,34 @@ header h1 {
   line-height: 1;
   letter-spacing: 0.02em;
 }
+
 #game-info #poker-table-wrapper {
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
   width: 78vw; height: 44vw;
-  max-width: 780px; max-height: 420px;
+  max-width: 820px; max-height: 430px;
   min-width: 320px; min-height: 180px;
   display: flex; align-items: center; justify-content: center;
   z-index: 1;
 }
+
 #game-info #poker-table {
-  width: 88%; height: 93%;
-  margin: auto;
-  background: radial-gradient(ellipse at 50% 60%, #34493e 0%, #263a33 90%, #1a2125 100%);
-  border-radius: 54% / 44%;
-  box-shadow: 0 0 18px 3px #222b2b18;
-  border: 1.2px solid #23292d;
+  width: 99%; height: 99%;
+  background: radial-gradient(ellipse at 50% 60%, #4b7261 0%, #2c4638 90%, #1b2421 100%);
+  border-radius: 49% 49% 49% 49% / 42% 42% 57% 57%;
+  /* magic to make shape like "8", tune these numbers for ideal look */
+  box-shadow: 0 0 36px 5px #222b2b20;
+  border: 3.5px solid #445851;
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
 }
+
 #game-info #community-cards {
-  position: absolute; top: 45%; left: 50%;
+  position: absolute; top: 44.5%; left: 50%;
   transform: translate(-50%, -50%);
-  display: flex; gap: 8px; z-index: 10;
+  display: flex; gap: 12px; z-index: 10;
 }
 #game-info #community-cards .card {
   opacity: 0;
@@ -67,27 +70,30 @@ header h1 {
   opacity: 1;
   transform: scale(1) translateY(0);
 }
+
 #game-info #pot {
-  position: absolute; top: 54%; left: 50%;
+  position: absolute; top: 55.5%; left: 50%;
   transform: translate(-50%, -50%);
   background: #23282ce0;
   color: #fff;
   font-weight: 600;
-  padding: 7px 20px;
-  border-radius: 7px;
-  font-size: 1.11em;
+  padding: 10px 26px;
+  border-radius: 13px;
+  font-size: 1.18em;
   z-index: 12;
-  box-shadow: 0 2px 6px #0003;
+  box-shadow: 0 2px 12px #0003;
   border: none;
   letter-spacing: 0.01em;
 }
+
 #game-info #seats {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   pointer-events: none; z-index: 16;
 }
+
 #game-info .seat {
   position: absolute;
-  width: 88px;
+  width: 98px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -95,142 +101,92 @@ header h1 {
   background: none;
   box-shadow: none;
   border: none;
+  transition: filter 0.15s;
 }
+#game-info .seat.active {
+  filter: drop-shadow(0 0 16px #2ee7ff78);
+}
+
 #game-info .cards {
   display: flex; gap: 0;
   margin-bottom: 0; margin-top: 0;
   z-index: 5;
 }
 #game-info .card {
-  width: 44px; height: 62px;
+  width: 48px; height: 68px;
   background: #fff;
-  border: 1px solid #dedede;
-  border-radius: 7px;
-  box-shadow: 0 2px 8px #0002;
+  border: 1.3px solid #bfcad7;
+  border-radius: 11px;
+  box-shadow: 0 3px 14px #0003;
   font-family: 'Inter', Arial, sans-serif;
   position: relative; overflow: hidden;
-  margin-left: -12px;
+  margin-left: -15px;
   z-index: 2;
   display: flex; flex-direction: column; justify-content: space-between;
 }
 #game-info .card:first-child { margin-left: 0; }
 #game-info .card .rank {
-  position: absolute; top: 6px; left: 8px;
-  font-size: 1em; font-weight: 700; color: #23262a;
+  position: absolute; top: 8px; left: 10px;
+  font-size: 1.14em; font-weight: 700; color: #23262a;
   z-index: 2; letter-spacing: 0.01em;
 }
 #game-info .card .suit {
-  position: absolute; bottom: 7px; right: 8px;
-  font-size: 1.13em; opacity: 0.86; z-index: 2;
+  position: absolute; bottom: 9px; right: 11px;
+  font-size: 1.18em; opacity: 0.86; z-index: 2;
 }
 #game-info .card.red .rank,
-#game-info .card.red .suit { color: #d24444; }
+#game-info .card.red .suit { color: #e14040; }
+
 .seat:not(.my-seat) .card.back {
-  width: 36px; height: 52px;
-  margin-left: -8px !important; margin-top: 5px;
-  border-radius: 7px;
-  box-shadow: none; border: 1px solid #c5c9cc;
+  width: 41px; height: 58px;
+  margin-left: -9px !important; margin-top: 6px;
+  border-radius: 9px;
+  box-shadow: none; border: 1.2px solid #6ec7dd;
 }
 #game-info .card.back {
-  background: #233;
+  background: #193a3a;
   position: relative;
 }
 #game-info .card.back .pattern {
   width: 100%;
   height: 100%;
   border-radius: 7px;
-  background: url('data:image/svg+xml;utf8,<svg width="36" height="52" xmlns="http://www.w3.org/2000/svg"><rect width="36" height="52" rx="7" fill="%23233"/><g stroke="%234dcaff" stroke-width="1.2"><ellipse cx="18" cy="26" rx="10" ry="13" fill="none"/><ellipse cx="18" cy="26" rx="4" ry="8" fill="none"/><rect x="14" y="18" width="8" height="16" rx="2" fill="none" stroke="%239cf8ff" stroke-width="1"/></g></svg>');
-  opacity: 0.16;
+  background: url('data:image/svg+xml;utf8,<svg width="36" height="52" xmlns="http://www.w3.org/2000/svg"><rect width="36" height="52" rx="7" fill="%23193a3a"/><g stroke="%234dcaff" stroke-width="1.2"><ellipse cx="18" cy="26" rx="10" ry="13" fill="none"/><ellipse cx="18" cy="26" rx="4" ry="8" fill="none"/><rect x="14" y="18" width="8" height="16" rx="2" fill="none" stroke="%239cf8ff" stroke-width="1"/></g></svg>');
+  opacity: 0.20;
   display: block;
 }
+
 .seat-block {
-  background: #23272d;
-  border-radius: 8px;
-  margin-top: -8px;
-  padding: 8px 9px 7px 9px;
-  min-width: 62px; width: 76px; max-width: 110px;
+  background: #23313b;
+  border-radius: 9px;
+  margin-top: -10px;
+  padding: 10px 10px 8px 10px;
+  min-width: 65px; width: 84px; max-width: 110px;
   display: flex; flex-direction: column; align-items: center;
-  z-index: 2; position: relative; box-shadow: 0 1px 6px #0002;
+  z-index: 2; position: relative; box-shadow: 0 2px 10px #0015;
   border: none;
 }
 .seat-block .player-info {
-  font-size: 0.97em; color: #f1f1f6; font-weight: 700;
-  line-height: 1.09; margin: 0 0 2px 0; text-align: center;
+  font-size: 1.09em; color: #f1f1f6; font-weight: 800;
+  line-height: 1.11; margin: 0 0 2px 0; text-align: center;
+  letter-spacing: 0.04em;
 }
 .seat-block .player-stack {
-  font-size: 0.91em; color: #e0e3e8; font-weight: 600;
+  font-size: 1em; color: #aaf9b3; font-weight: 700;
   background: none; padding: 0; margin: 0; text-align: center;
 }
-.seat.active .seat-block {
-  background: #25333b;
-}
-.progress-ring {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  pointer-events: none;
-}
-.progress-ring__circle {
-  stroke: #ececec;
-  stroke-width: 2.2;
-  filter: none;
-  opacity: 0.86;
-}
-.player-badge {
-  position: absolute;
-  left: 50%; bottom: 107%;
-  transform: translate(-50%, 0);
-  padding: 2.5px 10px;
-  background: #232d37;
-  color: #7cd6f6;
-  border-radius: 7px;
-  font-size: 0.91em;
-  font-weight: 700;
-  border: 1px solid #8bd4ff;
-  z-index: 16;
-  opacity: 0.93;
-}
-.badge-win  { background: #eafcff; color: #36ad8e; border-color: #36ad8e; }
-.badge-allin { background: #f8d5d5; color: #ff596d; border-color: #ff4f70; }
-.dealer-chip {
-  position: absolute; left: -14px; top: 10px;
-  width: 16px; height: 16px;
-  background: #fff; border: 1.1px solid #bbb; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 0.88em; color: #444;
-  box-shadow: 0 1px 3px #0002;
-  z-index: 19; pointer-events: none;
-  transition: left 0.3s, top 0.3s;
-}
-.player-action {
-  position: absolute; left: 50%; top: -25px;
-  transform: translateX(-50%);
-  background: #24262aeb; color: #fff;
-  border-radius: 7px; padding: 2px 9px;
-  font-weight: 600; font-size: 0.89em;
-  box-shadow: 0 1px 6px #0002;
-  opacity: 1; pointer-events: none;
-  transition: opacity 0.6s; z-index: 29;
-  border: none;
-}
-.player-action.fadeout { opacity: 0; }
-.player-action.check   { background: #23262aeb; color: #bfc1c4;}
-.player-action.fold    { background: #252126eb; color: #f1a0a0;}
-.player-action.call    { background: #23282ceb; color: #69cdf5;}
-.player-action.bet,
-.player-action.raise   { background: #232c23eb; color: #6efdab; }
+
 #actions {
-   position: absolute;
+  position: absolute;
   display: flex;
   flex-direction: row;
-  gap: 12px;
+  gap: 14px;
   background: none;
   justify-content: center;
   align-items: center;
   pointer-events: auto;
   z-index: 50;
-  min-width: 140px;
+  min-width: 160px;
   animation: fadeInBtns 0.18s;
 }
 @keyframes fadeInBtns {
@@ -240,32 +196,30 @@ header h1 {
 #actions button, .poker-action-btn {
   background: linear-gradient(180deg, #232833 60%, #101217 100%);
   color: #fff;
-  font-weight: 800;
-  border: 2px solid #4cb8ff;
-  border-radius: 17px;
-  box-shadow: 0 2px 16px #02182e1a;
-  margin: 0 6px 0 0;
-  padding: 10px 28px 10px 28px;
-  font-size: 1.18em;
-  letter-spacing: 0.05em;
+  font-weight: 900;
+  border: 2.3px solid #50b9e6;
+  border-radius: 19px;
+  box-shadow: 0 2px 16px #02182e29;
+  margin: 0 7px 0 0;
+  padding: 12px 34px 12px 34px;
+  font-size: 1.23em;
+  letter-spacing: 0.07em;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   outline: none;
 }
-#actions button:last-child {
- margin-right: 0;
-}
-
+#actions button:last-child { margin-right: 0; }
 #actions button:hover, .poker-action-btn:hover {
   background: #2995ec;
   color: #fff;
   border-color: #aef2fa;
   box-shadow: 0 0 8px #6ec4fa8c;
 }
+
 @media (max-width: 700px), (max-height: 480px) {
   #game-info #poker-table-wrapper { width: 99vw; height: 68vw; max-width: 99vw; max-height: 68vw; }
-  #game-info .seat { width: 56px; }
-  .seat-block { width: 38px; padding: 3px 2px 2px 2px; }
-  #game-info .card { width: 25px; height: 33px; margin-left: -5px; }
-  .seat:not(.my-seat) .card.back { width: 18px; height: 23px; }
+  #game-info .seat { width: 62px; }
+  .seat-block { width: 39px; padding: 5px 3px 3px 3px; }
+  #game-info .card { width: 26px; height: 35px; margin-left: -6px; }
+  .seat:not(.my-seat) .card.back { width: 16px; height: 22px; }
 }
