@@ -1,43 +1,34 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crypto Poker — Стол</title>
-  <!-- Подключаем оба CSS: общий и стили стола -->
-  <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/table.css" />
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/table.css">
 </head>
 <body>
   <header>
     <h1>Стол <span id="table-id"></span></h1>
   </header>
 
-  <!-- Блок информации и самого стола -->
-  <div id="game-info">  <!-- можно обернуть для совместимости со старыми стилями -->
+  <div id="game-info">
     <div id="status"></div>
     <div id="current-bet"></div>
 
-    <div id="poker-table-container">
-      <!-- фон и стол -->
-      <div id="background-grid"></div>
-      <div id="table-ui">
-        <div id="poker-table-border"></div>
-        <canvas id="table-gloss" width="980" height="540"></canvas>
-
-        <div id="seats"></div>              <!-- контейнер мест игроков -->
-        <div id="poker-table">
-          <div class="table-logo-text">CRYPTO POKER</div>
-          <div class="table-logo-watermark"></div>
-          <div id="community-cards"></div>  <!-- общие карты -->
-          <div id="pot-on-table">
-            <!-- ... SVG фишки ... -->
-            <span class="pot-amount"><b></b></span>
-          </div>
-        </div>
-        <div id="actions"></div>           <!-- действия игрока -->
-        <button id="leave-btn">Покинуть стол</button>
+    <div id="poker-table-wrapper">
+      <div id="poker-table">
+        <div id="community-cards"></div>
+        <div id="pot">Пот: <span id="pot-amount"></span></div>
+        <div id="seats"></div>
       </div>
     </div>
+
+    <div id="actions"></div>
+  </div>
+
+  <div style="text-align:center; margin:20px;">
+    <button id="leave-btn">Покинуть стол</button>
   </div>
 
   <script type="module" src="/js/ui_game.js"></script>
