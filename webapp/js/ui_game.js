@@ -148,47 +148,25 @@ function updateUI(state) {
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
-  const communityContainer = document.getElementById('community-cards');
+  const pokerTableWrapper = document.getElementById('poker-table-wrapper');
   const actionsBlock = document.getElementById('actions');
-
   seatsContainer.innerHTML = '';
-  communityContainer.innerHTML = '';
 
-  // Борд (community cards)
-  (state.community || []).forEach((card, idx) => {
-    const cEl = document.createElement('div');
-    cEl.className = 'card';
-    const rank = card.slice(0, -1);
-    const suit = card.slice(-1);
-    cEl.innerHTML = `<span class="rank">${rank}</span><span class="suit">${suit}</span>`;
-    if (suit === '♥' || suit === '♦') cEl.classList.add('red');
-    communityContainer.appendChild(cEl);
-    setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
-  });
-
-  // Игроки: ты всегда снизу (place==0), остальные по кругу, дилер-chip ок
+  // Карты борда, пот и т.д. — не трогаем, только посадка
   const players = state.players || [];
-  const holeMap = state.hole_cards || {};
   const N = players.length;
-
   const myIdx = players.findIndex(p => String(p.user_id) === String(userId));
-  if (myIdx === -1) {
-    console.error('userId не найден среди игроков:', userId, players.map(p => p.user_id));
-    return;
-  }
+  if (myIdx === -1) return;
 
-  const seatsRect = seatsContainer.getBoundingClientRect();
-  const tableEl = document.getElementById('poker-table');
-  const tableRect = tableEl.getBoundingClientRect();
-  const centerX = seatsRect.width / 2;
-  const centerY = seatsRect.height / 2;
-  const RADIUS_X = tableRect.width * 0.51;
-  const RADIUS_Y = tableRect.height * 0.45;
+  // ВСЁ позиционируем относительно #poker-table-wrapper, не таблицы!
+  const rect = pokerTableWrapper.getBoundingClientRect();
+  const centerX = rect.width / 2;
+  const centerY = rect.height / 2;
+  // Эллипс — еще шире и выше, чтобы сидели за столом!
+  const RADIUS_X = rect.width * 0.45;
+  const RADIUS_Y = rect.height * 0.41;
 
   let mySeatRect = null;
-  let dealerChipSeat = null;
-
-  // Кнопка дилера — один на всех!
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -200,7 +178,6 @@ function renderTable(state) {
   dealerChipEl.style.display = 'none';
 
   players.forEach((p, i) => {
-    // place=0 — ты всегда снизу!
     const place = (i - myIdx + N) % N;
     const angle = ((360 / N) * place - 90) * (Math.PI / 180);
     const x = centerX + RADIUS_X * Math.cos(angle);
@@ -246,31 +223,26 @@ function renderTable(state) {
     block.appendChild(stackEl);
     seat.appendChild(block);
 
-    // Кнопка дилера — строго рядом с seat
+    // Если нужен dealer chip
     if (state.dealer_index !== undefined && state.dealer_index === i) {
-      dealerChipSeat = seat;
       setTimeout(() => {
-        const chipRect = seat.getBoundingClientRect();
-        const parentRect = seatsContainer.getBoundingClientRect();
-        dealerChipEl.style.left = (chipRect.left - parentRect.left + 68) + "px";
-        dealerChipEl.style.top = (chipRect.top - parentRect.top - 18) + "px";
+        dealerChipEl.style.left = (x + 36) + 'px';
+        dealerChipEl.style.top = (y - 36) + 'px';
         dealerChipEl.style.display = 'flex';
-        dealerChipEl.style.zIndex = 100;
       }, 0);
     }
-
     if (String(p.user_id) === String(userId)) {
       mySeatRect = seat.getBoundingClientRect();
     }
     seatsContainer.appendChild(seat);
   });
 
-  // Кнопки строго под твоим seat
+  // Кнопки строго под своим seat
   if (actionsBlock && mySeatRect) {
     const containerRect = seatsContainer.getBoundingClientRect();
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
-    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 14) + "px";
+    actionsBlock.style.top = (mySeatRect.bottom - containerRect.top + 10) + "px";
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 99;
     actionsBlock.style.display = "flex";
