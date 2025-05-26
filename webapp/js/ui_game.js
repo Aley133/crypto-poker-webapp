@@ -181,7 +181,7 @@ function renderTable(state) {
   const wrapperRect = tableEl.getBoundingClientRect();
   const centerX = wrapperRect.width / 2;
   const centerY = wrapperRect.height / 2;
-  const RADIUS_X = wrapperRect.width * 0.36;  // Можно чуть уменьшить если нужно плотнее к центру
+  const RADIUS_X = wrapperRect.width * 0.36;
   const RADIUS_Y = wrapperRect.height * 0.29;
 
   // Dealer chip (один на всех)
@@ -202,12 +202,13 @@ function renderTable(state) {
   }
 
   // В цикле рендерим все seats
-  let mySeatRect = null; // Для вычисления позиции кнопок
+  let mySeatRect = null;
 
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
+    if (state.current_player === p.user_id) seat.classList.add('active');
 
     // --- Круговое позиционирование (по эллипсу) ---
     const place = (i - userIndex + N) % N;
@@ -279,7 +280,6 @@ function renderTable(state) {
 
     // --- Это твой seat — сохраним его координаты для экшен-кнопок
     if (String(p.user_id) === String(userId)) {
-      // Сохраняем DOMRect для своего seat
       mySeatRect = seat.getBoundingClientRect();
     }
 
@@ -288,7 +288,6 @@ function renderTable(state) {
 
   // === ВСТАВЛЯЕМ КНОПКИ только один раз и только под своими картами ===
   if (actionsBlock && mySeatRect) {
-    // Позиционируем блок кнопок по координатам своего seat
     const containerRect = seatsContainer.getBoundingClientRect();
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = (mySeatRect.left - containerRect.left + mySeatRect.width / 2) + "px";
