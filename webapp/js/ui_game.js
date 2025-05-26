@@ -154,11 +154,9 @@ function polarToCartesian(cx, cy, r, deg) {
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
-  const pokerTable = document.getElementById('poker-table');
-  const actionsBlock = document.getElementById('actions');
   seatsContainer.innerHTML = '';
 
-  // Общие карты (флоп, терн, ривер)
+  // Общие карты
   const communityContainer = document.getElementById('community-cards');
   communityContainer.innerHTML = '';
   (state.community || []).forEach((card, idx) => {
@@ -172,14 +170,9 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Ключевые точки (проценты по эллипсу, 6-max стиль)
+  // Эллиптическое размещение игроков
   const seatPercents = [
-    [50, 96],    // Ты (снизу)
-    [96, 50],    // Справа
-    [81, 17],    // Верх-право
-    [50, 5],     // Верх-центр
-    [19, 17],    // Верх-лево
-    [4, 50],     // Слева
+    [50, 96], [96, 50], [81, 17], [50, 5], [19, 17], [4, 50],
   ];
   function getSeatPositions(N) {
     if (N === 2) return [seatPercents[0], seatPercents[3]];
@@ -190,11 +183,11 @@ function renderTable(state) {
   }
 
   const N = state.players.length;
-  const myUserId = state.user_id;
-  const myIdx = state.players.findIndex(p => p.user_id === myUserId);
+  const myUserId = String(state.user_id);
+  const myIdx = state.players.findIndex(p => String(p.user_id) === myUserId);
   const positions = getSeatPositions(N);
 
-  // Дилер чип (создаём один раз)
+  // Дилер чип
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -205,9 +198,8 @@ function renderTable(state) {
   }
   dealerChipEl.style.display = 'none';
 
-  // Рендерим игроков вокруг стола
+  // Рендер игроков
   state.players.forEach((p, i) => {
-    // place=0 — всегда твой seat снизу
     const place = (i - myIdx + N) % N;
     const [px, py] = positions[place];
     const seat = document.createElement('div');
@@ -215,7 +207,8 @@ function renderTable(state) {
     seat.dataset.uid = p.user_id;
 
     if (i === myIdx) seat.classList.add('my-seat');
-    if (state.current_player === String(i) || state.current_player === p.user_id) seat.classList.add('active');
+    if (String(state.current_player) === String(i) || String(state.current_player) === String(p.user_id))
+      seat.classList.add('active');
 
     seat.style.position = 'absolute';
     seat.style.left = px + '%';
@@ -234,11 +227,19 @@ function renderTable(state) {
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
 
+    // ----
+    // ВАЖНО: свои карты — полностью, чужие — рубашкой (кроме шоудауна)
     let playerCards = state.hole_cards[p.user_id] || [];
-    // Если не ты — рисуй всегда рубашку!
-    if (p.user_id !== myUserId) {
+    // Открытые карты для всех — только если phase === 'result' и они в revealed_hands
+    const isShowdown = state.phase === 'result' && state.revealed_hands && state.revealed_hands[p.user_id];
+    if (String(p.user_id) === myUserId || isShowdown) {
+      // Показать настоящие карты
+      if (isShowdown) playerCards = state.revealed_hands[p.user_id] || playerCards;
+    } else {
+      // Не свои карты — только рубашка
       playerCards = playerCards.map(_ => '??');
     }
+    // ----
 
     playerCards.forEach(c => {
       const cd = document.createElement('div');
@@ -271,8 +272,8 @@ function renderTable(state) {
 
     // Дилерская фишка
     if (
-      state.dealer_index === i ||
-      state.dealer_index === p.user_id
+      String(state.dealer_index) === String(i) ||
+      String(state.dealer_index) === String(p.user_id)
     ) {
       setTimeout(() => {
         dealerChipEl.style.left = `calc(${px}% + 28px)`;
@@ -285,16 +286,17 @@ function renderTable(state) {
   });
 
   // Кнопки под своим seat — просто стилизуем!
+  const actionsBlock = document.getElementById('actions');
   if (actionsBlock && positions[0]) {
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = positions[0][0] + '%';
     actionsBlock.style.top = (positions[0][1] + 12) + '%';
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 999;
-    actionsBlock.style.display = "flex";
-    // Не делай seatsContainer.appendChild(actionsBlock);
+    // Важно: не добавляй actionsBlock в seatsContainer!
   }
 }
+
 
 
 // Инициализация WebSocket
