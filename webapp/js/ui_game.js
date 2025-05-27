@@ -152,7 +152,6 @@ function polarToCartesian(cx, cy, r, deg) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-// Ключевые позиции для рассадки по кругу (6-max)
 const seatPercents = [
   [50, 96],    // Внизу (ты)
   [96, 50],    // Справа
@@ -161,7 +160,6 @@ const seatPercents = [
   [19, 17],    // Верх-лево
   [4, 50],     // Слева
 ];
-
 function getSeatPositions(N) {
   if (N === 2) return [seatPercents[0], seatPercents[3]];
   if (N === 3) return [seatPercents[0], seatPercents[2], seatPercents[4]];
@@ -173,11 +171,12 @@ function getSeatPositions(N) {
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
+  const actionsBlock = document.getElementById('actions');
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
   // 1) Общие карты (флоп, терн, ривер)
-  (state.community || []).forEach(card => {
+  (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
     const rank = card.slice(0, -1);
@@ -186,23 +185,33 @@ function renderTable(state) {
       <span class="rank">${rank}</span>
       <span class="suit">${suit}</span>
     `;
-    if (suit === '♥' || suit === '♦') {
-      cEl.classList.add('red');
-    }
+    if (suit === '♥' || suit === '♦') cEl.classList.add('red');
     communityContainer.appendChild(cEl);
+    setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // 2) Игроки по кругу, ты — всегда внизу!
+  // 2) Игроки по кругу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
   const N = players.length;
   const positions = getSeatPositions(N);
 
+  // --- Дилер чип ---
+  let dealerChipEl = document.getElementById('dealer-chip-main');
+  if (!dealerChipEl) {
+    dealerChipEl = document.createElement('div');
+    dealerChipEl.className = 'dealer-chip';
+    dealerChipEl.id = 'dealer-chip-main';
+    dealerChipEl.textContent = 'D';
+    seatsContainer.appendChild(dealerChipEl);
+  }
+  dealerChipEl.style.display = 'none'; // по умолчанию скрываем
+
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    // ВЫЧИСЛЯЕМ место: ты всегда внизу, остальные по часовой
+    // Определяем позицию по кругу
     const relIndex = (i - userIndex + N) % N;
     const [px, py] = positions[relIndex];
     seat.style.position = 'absolute';
@@ -210,7 +219,20 @@ function renderTable(state) {
     seat.style.top = py + '%';
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // Карты
+    // Выделяем твой seat
+    if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
+    // Подсвечиваем, если у игрока ход
+    if (String(state.current_player) === String(p.user_id)) seat.classList.add('active');
+
+    // --- Аватар (если есть) ---
+    if (p.avatar) {
+      const avatarEl = document.createElement('div');
+      avatarEl.className = 'avatar';
+      avatarEl.style.backgroundImage = `url('${p.avatar}')`;
+      seat.appendChild(avatarEl);
+    }
+
+    // --- Карты ---
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -228,20 +250,43 @@ function renderTable(state) {
     });
     seat.appendChild(cardsEl);
 
-    // Имя
+    // --- Имя и стек ---
+    const block = document.createElement('div');
+    block.className = 'seat-block';
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
-    seat.appendChild(infoEl);
+    block.appendChild(infoEl);
 
-    // Стек
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
-    seat.appendChild(stackEl);
+    block.appendChild(stackEl);
+
+    seat.appendChild(block);
 
     seatsContainer.appendChild(seat);
+
+    // --- Дилер чип позиционирование ---
+    if (typeof state.dealer_index !== 'undefined' && Number(state.dealer_index) === i) {
+      setTimeout(() => {
+        dealerChipEl.style.left = `calc(${px}% + 28px)`;  // 28px смещаем от центра seat вправо
+        dealerChipEl.style.top = `calc(${py}% - 26px)`;   // 26px вверх от seat (можешь подправить)
+        dealerChipEl.style.display = 'flex';
+      }, 0);
+    }
   });
+
+  // --- Кнопки строго под твоим seat (позиция 0) ---
+  if (actionsBlock && players.length > 0) {
+    actionsBlock.style.position = "absolute";
+    actionsBlock.style.left = positions[0][0] + '%';
+    actionsBlock.style.top = (positions[0][1] + 12) + '%'; // 12% ниже seat, меняй под стиль!
+    actionsBlock.style.transform = "translate(-50%, 0)";
+    actionsBlock.style.zIndex = 999;
+    actionsBlock.style.display = "flex";
+    seatsContainer.appendChild(actionsBlock);
+  }
 }
 
 // Инициализация WebSocket
