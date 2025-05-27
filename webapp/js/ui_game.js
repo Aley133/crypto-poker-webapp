@@ -152,23 +152,39 @@ function polarToCartesian(cx, cy, r, deg) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
+// Ключевые позиции для рассадки по кругу (6-max)
+const seatPercents = [
+  [50, 96],    // Внизу (ты)
+  [96, 50],    // Справа
+  [81, 17],    // Верх-право
+  [50, 5],     // Верх-центр
+  [19, 17],    // Верх-лево
+  [4, 50],     // Слева
+];
+
+function getSeatPositions(N) {
+  if (N === 2) return [seatPercents[0], seatPercents[3]];
+  if (N === 3) return [seatPercents[0], seatPercents[2], seatPercents[4]];
+  if (N === 4) return [seatPercents[0], seatPercents[1], seatPercents[3], seatPercents[5]];
+  if (N === 5) return [seatPercents[0], seatPercents[1], seatPercents[2], seatPercents[4], seatPercents[5]];
+  return seatPercents.slice(0, N);
+}
+
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
-
-  // Очищаем предыдущий рендер
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1) Общие карты
+  // 1) Общие карты (флоп, терн, ривер)
   (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
     cEl.innerHTML = `
-      <span class=\"rank\">${rank}</span>
-      <span class=\"suit\">${suit}</span>
+      <span class="rank">${rank}</span>
+      <span class="suit">${suit}</span>
     `;
     if (suit === '♥' || suit === '♦') {
       cEl.classList.add('red');
@@ -176,20 +192,25 @@ function renderTable(state) {
     communityContainer.appendChild(cEl);
   });
 
-  // 2) Игроки вокруг стола
+  // 2) Игроки по кругу, ты — всегда внизу!
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
-
-  seatsContainer.innerHTML = '';
+  const N = players.length;
+  const positions = getSeatPositions(N);
 
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    const relIndex = (i - userIndex + players.length) % players.length;
-    seat.dataset.pos = String(relIndex + 1);
+    // ВЫЧИСЛЯЕМ место: ты всегда внизу, остальные по часовой
+    const relIndex = (i - userIndex + N) % N;
+    const [px, py] = positions[relIndex];
+    seat.style.position = 'absolute';
+    seat.style.left = px + '%';
+    seat.style.top = py + '%';
+    seat.style.transform = 'translate(-50%, -50%)';
 
-    // 2.1) Карты
+    // Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -198,22 +219,22 @@ function renderTable(state) {
       if (String(p.user_id) === String(userId)) {
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
-        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
+        cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
         if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
-        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
+        cd.innerHTML = `<span class="suit">🂠</span>`;
       }
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
 
-    // 2.2) Имя
+    // Имя
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
     seat.appendChild(infoEl);
 
-    // 2.3) Стек
+    // Стек
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
