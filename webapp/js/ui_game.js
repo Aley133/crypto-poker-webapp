@@ -1,23 +1,25 @@
-// ui_game.js: Pixel-perfect адаптив для стола (2-max fix)
+// Poker Table Responsive Layout Fix
 import { createWebSocket } from './ws.js';
 
-// URL параметры
+// --- Params ---
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// DOM элементы
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
 const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
+const borderEl     = document.getElementById('poker-table-border');
+const wrapperEl    = document.getElementById('poker-table-wrapper');
+const seatsEl      = document.getElementById('seats');
 
 let ws;
 
-// Overlay для результата
+// Overlay for results
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -28,46 +30,39 @@ Object.assign(resultOverlayEl.style, {
 });
 document.body.appendChild(resultOverlayEl);
 
-// ======= Утилиты =======
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   }
 }
 
-// Позиционирование сидений для любых N, 2-max — строго сверху/снизу!
 function getSeatAngles(N) {
-  if (N === 2) return [90, 270]; // Первый игрок всегда внизу (90°), второй строго ВВЕРХУ (270°)
+  if (N === 2) return [90, 270];
   if (N === 3) return [90, 210, 330];
   if (N === 4) return [90, 180, 270, 0];
   if (N === 5) return [90, 162, 234, 306, 18];
-  // 6-max и больше (красиво раскиданы)
   let out = [];
   for (let i = 0; i < N; ++i) out.push(90 + (360 / N) * i);
   return out;
 }
 
 function getTableDims() {
-  let vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-  let vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-  let isMobile = vw < 600;
-  let W = isMobile ? vw * 0.93 : Math.min(vw * 0.68, 1100);
-  let H = isMobile ? W * 0.8 : W / 1.38;
-  const wrapper = document.getElementById('poker-table-wrapper');
-  const wrapperRect = wrapper.getBoundingClientRect();
-  const cx = wrapperRect.width / 2;
-  const cy = isMobile ? wrapperRect.height * 0.68 : wrapperRect.height / 2;
-  return { w: W, h: H, cx, cy, rx: W * 0.43, ry: H * 0.38 };
+  // Always use the wrapper as reference
+  const wrapperRect = wrapperEl.getBoundingClientRect();
+  let vw = wrapperRect.width;
+  let vh = wrapperRect.height;
+  // Use a max for table width (responsive but not overflowing)
+  let W = Math.min(vw * 0.84, 900);
+  let H = W / 1.56;
+  let cx = vw / 2;
+  let cy = vh / 2;
+  return { w: W, h: H, cx, cy, rx: W * 0.42, ry: H * 0.41 };
 }
 
-// ======= Рендер =======
 function renderTable(state) {
-  window.currentTableState = state;
-  const seatsContainer = document.getElementById('seats');
-  const communityContainer = document.getElementById('community-cards');
-  const actionsBlock = document.getElementById('actions');
-  seatsContainer.innerHTML = '';
-  communityContainer.innerHTML = '';
+  seatsEl.innerHTML = '';
+  const communityEl = document.getElementById('community-cards');
+  communityEl.innerHTML = '';
 
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
@@ -76,33 +71,37 @@ function renderTable(state) {
     const suit = card.slice(-1);
     cEl.innerHTML = `<span class="rank">${rank}</span><span class="suit">${suit}</span>`;
     if (suit === '♥' || suit === '♦') cEl.classList.add('red');
-    communityContainer.appendChild(cEl);
+    communityEl.appendChild(cEl);
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
+  // Table/border/seats layout
   const { w, h, cx, cy, rx, ry } = getTableDims();
+  // Set table style (relative to wrapper!)
+  pokerTableEl.style.position = 'absolute';
   pokerTableEl.style.width  = w + 'px';
   pokerTableEl.style.height = h + 'px';
-  pokerTableEl.style.left   = `calc(50% - ${w/2}px)`;
-  pokerTableEl.style.top    = `calc(50% - ${h/2}px)`;
-  document.getElementById('poker-table-border').style.width  = (w*1.06) + 'px';
-  document.getElementById('poker-table-border').style.height = (h*1.08) + 'px';
-  document.getElementById('poker-table-border').style.left   = `calc(50% - ${(w*1.06)/2}px)`;
-  document.getElementById('poker-table-border').style.top    = `calc(50% - ${(h*1.08)/2}px)`;
-  seatsContainer.style.width  = w + 'px';
-  seatsContainer.style.height = h + 'px';
-  seatsContainer.style.left   = `calc(50% - ${w/2}px)`;
-  seatsContainer.style.top    = `calc(50% - ${h/2}px)`;
+  pokerTableEl.style.left   = (cx - w/2) + 'px';
+  pokerTableEl.style.top    = (cy - h/2) + 'px';
+  borderEl.style.position = 'absolute';
+  borderEl.style.width  = (w * 1.08) + 'px';
+  borderEl.style.height = (h * 1.10) + 'px';
+  borderEl.style.left   = (cx - w*1.08/2) + 'px';
+  borderEl.style.top    = (cy - h*1.10/2) + 'px';
+  seatsEl.style.position = 'absolute';
+  seatsEl.style.width  = w + 'px';
+  seatsEl.style.height = h + 'px';
+  seatsEl.style.left   = (cx - w/2) + 'px';
+  seatsEl.style.top    = (cy - h/2) + 'px';
 
+  // Player positioning
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
   const N = players.length;
   const angles = getSeatAngles(N);
   const seatOrder = [];
-  for (let i = 0; i < N; ++i) {
-    seatOrder.push(angles[(i - userIndex + N) % N]);
-  }
+  for (let i = 0; i < N; ++i) seatOrder.push(angles[(i - userIndex + N) % N]);
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
@@ -112,6 +111,7 @@ function renderTable(state) {
     seat.style.transform = 'translate(-50%, -50%)';
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
     if (String(state.current_player) === String(p.user_id)) seat.classList.add('active');
+    // --- Карты ---
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -128,6 +128,7 @@ function renderTable(state) {
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
+    // --- Имя и стек ---
     const block = document.createElement('div');
     block.className = 'seat-block';
     const infoEl = document.createElement('div');
@@ -139,17 +140,16 @@ function renderTable(state) {
     stackEl.textContent = state.stacks?.[p.user_id] || 0;
     block.appendChild(stackEl);
     seat.appendChild(block);
-    seatsContainer.appendChild(seat);
+    seatsEl.appendChild(seat);
   });
-
-  // Дилер-чип (по месту дилера)
+  // Dealer chip (по месту дилера)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
     dealerChipEl.className = 'dealer-chip';
     dealerChipEl.id = 'dealer-chip-main';
     dealerChipEl.textContent = 'D';
-    seatsContainer.appendChild(dealerChipEl);
+    seatsEl.appendChild(dealerChipEl);
   }
   dealerChipEl.style.display = 'none';
   players.forEach((p, i) => {
@@ -160,19 +160,23 @@ function renderTable(state) {
       dealerChipEl.style.display = 'flex';
     }
   });
-
-  // Кнопки (под твоим seat)
-  if (actionsBlock && players.length > 0) {
+  // Кнопки действий (под своим seat)
+  if (actionsEl && players.length > 0) {
     const rad = seatOrder[0] * Math.PI / 180;
-    actionsBlock.style.left = (cx + rx * Math.cos(rad)) + 'px';
-    actionsBlock.style.top  = (cy + ry * Math.sin(rad) + 62) + 'px';
-    actionsBlock.style.position = 'absolute';
-    actionsBlock.style.transform = 'translate(-50%, 0)';
-    actionsBlock.style.zIndex = 999;
-    actionsBlock.style.display = 'flex';
-    seatsContainer.appendChild(actionsBlock);
+    actionsEl.style.left = (cx + rx * Math.cos(rad)) + 'px';
+    actionsEl.style.top  = (cy + ry * Math.sin(rad) + 62) + 'px';
+    actionsEl.style.position = 'absolute';
+    actionsEl.style.transform = 'translate(-50%, 0)';
+    actionsEl.style.zIndex = 999;
+    actionsEl.style.display = 'flex';
+    seatsEl.appendChild(actionsEl);
   }
 }
+
+// Остальные функции updateUI, ws init и т.д. оставить как есть
+// (!) Главное — теперь table и border жёстко центрируются в wrapper
+// (!) seats и все игроки будут гарантированно в "орбите" и не вылетят за экран
+
 
 // ======= UI и WS =======
 function updateUI(state) {
@@ -284,10 +288,7 @@ leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
 };
-
-// ======= Pixel-perfect адаптив на resize =======
+// На resize — пересчитать!
 window.addEventListener('resize', () => {
-  if (window.currentTableState) {
-    renderTable(window.currentTableState);
-  }
+  if (window.currentTableState) renderTable(window.currentTableState);
 });
