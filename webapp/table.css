@@ -50,36 +50,37 @@ header {
   overflow: hidden;
 }
 
-/* Корневой контейнер */
-#poker-table-wrapper, .poker-table-wrapper {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  width: 790px;
-  height: 480px;
-  max-width: 92vw;
-  max-height: 84vh;
-  min-width: 320px;
-  min-height: 170px;
-  pointer-events: none;
-  z-index: 2;
+#poker-table-wrapper {
+  position: relative;
+  width: 100vw;  /* или нужная тебе ширина */
+  height: 100vh; /* или нужная тебе высота */
+  min-width: 480px;
+  min-height: 280px;
+  max-width: 98vw;
+  max-height: 98vh;
 }
 
-#poker-table-border {
+#poker-table-border { z-index: 8; pointer-events: none; }
+#poker-table { z-index: 10; }
+
+#poker-table, #seats, #poker-table-border {
   position: absolute;
-  left: 50%; top: 50%;
-  width: 83%; height: 74%;    /* На 5-8% больше чем стол — тонкий ободок */
-  min-width: 410px; min-height: 210px;
-  max-width: 91vw; max-height: 91vh;
+  left: 50%;
+  top: 50%;
+  width: 78%;      /* одинаково для всех! */
+  height: 68%;
+  min-width: 380px;
+  min-height: 180px;
+  max-width: 79vw;
+  max-height: 79vh;
   transform: translate(-50%, -50%);
-  border-radius: 32% 32% 32% 32% / 54% 54% 54% 54%;
-  pointer-events: none;
-  z-index: 11;
-  border: 8px solid rgba(255,255,255,0.05); /* только border! */
-  background: transparent;
-  
-  /* убрали все radial/background, только border и внешний-внутренний glow */
+  z-index: 10;
+  border: 8
+ poker-table: 10
+seats: 15
+
 }
+
 /* Стол */
 #poker-table, .poker-table {
   position: absolute;
