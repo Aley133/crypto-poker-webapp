@@ -1,12 +1,14 @@
+// ui_game.js (Pixel-perfect адаптивный рендер)
+// -------------------------------------------------
 import { createWebSocket } from './ws.js';
 
-// URL parameters
+// 1. Параметры из URL
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// DOM elements
+// 2. DOM элементы
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
@@ -14,9 +16,7 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-let ws;
-
-// Overlay для отображения результата раздачи
+// 3. Overlay для результата
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -27,24 +27,21 @@ Object.assign(resultOverlayEl.style, {
 });
 document.body.appendChild(resultOverlayEl);
 
-// Безопасная отправка WS
+// 4. WebSocket
+let ws;
 function safeSend(payload) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(payload));
-  }
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
 }
 
-// Обновление базовых UI-элементов (статус, кнопки, оверлей)
+// 5. Обновление UI (оверлей/статусы/кнопки)
 function updateUI(state) {
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
-    if (Array.isArray(state.winner)) {
-      msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
-    } else {
-      msg.textContent = `Winner: ${state.usernames[state.winner] || state.winner}`;
-    }
+    msg.textContent = Array.isArray(state.winner)
+      ? `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`
+      : `Winner: ${state.usernames[state.winner] || state.winner}`;
     resultOverlayEl.appendChild(msg);
 
     const handsDiv = document.createElement('div');
@@ -58,10 +55,8 @@ function updateUI(state) {
     if (state.split_pots) {
       const splitDiv = document.createElement('div');
       splitDiv.style.marginTop = '20px';
-      splitDiv.textContent = 'Payouts: ' +
-        Object.entries(state.split_pots)
-          .map(([uid, amt]) => `${state.usernames[uid] || uid}: ${amt}`)
-          .join(', ');
+      splitDiv.textContent = 'Payouts: ' + Object.entries(state.split_pots)
+        .map(([uid, amt]) => `${state.usernames[uid] || uid}: ${amt}`).join(', ');
       resultOverlayEl.appendChild(splitDiv);
     }
 
@@ -73,8 +68,7 @@ function updateUI(state) {
     currentBetEl.style.display    = 'none';
     return;
   }
-
-  // Скрываем оверлей результата
+  // Не результат — обычная игра
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
@@ -99,7 +93,7 @@ function updateUI(state) {
     return;
   }
 
-  // Мой ход: показываем кнопки
+  // Мой ход
   statusEl.textContent     = 'Ваш ход';
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
@@ -147,17 +141,25 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
+// ======= Математика размеров =======
+function getTableDims() {
+  let w = Math.min(window.innerWidth * 0.66, 1080);
+  let h = w / 1.32;
+  const wrapper = document.getElementById('poker-table-wrapper');
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const cx = wrapperRect.width / 2;
+  const cy = wrapperRect.height / 2;
+  return { w, h, cx, cy, rx: w * 0.49, ry: h * 0.49 };
+}
+
 function getSeatAngles(N) {
   if (N === 2) return [90, -90];
   if (N === 3) return [90, 30, -150];
   if (N === 4) return [90, 20, -60, -160];
-  // можно доработать кастомно для красоты
   return [90, 30, -30, -90, -150, 150];
 }
 
-// ======= Рендер стола =======
-const seatAngles = [90, 30, -30, -90, -150, 150];
-
+// ======= Главный рендер =======
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
@@ -165,7 +167,7 @@ function renderTable(state) {
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1. Общие карты (флоп, терн, ривер)
+  // Общие карты (флоп, терн, ривер)
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -180,26 +182,21 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // 2. Получаем размеры контейнера (овального стола)
-  const table = document.getElementById('poker-table');
-  const rect = table.getBoundingClientRect();
-  const cx = rect.width / 2;
-  const cy = rect.height / 2;
-  const rx = rect.width * 0.49;
-  const ry = rect.height * 0.47;
+  // Точные размеры
+  const { cx, cy, rx, ry } = getTableDims();
 
-  // 3. Позиционирование по углам эллипса (6-max)
+  // Расставляем сиденья игроков
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
   const N = players.length;
-  const myPos = userIndex;
+  const angles = getSeatAngles(N);
   const seatOrder = [];
   for (let i = 0; i < N; ++i) {
-    seatOrder.push(seatAngles[(i - myPos + N) % N]);
+    seatOrder.push(angles[(i - userIndex + N) % N]);
   }
 
-  // --- Дилер чип ---
+  // Дилер чип
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -213,15 +210,10 @@ function renderTable(state) {
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-
-    // Получаем координаты по эллипсу для этого seat
-    const angle = seatOrder[i];
-    const pos = seatEllipsePos(angle, cx, cy, rx, ry);
-
-    seat.style.left = pos.x + 'px';
-    seat.style.top = pos.y + 'px';
+    const rad = seatOrder[i] * Math.PI / 180;
+    seat.style.left = (cx + rx * Math.cos(rad)) + 'px';
+    seat.style.top  = (cy + ry * Math.sin(rad)) + 'px';
     seat.style.transform = 'translate(-50%, -50%)';
-
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
     if (String(state.current_player) === String(p.user_id)) seat.classList.add('active');
 
@@ -259,35 +251,27 @@ function renderTable(state) {
     seat.appendChild(block);
     seatsContainer.appendChild(seat);
 
-    // --- Дилер чип позиционирование ---
+    // Дилер чип позиционируем строго
     if (typeof state.dealer_index !== 'undefined' && Number(state.dealer_index) === i) {
       setTimeout(() => {
-        dealerChipEl.style.left = (pos.x + 28) + 'px'; // 28px вправо от центра seat
-        dealerChipEl.style.top = (pos.y - 26) + 'px';  // 26px вверх
+        dealerChipEl.style.left = (cx + rx * Math.cos(rad) + 28) + 'px';
+        dealerChipEl.style.top  = (cy + ry * Math.sin(rad) - 26) + 'px';
         dealerChipEl.style.display = 'flex';
       }, 0);
     }
   });
 
-  // --- Кнопки строго под твоим seat (позиция 0) ---
+  // Кнопки под твоим seat
   if (actionsBlock && players.length > 0) {
-    const pos = seatEllipsePos(seatOrder[0], cx, cy, rx, ry + 38); // 38px ниже seat
-    actionsBlock.style.position = "absolute";
-    actionsBlock.style.left = pos.x + 'px';
-    actionsBlock.style.top = pos.y + 'px';
-    actionsBlock.style.transform = "translate(-50%, 0)";
+    const rad = seatOrder[0] * Math.PI / 180;
+    actionsBlock.style.left = (cx + rx * Math.cos(rad)) + 'px';
+    actionsBlock.style.top  = (cy + ry * Math.sin(rad) + 54) + 'px';
+    actionsBlock.style.position = 'absolute';
+    actionsBlock.style.transform = 'translate(-50%, 0)';
     actionsBlock.style.zIndex = 999;
-    actionsBlock.style.display = "flex";
+    actionsBlock.style.display = 'flex';
     seatsContainer.appendChild(actionsBlock);
   }
-}
-
-function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
-  const rad = angleDeg * Math.PI / 180;
-  return {
-    x: cx + rx * Math.cos(rad),
-    y: cy + ry * Math.sin(rad)
-  };
 }
 
 // ======= Init WebSocket + UI =======
@@ -296,7 +280,6 @@ ws = createWebSocket(tableId, userId, username, e => {
   updateUI(state);
   renderTable(state);
 });
-
 leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
