@@ -120,8 +120,8 @@ header {
   display: flex; gap: 18px; z-index: 40;
 }
 #community-cards .card, .community-cards .card {
-  opacity: 0;
-  transform: scale(0.95) translateY(4px);
+  opacity: 1 !important;
+  transform: scale(1) translateY(0) !important;
   transition: opacity 0.26s, transform 0.3s cubic-bezier(.18,.51,.51,1.2);
 }
 #community-cards .card.visible, .community-cards .card.visible {
