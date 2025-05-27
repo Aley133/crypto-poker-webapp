@@ -99,7 +99,7 @@ function updateUI(state) {
     return;
   }
 
-  // --- Рендерим кнопки, когда твой ход ---
+  // Мой ход: показываем кнопки
   statusEl.textContent     = 'Ваш ход';
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
@@ -112,43 +112,33 @@ function updateUI(state) {
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
-  // FOLD
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
-  btnFold.className = 'poker-action-btn';
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
   actionsEl.appendChild(btnFold);
 
-  // CHECK
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
-  btnCheck.className = 'poker-action-btn';
   btnCheck.disabled    = toCall !== 0;
   btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
   actionsEl.appendChild(btnCheck);
 
-  // CALL
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnCall.className = 'poker-action-btn';
   btnCall.disabled    = toCall <= 0 || myStack < toCall;
   btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
   actionsEl.appendChild(btnCall);
 
-  // BET
   const btnBet = document.createElement('button');
   btnBet.textContent = 'Bet';
-  btnBet.className = 'poker-action-btn';
   btnBet.onclick     = () => {
     const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
     safeSend({ user_id: userId, action: 'bet', amount });
   };
   actionsEl.appendChild(btnBet);
 
-  // RAISE
   const btnRaise = document.createElement('button');
   btnRaise.textContent = 'Raise';
-  btnRaise.className = 'poker-action-btn';
   btnRaise.disabled    = toCall <= 0;
   btnRaise.onclick     = () => {
     const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
@@ -157,7 +147,6 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-// --- Современный рендер игроков вокруг стола ---
 function polarToCartesian(cx, cy, r, deg) {
   const rad = (deg - 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -178,8 +167,8 @@ function renderTable(state) {
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
     cEl.innerHTML = `
-      <span class="rank">${rank}</span>
-      <span class="suit">${suit}</span>
+      <span class=\"rank\">${rank}</span>
+      <span class=\"suit\">${suit}</span>
     `;
     if (suit === '♥' || suit === '♦') {
       cEl.classList.add('red');
@@ -209,10 +198,10 @@ function renderTable(state) {
       if (String(p.user_id) === String(userId)) {
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
-        cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
+        cd.innerHTML = `<span class=\"rank\">${rk}</span><span class=\"suit\">${st}</span>`;
         if (st === '♥' || st === '♦') cd.classList.add('red');
       } else {
-        cd.innerHTML = `<span class="suit">🂠</span>`;
+        cd.innerHTML = `<span class=\"suit\">🂠</span>`;
       }
       cardsEl.appendChild(cd);
     });
