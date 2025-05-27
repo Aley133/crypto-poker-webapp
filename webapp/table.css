@@ -1,24 +1,21 @@
-body, html {
-   margin: 0; padding: 0;
+html, body {
+  margin: 0; padding: 0;
   width: 100vw; height: 100vh;
-  min-height: 100vh;
-  background: radial-gradient(ellipse at 60% 100%, #3a212d 0%, #23152b 70%, #21141b 100%);
+  min-height: 100vh; min-width: 100vw;
   font-family: 'Inter', Arial, sans-serif;
+  background: radial-gradient(ellipse at 60% 100%, #3a212d 0%, #23152b 70%, #21141b 100%);
   overflow: hidden;
+  position: relative;
 }
-
 body::before {
   content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.17;
+  position: fixed; inset: 0;
+  z-index: 0; pointer-events: none;
+  opacity: 0.15;
   background-image:
     repeating-linear-gradient(135deg, #fff2 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(45deg, #fff2 0 1px, transparent 1px 72px),
-    url('data:image/svg+xml;utf8,<svg width="36" height="36" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="2.1" fill="%23ffffff44" /></svg>');
-  background-size: 72px 72px, 72px 72px, 36px 36px;
+    repeating-linear-gradient(45deg, #fff2 0 1px, transparent 1px 72px);
+  background-size: 72px 72px, 72px 72px;
   background-repeat: repeat;
 }
 
