@@ -63,13 +63,13 @@ header {
 #poker-table, #seats, #poker-table-border {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 78%;
-  height: 68%;
-  min-width: 380px;
-  min-height: 180px;
-  max-width: 79vw;
-  max-height: 79vh;
+  top: 40%;
+  width: 56%;       /* стало меньше! */
+  height: 46%;
+  min-width: 340px;
+  min-height: 140px;
+  max-width: 74vw;
+  max-height: 74vh;
   transform: translate(-50%, -50%);
 }
 #poker-table { z-index: 10; }
