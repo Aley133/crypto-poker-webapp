@@ -147,20 +147,8 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-function polarToCartesian(cx, cy, r, deg) {
-  const rad = (deg - 90) * Math.PI / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
-  const rad = angleDeg * Math.PI / 180;
-  return {
-    x: cx + rx * Math.cos(rad),
-    y: cy + ry * Math.sin(rad)
-  };
-}
-
-const seatAngles = [90, 30, -30, -90, -150, 150]; // 6-max (на любой порядок и количество)
+// ======= Рендер стола =======
+const seatAngles = [90, 30, -30, -90, -150, 150];
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
@@ -184,13 +172,13 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // 2. Получаем размеры ОДНОГО и того же контейнера!
+  // 2. Получаем размеры контейнера (овального стола)
   const table = document.getElementById('poker-table');
   const rect = table.getBoundingClientRect();
   const cx = rect.width / 2;
   const cy = rect.height / 2;
-  const rx = rect.width * 0.43;  // радиус X, оставь чуть меньше половины ширины
-  const ry = rect.height * 0.43; // радиус Y, оставь чуть меньше половины высоты
+  const rx = rect.width * 0.43;
+  const ry = rect.height * 0.43;
 
   // 3. Позиционирование по углам эллипса (6-max)
   const players = state.players || [];
@@ -275,7 +263,6 @@ function renderTable(state) {
 
   // --- Кнопки строго под твоим seat (позиция 0) ---
   if (actionsBlock && players.length > 0) {
-    // Для кнопок берём угол 90° (позиция игрока)
     const pos = seatEllipsePos(seatOrder[0], cx, cy, rx, ry + 38); // 38px ниже seat
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = pos.x + 'px';
@@ -287,7 +274,6 @@ function renderTable(state) {
   }
 }
 
-// Универсальная функция рассадки по эллипсу
 function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
   const rad = angleDeg * Math.PI / 180;
   return {
@@ -296,15 +282,13 @@ function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
   };
 }
 
-
-// Инициализация WebSocket
+// ======= Init WebSocket + UI =======
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   updateUI(state);
   renderTable(state);
 });
 
-// Leave button
 leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
