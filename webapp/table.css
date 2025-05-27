@@ -47,14 +47,13 @@ header {
 }
 
 #poker-table-wrapper {
- position: absolute;
-  left: 50%; top: 50%;
-  width: 94vw;
-  height: 94vh;
-  min-width: 420px;
-  min-height: 240px;
-  transform: translate(-50%, -50%);
-  display: flex; align-items: center; justify-content: center;
+position: fixed;
+  left: 0; top: 0;
+  width: 100vw; height: 100vh;
+  min-width: 340px; min-height: 260px;
+  max-width: 100vw; max-height: 100vh;
+  z-index: 3; overflow: hidden;
+  display: block;
 }
 
 #poker-table, #seats, #poker-table-border {
@@ -67,25 +66,22 @@ header {
   height: auto;
   transform: translate(-50%, -50%);
 }
-#poker-table {
- background: #457564;
-  border-radius: 28% 28% 28% 28% / 50% 50% 50% 50%;
-  border: 3px solid #bfbcbc;
-  box-shadow: 0 0 20px 5px #bfbcbc, 0 0 33px 40px #7aa17d55 inset;
-  z-index: 10;
-  pointer-events: none;
-}
-#seats { z-index: 15; pointer-events: none; }
-#poker-table-border { 
-  width: 72vw;
-  height: auto;
-  min-width: 400px;
-  max-width: 1180px;
-  border: 8px solid rgba(255,255,255,0.06);
-  border-radius: 33% 33% 33% 33% / 52% 52% 52% 52%;
+/* Примерно такие размеры и бордеры, чтобы никуда не растягивался! */
+#poker-table-border {
+  width: 78vw; height: 64vw; /* Сохраняй соотношение! */
+  max-width: 92vw; max-height: 82vh;
+  min-width: 330px; min-height: 180px;
+  border-radius: 33% 33% 33% 33% / 53% 53% 53% 53%;
   z-index: 8;
-  pointer-events: none;
-  background: transparent;}
+}
+#poker-table {
+  width: 75vw; height: 62vw;
+  max-width: 88vw; max-height: 78vh;
+  min-width: 300px; min-height: 150px;
+  border-radius: 28% 28% 28% 28% / 50% 50% 50% 50%;
+  background: #457564;
+  z-index: 10;
+}
 
 /* Стол */
 #poker-table, .poker-table {
@@ -95,6 +91,14 @@ header {
   box-shadow: 0 0 20px 5px #bfbcbc, 0 0 33px 40px #7aa17d55 inset;
   z-index: 10;
   pointer-events: none;
+}
+/* Все элементы — позиция absolute, центрируются из JS! */
+#poker-table, #poker-table-border, #seats {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  /* Остальные стили — как в твоём рабочем css */
 }
 
 #poker-table-border, .poker-table-border {
