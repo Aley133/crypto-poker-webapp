@@ -1,13 +1,13 @@
-// ui_game.js: Pixel-perfect и адаптив для покерного стола
+// ui_game.js: Pixel-perfect адаптив для стола (2-max fix)
 import { createWebSocket } from './ws.js';
 
-// ======= URL параметры =======
+// URL параметры
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// ======= DOM элементы =======
+// DOM элементы
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
@@ -17,7 +17,7 @@ const pokerTableEl = document.getElementById('poker-table');
 
 let ws;
 
-// ======= Overlay для результата =======
+// Overlay для результата
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -35,26 +35,24 @@ function safeSend(payload) {
   }
 }
 
+// Позиционирование сидений для любых N, 2-max — строго сверху/снизу!
 function getSeatAngles(N) {
-  if (N === 2) return [90, -90];
-  if (N === 3) return [90, 0, 180];
-  if (N === 4) return [90, 0, -90, 180];
-  if (N === 5) return [90, 30, -30, -150, 150];
-  return [90, 30, -30, -90, -150, 150]; // 6-max или больше
+  if (N === 2) return [90, 270]; // Первый игрок всегда внизу (90°), второй строго ВВЕРХУ (270°)
+  if (N === 3) return [90, 210, 330];
+  if (N === 4) return [90, 180, 270, 0];
+  if (N === 5) return [90, 162, 234, 306, 18];
+  // 6-max и больше (красиво раскиданы)
+  let out = [];
+  for (let i = 0; i < N; ++i) out.push(90 + (360 / N) * i);
+  return out;
 }
 
-// Pixel-perfect размеры для разных экранов
 function getTableDims() {
-  // Базовый размер (как на демо-скриншоте)
   let vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
   let vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-
-  // Для мобильных - делаем стол уже, и ниже
   let isMobile = vw < 600;
   let W = isMobile ? vw * 0.93 : Math.min(vw * 0.68, 1100);
   let H = isMobile ? W * 0.8 : W / 1.38;
-
-  // Центр wrapper'а
   const wrapper = document.getElementById('poker-table-wrapper');
   const wrapperRect = wrapper.getBoundingClientRect();
   const cx = wrapperRect.width / 2;
@@ -62,16 +60,15 @@ function getTableDims() {
   return { w: W, h: H, cx, cy, rx: W * 0.43, ry: H * 0.38 };
 }
 
-// ======= Основной рендер =======
+// ======= Рендер =======
 function renderTable(state) {
-  window.currentTableState = state; // для ресайза!
+  window.currentTableState = state;
   const seatsContainer = document.getElementById('seats');
   const communityContainer = document.getElementById('community-cards');
   const actionsBlock = document.getElementById('actions');
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Общие карты
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -83,15 +80,11 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Pixel-perfect геометрия:
   const { w, h, cx, cy, rx, ry } = getTableDims();
-  // Сам стол:
   pokerTableEl.style.width  = w + 'px';
   pokerTableEl.style.height = h + 'px';
   pokerTableEl.style.left   = `calc(50% - ${w/2}px)`;
   pokerTableEl.style.top    = `calc(50% - ${h/2}px)`;
-
-  // Для .border и #seats — синхронизируем размеры
   document.getElementById('poker-table-border').style.width  = (w*1.06) + 'px';
   document.getElementById('poker-table-border').style.height = (h*1.08) + 'px';
   document.getElementById('poker-table-border').style.left   = `calc(50% - ${(w*1.06)/2}px)`;
@@ -101,7 +94,6 @@ function renderTable(state) {
   seatsContainer.style.left   = `calc(50% - ${w/2}px)`;
   seatsContainer.style.top    = `calc(50% - ${h/2}px)`;
 
-  // Позиционирование игроков
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
@@ -120,7 +112,6 @@ function renderTable(state) {
     seat.style.transform = 'translate(-50%, -50%)';
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
     if (String(state.current_player) === String(p.user_id)) seat.classList.add('active');
-    // Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
     (holeMap[p.user_id] || []).forEach(c => {
@@ -137,7 +128,6 @@ function renderTable(state) {
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
-    // Имя и стек
     const block = document.createElement('div');
     block.className = 'seat-block';
     const infoEl = document.createElement('div');
@@ -152,7 +142,7 @@ function renderTable(state) {
     seatsContainer.appendChild(seat);
   });
 
-  // --- Дилер чип ---
+  // Дилер-чип (по месту дилера)
   let dealerChipEl = document.getElementById('dealer-chip-main');
   if (!dealerChipEl) {
     dealerChipEl = document.createElement('div');
@@ -171,11 +161,11 @@ function renderTable(state) {
     }
   });
 
-  // --- Кнопки под своим seat ---
+  // Кнопки (под твоим seat)
   if (actionsBlock && players.length > 0) {
     const rad = seatOrder[0] * Math.PI / 180;
     actionsBlock.style.left = (cx + rx * Math.cos(rad)) + 'px';
-    actionsBlock.style.top  = (cy + ry * Math.sin(rad) + 62) + 'px'; // 62px ниже seat
+    actionsBlock.style.top  = (cy + ry * Math.sin(rad) + 62) + 'px';
     actionsBlock.style.position = 'absolute';
     actionsBlock.style.transform = 'translate(-50%, 0)';
     actionsBlock.style.zIndex = 999;
