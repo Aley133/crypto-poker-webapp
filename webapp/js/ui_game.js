@@ -160,7 +160,7 @@ function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
   };
 }
 
-const seatAngles = [90, 30, -30, -90, -150, 150];
+const seatAngles = [90, 30, -30, -90, -150, 150]; // 6-max (на любой порядок и количество)
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
@@ -169,7 +169,7 @@ function renderTable(state) {
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // Общие карты
+  // 1. Общие карты (флоп, терн, ривер)
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -184,24 +184,19 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Позиционирование по эллипсу
-  const players = state.players || [];
-  const holeMap = state.hole_cards || {};
-  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
-  const N = players.length;
-
-  // Получаем реальные размеры овального стола
+  // 2. Получаем размеры ОДНОГО и того же контейнера!
   const table = document.getElementById('poker-table');
   const rect = table.getBoundingClientRect();
   const cx = rect.width / 2;
   const cy = rect.height / 2;
-  const rx = rect.width * 0.41;  // Радиус X (отцентрируй визуально)
-  const ry = rect.height * 0.41; // Радиус Y (обычно чуть меньше чем X)
-  // Для визуала "от бортика" уменьши rx/ry до 0.39-0.42 (подбери для себя!)
+  const rx = rect.width * 0.43;  // радиус X, оставь чуть меньше половины ширины
+  const ry = rect.height * 0.43; // радиус Y, оставь чуть меньше половины высоты
 
-  // Углы для мест (6-max)
-  const seatAngles = [90, 30, -30, -90, -150, 150];
-  // Сдвигаем массив так, чтобы "ты" всегда был на позиции 0 (внизу)
+  // 3. Позиционирование по углам эллипса (6-max)
+  const players = state.players || [];
+  const holeMap = state.hole_cards || {};
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+  const N = players.length;
   const myPos = userIndex;
   const seatOrder = [];
   for (let i = 0; i < N; ++i) {
@@ -227,21 +222,12 @@ function renderTable(state) {
     const angle = seatOrder[i];
     const pos = seatEllipsePos(angle, cx, cy, rx, ry);
 
-    seat.style.position = 'absolute';
     seat.style.left = pos.x + 'px';
     seat.style.top = pos.y + 'px';
     seat.style.transform = 'translate(-50%, -50%)';
 
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
     if (String(state.current_player) === String(p.user_id)) seat.classList.add('active');
-
-    // --- Аватар (если есть) ---
-    if (p.avatar) {
-      const avatarEl = document.createElement('div');
-      avatarEl.className = 'avatar';
-      avatarEl.style.backgroundImage = `url('${p.avatar}')`;
-      seat.appendChild(avatarEl);
-    }
 
     // --- Карты ---
     const cardsEl = document.createElement('div');
@@ -290,7 +276,7 @@ function renderTable(state) {
   // --- Кнопки строго под твоим seat (позиция 0) ---
   if (actionsBlock && players.length > 0) {
     // Для кнопок берём угол 90° (позиция игрока)
-    const pos = seatEllipsePos(seatOrder[0], cx, cy, rx, ry + 38); // 38px ниже seat (подбери по вкусу)
+    const pos = seatEllipsePos(seatOrder[0], cx, cy, rx, ry + 38); // 38px ниже seat
     actionsBlock.style.position = "absolute";
     actionsBlock.style.left = pos.x + 'px';
     actionsBlock.style.top = pos.y + 'px';
