@@ -177,7 +177,28 @@ header {
   z-index: 15;
   transition: filter 0.16s;
 }
-.seat.active { filter: drop-shadow(0 0 24px #33fff977); }
+.seat.active {
+  filter: drop-shadow(0 0 24px #33fff977); /* красивое свечение активного */
+}
+.seat.my-seat {
+  border: 2.5px solid #4dffff;             /* или любая выделяющая рамка */
+  box-shadow: 0 0 8px #2cfad888;
+}
+.dealer-chip {
+  position: absolute;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+  color: #222;
+  border: 3px solid #ffd800;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 1.13em;
+  box-shadow: 0 2px 10px #fff6, 0 3px 18px #222a;
+  pointer-events: none;
+  z-index: 25;
+  transition: left 0.36s cubic-bezier(.57,1.49,.28,1.09), top 0.36s cubic-bezier(.57,1.49,.28,1.09);
+}
 
 .cards { display: flex; gap: 0; margin-bottom: 2px; margin-top: 0; z-index: 15; pointer-events: auto; }
 .card {
