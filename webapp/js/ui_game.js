@@ -152,21 +152,15 @@ function polarToCartesian(cx, cy, r, deg) {
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-const seatPercents = [
-  [50, 96],    // Внизу (ты)
-  [96, 50],    // Справа
-  [81, 17],    // Верх-право
-  [50, 5],     // Верх-центр
-  [19, 17],    // Верх-лево
-  [4, 50],     // Слева
-];
-function getSeatPositions(N) {
-  if (N === 2) return [seatPercents[0], seatPercents[3]];
-  if (N === 3) return [seatPercents[0], seatPercents[2], seatPercents[4]];
-  if (N === 4) return [seatPercents[0], seatPercents[1], seatPercents[3], seatPercents[5]];
-  if (N === 5) return [seatPercents[0], seatPercents[1], seatPercents[2], seatPercents[4], seatPercents[5]];
-  return seatPercents.slice(0, N);
+function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
+  const rad = angleDeg * Math.PI / 180;
+  return {
+    x: cx + rx * Math.cos(rad),
+    y: cy + ry * Math.sin(rad)
+  };
 }
+
+const seatAngles = [90, 30, -30, -90, -150, 150];
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
@@ -175,7 +169,7 @@ function renderTable(state) {
   seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
 
-  // 1) Общие карты (флоп, терн, ривер)
+  // Общие карты
   (state.community || []).forEach((card, idx) => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
@@ -190,12 +184,29 @@ function renderTable(state) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // 2) Игроки по кругу
+  // Позиционирование по эллипсу
   const players = state.players || [];
   const holeMap = state.hole_cards || {};
   const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
   const N = players.length;
-  const positions = getSeatPositions(N);
+
+  // Получаем реальные размеры овального стола
+  const table = document.getElementById('poker-table');
+  const rect = table.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const rx = rect.width * 0.41;  // Радиус X (отцентрируй визуально)
+  const ry = rect.height * 0.41; // Радиус Y (обычно чуть меньше чем X)
+  // Для визуала "от бортика" уменьши rx/ry до 0.39-0.42 (подбери для себя!)
+
+  // Углы для мест (6-max)
+  const seatAngles = [90, 30, -30, -90, -150, 150];
+  // Сдвигаем массив так, чтобы "ты" всегда был на позиции 0 (внизу)
+  const myPos = userIndex;
+  const seatOrder = [];
+  for (let i = 0; i < N; ++i) {
+    seatOrder.push(seatAngles[(i - myPos + N) % N]);
+  }
 
   // --- Дилер чип ---
   let dealerChipEl = document.getElementById('dealer-chip-main');
@@ -206,22 +217,22 @@ function renderTable(state) {
     dealerChipEl.textContent = 'D';
     seatsContainer.appendChild(dealerChipEl);
   }
-  dealerChipEl.style.display = 'none'; // по умолчанию скрываем
+  dealerChipEl.style.display = 'none';
 
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    // Определяем позицию по кругу
-    const relIndex = (i - userIndex + N) % N;
-    const [px, py] = positions[relIndex];
+
+    // Получаем координаты по эллипсу для этого seat
+    const angle = seatOrder[i];
+    const pos = seatEllipsePos(angle, cx, cy, rx, ry);
+
     seat.style.position = 'absolute';
-    seat.style.left = px + '%';
-    seat.style.top = py + '%';
+    seat.style.left = pos.x + 'px';
+    seat.style.top = pos.y + 'px';
     seat.style.transform = 'translate(-50%, -50%)';
 
-    // Выделяем твой seat
     if (String(p.user_id) === String(userId)) seat.classList.add('my-seat');
-    // Подсвечиваем, если у игрока ход
     if (String(state.current_player) === String(p.user_id)) seat.classList.add('active');
 
     // --- Аватар (если есть) ---
@@ -264,14 +275,13 @@ function renderTable(state) {
     block.appendChild(stackEl);
 
     seat.appendChild(block);
-
     seatsContainer.appendChild(seat);
 
     // --- Дилер чип позиционирование ---
     if (typeof state.dealer_index !== 'undefined' && Number(state.dealer_index) === i) {
       setTimeout(() => {
-        dealerChipEl.style.left = `calc(${px}% + 28px)`;  // 28px смещаем от центра seat вправо
-        dealerChipEl.style.top = `calc(${py}% - 26px)`;   // 26px вверх от seat (можешь подправить)
+        dealerChipEl.style.left = (pos.x + 28) + 'px'; // 28px вправо от центра seat
+        dealerChipEl.style.top = (pos.y - 26) + 'px';  // 26px вверх
         dealerChipEl.style.display = 'flex';
       }, 0);
     }
@@ -279,15 +289,27 @@ function renderTable(state) {
 
   // --- Кнопки строго под твоим seat (позиция 0) ---
   if (actionsBlock && players.length > 0) {
+    // Для кнопок берём угол 90° (позиция игрока)
+    const pos = seatEllipsePos(seatOrder[0], cx, cy, rx, ry + 38); // 38px ниже seat (подбери по вкусу)
     actionsBlock.style.position = "absolute";
-    actionsBlock.style.left = positions[0][0] + '%';
-    actionsBlock.style.top = (positions[0][1] + 12) + '%'; // 12% ниже seat, меняй под стиль!
+    actionsBlock.style.left = pos.x + 'px';
+    actionsBlock.style.top = pos.y + 'px';
     actionsBlock.style.transform = "translate(-50%, 0)";
     actionsBlock.style.zIndex = 999;
     actionsBlock.style.display = "flex";
     seatsContainer.appendChild(actionsBlock);
   }
 }
+
+// Универсальная функция рассадки по эллипсу
+function seatEllipsePos(angleDeg, cx, cy, rx, ry) {
+  const rad = angleDeg * Math.PI / 180;
+  return {
+    x: cx + rx * Math.cos(rad),
+    y: cy + ry * Math.sin(rad)
+  };
+}
+
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
