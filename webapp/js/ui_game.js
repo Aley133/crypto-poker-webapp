@@ -147,6 +147,14 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
+function getSeatAngles(N) {
+  if (N === 2) return [90, -90];
+  if (N === 3) return [90, 30, -150];
+  if (N === 4) return [90, 20, -60, -160];
+  // можно доработать кастомно для красоты
+  return [90, 30, -30, -90, -150, 150];
+}
+
 // ======= Рендер стола =======
 const seatAngles = [90, 30, -30, -90, -150, 150];
 
@@ -177,8 +185,8 @@ function renderTable(state) {
   const rect = table.getBoundingClientRect();
   const cx = rect.width / 2;
   const cy = rect.height / 2;
-  const rx = rect.width * 0.43;
-  const ry = rect.height * 0.43;
+  const rx = rect.width * 0.49;
+  const ry = rect.height * 0.47;
 
   // 3. Позиционирование по углам эллипса (6-max)
   const players = state.players || [];
