@@ -1,264 +1,188 @@
-body, html {
-  margin: 0; padding: 0;
-  width: 100vw; height: 100vh;
-  min-height: 100vh;
-  background: radial-gradient(ellipse at 60% 100%, #3a212d 0%, #23152b 70%, #21141b 100%);
-  font-family: 'Inter', Arial, sans-serif;
-  overflow: hidden !important;
+/* Контейнер стола */
+#game-info #poker-table-wrapper {
   position: relative;
+  margin: 20px auto;
+  width: 90vw;
+  max-width: 600px;
+  height: 60vw;
+  max-height: 400px;
 }
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.17;
-  background-image:
-    repeating-linear-gradient(135deg, #fff2 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(45deg, #fff2 0 1px, transparent 1px 72px),
-    url('data:image/svg+xml;utf8,<svg width="36" height="36" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="2.1" fill="%23ffffff44" /></svg>');
-  background-size: 72px 72px, 72px 72px, 36px 36px;
-  background-repeat: repeat;
+/* Овал стола */
+#game-info #poker-table {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, #0a700a 0%, #095a09 80%);
+  border: 4px solid #223;
+  border-radius: 50% / 40%;
+  overflow: visible;
 }
 
-#background-grid {
-  position: fixed;
-  left: 0; top: 0;
-  width: 100vw; height: 100vh;
-  background: repeating-linear-gradient(135deg, #fff1 0 1px, transparent 1px 80px),
-              repeating-linear-gradient(45deg, #fff1 0 1px, transparent 1px 80px);
-  opacity: 0.12;
-  z-index: 0;
-  pointer-events: none;
-}
-
-header {
-  background: none;
-  padding: 0;
-  margin: 0 0 6px 0;
-  height: 48px;
-  display: flex; align-items: center;
-  font-size: 1.25em;
-  color: #fff;
-  z-index: 10;
-}
-
-#poker-root, #table-ui {
-  width: 100vw; height: 100vh; position: absolute; top: 0; left: 0;
-  overflow: hidden;
-}
-
-/* Корневой контейнер */
-#poker-table-wrapper, .poker-table-wrapper {
+/* Общие карты */
+#game-info #community-cards {
   position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  width: 790px;
-  height: 480px;
-  max-width: 92vw;
-  max-height: 84vh;
-  min-width: 320px;
-  min-height: 170px;
-  pointer-events: none;
-  z-index: 2;
-}
-
-#poker-table-border {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 83%; height: 74%;    /* На 5-8% больше чем стол — тонкий ободок */
-  min-width: 410px; min-height: 210px;
-  max-width: 91vw; max-height: 91vh;
-  transform: translate(-50%, -50%);
-  border-radius: 32% 32% 32% 32% / 54% 54% 54% 54%;
-  pointer-events: none;
-  z-index: 11;
-  border: 8px solid rgba(255,255,255,0.05); /* только border! */
-  background: transparent;
-  
-  /* убрали все radial/background, только border и внешний-внутренний glow */
-}
-/* Стол */
-#poker-table, .poker-table {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 78%; height: 68%;
-  min-width: 380px; min-height: 180px;
-  max-width: 79vw; max-height: 79vh;
-  transform: translate(-50%, -50%);
-  background: #457564;
-  border-radius: 28% 28% 28% 28% / 50% 50% 50% 50%;
-  border: 3px solid #bfbcbc;
-  box-shadow: 0 0 20px 5px #bfbcbc, 0 0 33px 40px #7aa17d55 inset;
-  z-index: 10;
-  pointer-events: none;
-}
-
-#poker-table-border, .poker-table-border {
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 83%; height: 74%;
-  min-width: 410px; min-height: 210px;
-  max-width: 91vw; max-height: 91vh;
-  transform: translate(-50%, -50%);
-  border-radius: 32% 32% 32% 32% / 54% 54% 54% 54%;
-  pointer-events: none;
-  z-index: 11;
-  border: 8px solid rgba(255,255,255,0.05);
-  background: transparent;
-}
-
-#community-cards, .community-cards {
-  position: absolute;
-  top: 44%; left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex; gap: 18px; z-index: 40;
-}
-#community-cards .card, .community-cards .card {
-  opacity: 0;
-  transform: scale(0.95) translateY(4px);
-  transition: opacity 0.26s, transform 0.3s cubic-bezier(.18,.51,.51,1.2);
-}
-#community-cards .card.visible, .community-cards .card.visible {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-}
-
-#pot, .pot-on-table {
-  position: absolute;
+  top: 45%;
   left: 50%;
-  top: 26%;
   transform: translate(-50%, -50%);
   display: flex;
-  align-items: center;
-  gap: 9px;
-  background: #23282cd7;
-  color: #fff;
-  font-weight: 800;
-  padding: 5px 10px;
-  border-radius: 40px;
-  font-size: 0.6em;
-  z-index: 41;
-  box-shadow: 0 2px 12px #0005;
-  border: none;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 5px #0008;
-  width: max-content;
+  gap: 4px;    /* ближе друг к другу */
+  z-index: 1;
 }
-#pot-amount, .pot-amount {
-  font-size: 1.06em;
-  font-weight: 900;
-}
-.pot-chip { width: 22px; height: 22px; display: inline-block; vertical-align: middle; }
 
-#seats, .seats {
+/* Банк */
+#game-info #pot {
   position: absolute;
-  left: 0; top: 0; width: 100%; height: 100%;
-  z-index: 11;
+  top: 60%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+/* Контейнер сидений */
+#game-info #seats {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   pointer-events: none;
+  z-index: 2;
 }
 
 /* Сиденье игрока */
-.seat {
+#game-info .seat {
   position: absolute;
-  width: 138px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  background: none;
+  width: 100px;
+  background: transparent; /* фон разбит на два блока ниже */
   box-shadow: none;
-  border: none;
-  z-index: 15;
-  transition: filter 0.16s;
+  display: flex;
+  flex-direction: column; /* карты сверху, затем имя, затем стек */
+  align-items: center;
+  padding: 0;
 }
-.seat.active { filter: drop-shadow(0 0 24px #33fff977); }
 
-.cards { display: flex; gap: 0; margin-bottom: 2px; margin-top: 0; z-index: 15; pointer-events: auto; }
-.card {
-  width: 52px; height: 76px;
+/* Общие стили для карт */
+#game-info .cards {
+  display: flex;
+}
+#game-info .cards > .card {
+  margin-left: -14px;      /* сильный нахлест */
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+/* Стилизация карты */
+#game-info .card {
+  position: relative;
+  width: 54px;             /* чуть шире */
+  height: 76px;            /* чуть выше */
   background: #fff;
-  border: 1.5px solid #bfcad7;
-  border-radius: 10px;
-  box-shadow: 0 3px 14px #0003;
-  font-family: 'Inter', Arial, sans-serif;
-  position: relative; overflow: hidden;
-  margin-left: -16px;
-  z-index: 2;
-  display: flex; flex-direction: column; justify-content: space-between;
-  pointer-events: auto;
+  border: 1px solid #333;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* более мягкая тень */
+  overflow: hidden;
+  font-family: sans-serif;
 }
-.card:first-child { margin-left: 0; }
-.card .rank {
-  position: absolute; top: 9px; left: 11px;
-  font-size: 1.17em; font-weight: 800; color: #222;
-  z-index: 2; letter-spacing: 0.01em;
-}
-.card .suit {
-  position: absolute; bottom: 9px; right: 13px;
-  font-size: 1.25em; opacity: 0.85; z-index: 2;
-}
-.card.red .rank,
-.card.red .suit { color: #f34b4b; }
 
-.player-info {
-  background: #000;
+/* Ранг */
+#game-info .card .rank {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 1em;          /* чуть меньше */
+  font-weight: bold;
+  line-height: 1;
+  color: #000;
+}
+
+/* Масть */
+#game-info .card .suit {
+  position: absolute;
+  top: 65%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.4em;
+  line-height: 1;
+  text-shadow: 0 0 3px rgba(0,0,0,0.3);
+  pointer-events: none;
+  color: #000;
+}
+
+/* Красные масти */
+#game-info .card.red .rank,
+#game-info .card.red .suit {
+  color: #e60000;
+}
+
+/* Имя игрока под картами */
+#game-info .player-info {
+  background: #000000;
   color: #fff;
   padding: 4px 8px;
   border-radius: 4px;
   margin-top: 6px;
-  font-size: 0.9em;
+  width: max-content;
 }
-.player-stack {
-  background: #222;
+
+/* Стек игрока под именем */
+#game-info .player-stack {
+  background: #222222;
   color: #fff;
   padding: 2px 8px;
   border-radius: 4px;
   margin-top: 2px;
-  font-size: 0.9em;
+  width: max-content;
 }
 
-/* Кнопки действий */
-#actions, .actions {
-  position: absolute;
-  display: flex;
-  flex-direction: row;
-  gap: 17px;
-  background: none;
-  justify-content: center;
-  align-items: center;
-  pointer-events: auto;
-  z-index: 99;
-  min-width: 240px;
-  animation: fadeInBtns 0.18s;
+/* Позиционирование сидений */
+#game-info .seat[data-pos="1"] {
+  bottom: -12%;
+  left: 50%;
+  transform: translateX(-50%);
 }
-@keyframes fadeInBtns {
-  from { opacity: 0; transform: translateY(18px) scale(0.97);}
-  to   { opacity: 1; transform: translateY(0) scale(1);}
+#game-info .seat[data-pos="2"] {
+  bottom: 8%;
+  right: -12%;
+  transform: translate(50%, 50%);
 }
-.poker-action-btn {
-  background: linear-gradient(180deg, #232833 70%, #101217 100%);
-  color: #fff;
-  font-weight: 800;
-  border: 2.6px solid #45caff;
-  border-radius: 18px;
-  box-shadow: 0 2px 14px #0116;
-  margin: 0 10px 0 0;
-  padding: 13px 38px;
-  font-size: 1.19em;
-  letter-spacing: 0.09em;
-  cursor: pointer;
-  outline: none;
-  transition: background 0.14s, border-color 0.18s, box-shadow 0.16s;
+#game-info .seat[data-pos="3"] {
+  top: 8%;
+  right: -12%;
+  transform: translate(50%, -50%);
 }
-.poker-action-btn:last-child { margin-right: 0; }
-.poker-action-btn:hover {
-  background: #2cc4fa;
-  border-color: #b8ffe0;
-  box-shadow: 0 0 14px #5ad4fca4;
+#game-info .seat[data-pos="4"] {
+  top: -12%;
+  left: 50%;
+  transform: translateX(-50%);
 }
-.poker-action-fold { border-color: #e74a6e; color: #ffb3c2;}
-.poker-action-raise { border-color: #78fcaf; color: #bfffcf;}
-.poker-action-bet { border-color: #ffe05a; color: #fffbdf;}
+#game-info .seat[data-pos="5"] {
+  top: 8%;
+  left: -12%;
+  transform: translate(-50%, -50%);
+}
+#game-info .seat[data-pos="6"] {
+  bottom: 8%;
+  left: -12%;
+  transform: translate(-50%, 50%);
+}
+
+/* Адаптив */
+@media (min-width: 600px) {
+  #game-info #poker-table-wrapper {
+    width: 600px;
+    height: 400px;
+  }
+  #game-info .seat {
+    width: 140px;
+    font-size: 1em;
+  }
+  #game-info .card {
+    width: 50px;
+    height: 72px;
+  }
+}
