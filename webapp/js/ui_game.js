@@ -47,17 +47,35 @@ function getSeatAngles(N) {
 }
 
 function getTableDims() {
-  // Always use the wrapper as reference
-  const wrapperRect = wrapperEl.getBoundingClientRect();
-  let vw = wrapperRect.width;
-  let vh = wrapperRect.height;
-  // Use a max for table width (responsive but not overflowing)
-  let W = Math.min(vw * 0.84, 900);
-  let H = W / 1.56;
-  let cx = vw / 2;
-  let cy = vh / 2;
-  return { w: W, h: H, cx, cy, rx: W * 0.42, ry: H * 0.41 };
+  // Используй ширину и высоту wrapper, сохраняя соотношение!
+  const wrapper = document.getElementById('poker-table-wrapper');
+  const W = wrapper.offsetWidth;
+  const H = wrapper.offsetHeight;
+  // Овальный стол: ширина ~75% экрана, высота с правильным соотношением
+  let w = Math.min(W * 0.75, 980); // ширина стола
+  let h = w * 0.82;                // высота (соотношение 75:62)
+  // Центр wrapper — cx, cy
+  const cx = W / 2, cy = H / 2;
+  return { w, h, cx, cy, rx: w * 0.49, ry: h * 0.46 };
 }
+
+
+function layoutTable() {
+  const { w, h, cx, cy } = getTableDims();
+  // Переопределить размеры всех блоков!
+  ['poker-table', 'poker-table-border', 'seats'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.style.left = '50%';
+    el.style.top = '50%';
+    el.style.transform = 'translate(-50%, -50%)';
+  });
+}
+
+window.addEventListener('resize', layoutTable);
+window.addEventListener('DOMContentLoaded', layoutTable);
 
 function renderTable(state) {
   seatsEl.innerHTML = '';
