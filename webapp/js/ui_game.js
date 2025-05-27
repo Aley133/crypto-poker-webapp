@@ -99,7 +99,7 @@ function updateUI(state) {
     return;
   }
 
-  // Мой ход: показываем кнопки
+  // --- Рендерим кнопки, когда твой ход ---
   statusEl.textContent     = 'Ваш ход';
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
@@ -112,33 +112,43 @@ function updateUI(state) {
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
+  // FOLD
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
+  btnFold.className = 'poker-action-btn';
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
   actionsEl.appendChild(btnFold);
 
+  // CHECK
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
+  btnCheck.className = 'poker-action-btn';
   btnCheck.disabled    = toCall !== 0;
   btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
   actionsEl.appendChild(btnCheck);
 
+  // CALL
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+  btnCall.className = 'poker-action-btn';
   btnCall.disabled    = toCall <= 0 || myStack < toCall;
   btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
   actionsEl.appendChild(btnCall);
 
+  // BET
   const btnBet = document.createElement('button');
   btnBet.textContent = 'Bet';
+  btnBet.className = 'poker-action-btn';
   btnBet.onclick     = () => {
     const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
     safeSend({ user_id: userId, action: 'bet', amount });
   };
   actionsEl.appendChild(btnBet);
 
+  // RAISE
   const btnRaise = document.createElement('button');
   btnRaise.textContent = 'Raise';
+  btnRaise.className = 'poker-action-btn';
   btnRaise.disabled    = toCall <= 0;
   btnRaise.onclick     = () => {
     const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
@@ -147,6 +157,7 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
+// --- Современный рендер игроков вокруг стола ---
 function polarToCartesian(cx, cy, r, deg) {
   const rad = (deg - 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -154,150 +165,74 @@ function polarToCartesian(cx, cy, r, deg) {
 
 function renderTable(state) {
   const seatsContainer = document.getElementById('seats');
-  seatsContainer.innerHTML = '';
-
-  // Общие карты
   const communityContainer = document.getElementById('community-cards');
+
+  // Очищаем предыдущий рендер
+  seatsContainer.innerHTML = '';
   communityContainer.innerHTML = '';
-  (state.community || []).forEach((card, idx) => {
+
+  // 1) Общие карты
+  (state.community || []).forEach(card => {
     const cEl = document.createElement('div');
     cEl.className = 'card';
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
-    cEl.innerHTML = `<span class="rank">${rank}</span><span class="suit">${suit}</span>`;
-    if ('♥♦'.includes(suit) || 'hd'.includes(suit)) cEl.classList.add('red');
+    cEl.innerHTML = `
+      <span class="rank">${rank}</span>
+      <span class="suit">${suit}</span>
+    `;
+    if (suit === '♥' || suit === '♦') {
+      cEl.classList.add('red');
+    }
     communityContainer.appendChild(cEl);
-    setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // Эллиптическое размещение игроков
-  const seatPercents = [
-    [50, 96], [96, 50], [81, 17], [50, 5], [19, 17], [4, 50],
-  ];
-  function getSeatPositions(N) {
-    if (N === 2) return [seatPercents[0], seatPercents[3]];
-    if (N === 3) return [seatPercents[0], seatPercents[2], seatPercents[4]];
-    if (N === 4) return [seatPercents[0], seatPercents[1], seatPercents[3], seatPercents[5]];
-    if (N === 5) return [seatPercents[0], seatPercents[1], seatPercents[2], seatPercents[4], seatPercents[5]];
-    return seatPercents.slice(0, N);
-  }
+  // 2) Игроки вокруг стола
+  const players = state.players || [];
+  const holeMap = state.hole_cards || {};
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
 
-  const N = state.players.length;
-  const myUserId = String(state.user_id);
-  const myIdx = state.players.findIndex(p => String(p.user_id) === myUserId);
-  const positions = getSeatPositions(N);
+  seatsContainer.innerHTML = '';
 
-  // Дилер чип
-  let dealerChipEl = document.getElementById('dealer-chip-main');
-  if (!dealerChipEl) {
-    dealerChipEl = document.createElement('div');
-    dealerChipEl.className = 'dealer-chip';
-    dealerChipEl.id = 'dealer-chip-main';
-    dealerChipEl.textContent = 'D';
-    seatsContainer.appendChild(dealerChipEl);
-  }
-  dealerChipEl.style.display = 'none';
-
-  // Рендер игроков
-  state.players.forEach((p, i) => {
-    const place = (i - myIdx + N) % N;
-    const [px, py] = positions[place];
+  players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
-    seat.dataset.uid = p.user_id;
+    const relIndex = (i - userIndex + players.length) % players.length;
+    seat.dataset.pos = String(relIndex + 1);
 
-    if (i === myIdx) seat.classList.add('my-seat');
-    if (String(state.current_player) === String(i) || String(state.current_player) === String(p.user_id))
-      seat.classList.add('active');
-
-    seat.style.position = 'absolute';
-    seat.style.left = px + '%';
-    seat.style.top = py + '%';
-    seat.style.transform = 'translate(-50%, -50%)';
-
-    // Аватар
-    const avatarEl = document.createElement('div');
-    avatarEl.className = 'avatar';
-    avatarEl.style.backgroundImage = p.avatar ? `url('${p.avatar}')` : '';
-    avatarEl.style.width = '32px';
-    avatarEl.style.height = '32px';
-    seat.appendChild(avatarEl);
-
-    // Карты
+    // 2.1) Карты
     const cardsEl = document.createElement('div');
     cardsEl.className = 'cards';
-
-    // ----
-    // ВАЖНО: свои карты — полностью, чужие — рубашкой (кроме шоудауна)
-    let playerCards = state.hole_cards[p.user_id] || [];
-    // Открытые карты для всех — только если phase === 'result' и они в revealed_hands
-    const isShowdown = state.phase === 'result' && state.revealed_hands && state.revealed_hands[p.user_id];
-    if (String(p.user_id) === myUserId || isShowdown) {
-      // Показать настоящие карты
-      if (isShowdown) playerCards = state.revealed_hands[p.user_id] || playerCards;
-    } else {
-      // Не свои карты — только рубашка
-      playerCards = playerCards.map(_ => '??');
-    }
-    // ----
-
-    playerCards.forEach(c => {
+    (holeMap[p.user_id] || []).forEach(c => {
       const cd = document.createElement('div');
       cd.className = 'card';
-      if (c === '??') {
-        cd.classList.add('back');
-        cd.innerHTML = `<span class="pattern"></span>`;
-      } else {
+      if (String(p.user_id) === String(userId)) {
         const rk = c.slice(0, -1);
         const st = c.slice(-1);
         cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
-        if ('♥♦'.includes(st) || 'hd'.includes(st)) cd.classList.add('red');
+        if (st === '♥' || st === '♦') cd.classList.add('red');
+      } else {
+        cd.innerHTML = `<span class="suit">🂠</span>`;
       }
       cardsEl.appendChild(cd);
     });
     seat.appendChild(cardsEl);
 
-    // Имя и стек
-    const block = document.createElement('div');
-    block.className = 'seat-block';
+    // 2.2) Имя
     const infoEl = document.createElement('div');
     infoEl.className = 'player-info';
     infoEl.textContent = p.username;
-    block.appendChild(infoEl);
+    seat.appendChild(infoEl);
+
+    // 2.3) Стек
     const stackEl = document.createElement('div');
     stackEl.className = 'player-stack';
-    stackEl.textContent = state.stacks[p.user_id];
-    block.appendChild(stackEl);
-    seat.appendChild(block);
-
-    // Дилерская фишка
-    if (
-      String(state.dealer_index) === String(i) ||
-      String(state.dealer_index) === String(p.user_id)
-    ) {
-      setTimeout(() => {
-        dealerChipEl.style.left = `calc(${px}% + 28px)`;
-        dealerChipEl.style.top = `calc(${py}% - 25px)`;
-        dealerChipEl.style.display = 'flex';
-      }, 0);
-    }
+    stackEl.textContent = state.stacks?.[p.user_id] || 0;
+    seat.appendChild(stackEl);
 
     seatsContainer.appendChild(seat);
   });
-
-  // Кнопки под своим seat — просто стилизуем!
-  const actionsBlock = document.getElementById('actions');
-  if (actionsBlock && positions[0]) {
-    actionsBlock.style.position = "absolute";
-    actionsBlock.style.left = positions[0][0] + '%';
-    actionsBlock.style.top = (positions[0][1] + 12) + '%';
-    actionsBlock.style.transform = "translate(-50%, 0)";
-    actionsBlock.style.zIndex = 999;
-    // Важно: не добавляй actionsBlock в seatsContainer!
-  }
 }
-
-
 
 // Инициализация WebSocket
 ws = createWebSocket(tableId, userId, username, e => {
