@@ -47,23 +47,19 @@ header {
   background: rgba(40,40,60,0.29);
   transition: border 0.17s, background 0.17s;
 }
-
-.seat .cards {
-  display: flex;
-  gap: 4%;
-}
 .sit-btn {
-  width: 100%;
-  height: 48%;
-  margin-top: 16%;
-  border: 2px dashed #fff7;
-  background: #212f4e;
+  background: #23243c;
   color: #fff;
-  font-size: 1.3em;
-  border-radius: 8px;
+  border-radius: 7px;
+  border: 1.7px solid #eee;
+  font-weight: 800;
+  padding: 8px 22px;
+  font-size: 1.13em;
   cursor: pointer;
-  opacity: 0.85;
-  transition: 0.17s;
+  margin-top: 18px;
+  box-shadow: 0 2px 12px #0004;
+  transition: background .13s;
+  outline: none;
 }
 .sit-btn:hover { background: #3ce0ba; color: #202; }
 #poker-root, #table-ui {
@@ -72,13 +68,14 @@ header {
 }
 
 #poker-table-wrapper {
-  width: 100vw;
-  height: 90vh;
-  min-width: 320px;
-  min-height: 200px;
+  position: absolute;
+  left: 0; top: 0;
+  width: 100vw; height: 100vh;
+  min-width: 400px; min-height: 280px;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  overflow: hidden;
 }
 
 #poker-table, #seats, #poker-table-border {
@@ -100,17 +97,11 @@ position: absolute;
   z-index: 8;
 }
 #poker-table {
-  width: 90vw;
-  aspect-ratio: 2/1;              /* Эллипс */
-  max-width: 1200px;
-  max-height: 600px;
-  min-width: 360px;
-  min-height: 180px;
-  position: relative;
   background: #457564;
-  border-radius: 50% / 50%;
-  box-shadow: 0 0 70px 10px #fff4;
-  overflow: visible;  
+  border-radius: 30% 30% / 50% 50%;
+  border: 2px solid red;
+  box-shadow: 0 0 20px 5px #bfbcbc, 0 0 33px 40px #7aa17d55 inset;
+  z-index: 10;
 }
 
 /* Стол */
@@ -190,23 +181,25 @@ position: absolute;
 .pot-chip { width: 22px; height: 22px; display: inline-block; vertical-align: middle; }
 
 #seats {
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; 
+  pointer-events: none;
+  z-index: 15;
+  width: 100%;
+  height: 100%;
 }
 
 /* Сиденье игрока */
 .seat {
   position: absolute;
-  width: 9%;    /* от ширины стола */
-  height: 16%;  /* подгоняй под стиль (можно чуть больше) */
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
+  width: 138px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  z-index: 3;
+  pointer-events: none;
+  background: none;
+  box-shadow: none;
+  border: none;
+  z-index: 15;
+  transition: filter 0.16s;
 }
 .seat.active {
   filter: drop-shadow(0 0 24px #33fff977); /* красивое свечение активного */
@@ -217,45 +210,34 @@ position: absolute;
 }
 .dealer-chip {
   position: absolute;
-  left: 54%;
-  top: 10%;
-  transform: translate(-50%, -50%);
-  background: gold;
-  color: #222;
-  font-weight: bold;
-  width: 1.7em;
-  height: 1.7em;
-  border-radius: 50%;
+  width: 34px; height: 34px;
   display: flex; align-items: center; justify-content: center;
-  border: 3px solid #fff;
-  font-size: 1.2em;
-  z-index: 3;
+  background: #fff;
+  color: #222;
+  border: 3px solid #ffd800;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 1.13em;
+  box-shadow: 0 2px 10px #fff6, 0 3px 18px #222a;
+  pointer-events: none;
+  z-index: 25;
+  transition: left 0.36s cubic-bezier(.57,1.49,.28,1.09), top 0.36s cubic-bezier(.57,1.49,.28,1.09);
 }
 
 .cards { display: flex; gap: 0; margin-bottom: 2px; margin-top: 0; z-index: 15; pointer-events: auto; }
 .card {
-  width: 46%;
-  aspect-ratio: 0.72;         /* стандартная карта 64x89мм ~0.72 */
+  width: 52px; height: 76px;
   background: #fff;
-  border-radius: 10%;
-  box-shadow: 0 2px 12px #0003;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2em;
-  margin: 0 2px;
+  border: 1.5px solid #bfcad7;
+  border-radius: 10px;
+  box-shadow: 0 3px 14px #0003;
+  font-family: 'Inter', Arial, sans-serif;
+  position: relative; overflow: hidden;
+  margin-left: -16px;
+  z-index: 2;
+  display: flex; flex-direction: column; justify-content: space-between;
+  pointer-events: auto;
 }
-.seat-block {
-  width: 100%;
-  background: #222d;
-  color: #fff;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 0.9em;
-  margin-top: 6%;
-  padding: 2px 0;
-}
-
 .card:first-child { margin-left: 0; }
 .card .rank {
   position: absolute; top: 9px; left: 11px;
