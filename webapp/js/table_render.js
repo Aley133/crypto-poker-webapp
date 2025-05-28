@@ -73,7 +73,6 @@ export function renderTable(state, userId) {
   // Рисуем 6 мест
   for (let seatId = 0; seatId < N_SEATS; ++seatId) {
     const rad = angles[seatId] * Math.PI / 180;
-    const angle = 2 * Math.PI * seatId / N_SEATS - Math.PI/2;
     const left = cx + rx * Math.cos(rad);
     const top  = cy + ry * Math.sin(rad);
 
