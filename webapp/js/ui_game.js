@@ -1,13 +1,13 @@
 import { createWebSocket } from './ws.js';
-import { renderTable } from './table_render.js';
+import { renderTable } from './table_render.js'; // Твой модуль рендера
 
-// --- Params ---
+// URL parameters
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// --- DOM elements ---
+// DOM elements
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
 const currentBetEl = document.getElementById('current-bet');
@@ -15,7 +15,7 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-// --- Overlay для результатов ---
+// Overlay для отображения результата раздачи
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -26,18 +26,17 @@ Object.assign(resultOverlayEl.style, {
 });
 document.body.appendChild(resultOverlayEl);
 
-// --- WebSocket ---
 let ws;
 
+// Безопасная отправка WS
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   }
 }
 
-// ===== Обновление UI: только создание и обработчики кнопок =====
+// =================== UI ===================
 function updateUI(state) {
-  // --- Итог раздачи (оверлей) ---
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
@@ -76,14 +75,13 @@ function updateUI(state) {
     return;
   }
 
-  // --- Обычный режим ---
+  // Скрываем оверлей результата
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // --- Ожидание игроков ---
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
@@ -93,7 +91,6 @@ function updateUI(state) {
     return;
   }
 
-  // --- Не твой ход ---
   const isMyTurn = String(state.current_player) === String(userId);
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
@@ -105,7 +102,7 @@ function updateUI(state) {
     return;
   }
 
-  // --- Твой ход: показываем кнопки ---
+  // Мой ход: показываем кнопки
   statusEl.textContent     = 'Ваш ход';
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
@@ -118,7 +115,7 @@ function updateUI(state) {
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
-  // --- Кнопки действий ---
+  // ============ Генерируем новые кнопки =============
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
@@ -154,21 +151,21 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-// ======= Инициализация WebSocket и логика =======
+// =========== WS INIT & Events ============
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
-  window.currentTableState = state; // Для ререндера при resize
+  window.currentTableState = state;
   updateUI(state);
-  renderTable(state, userId);
+  renderTable(state, userId); // userId нужен для вычисления своего seat
 });
 
-// ======= Кнопка "Покинуть стол" =======
 leaveBtn.onclick = async () => {
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
   window.location.href = 'index.html';
 };
 
-// ======= Перерендер стола при изменении размеров окна =======
+window.currentUserId = userId;
+
 window.addEventListener('resize', () => {
   if (window.currentTableState) renderTable(window.currentTableState, userId);
 });
