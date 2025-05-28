@@ -12,9 +12,10 @@ body::before {
   position: fixed; inset: 0;
   z-index: 0; pointer-events: none;
   opacity: 0.15;
-  background-image:
+   background-image:
     repeating-linear-gradient(135deg, #fff2 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(45deg, #fff2 0 1px, transparent 1px 72px);
+    repeating-linear-gradient(45deg, #fff2 0 1px, transparent 1px 72px),
+    url('data:image/svg+xml;utf8,<svg width="36" height="36" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="2.1" fill="%23ffffff44" /></svg>');
   background-size: 72px 72px, 72px 72px;
   background-repeat: repeat;
 }
@@ -40,7 +41,27 @@ header {
   color: #fff;
   z-index: 10;
 }
-
+.seat.empty {
+  opacity: 0.77;
+  border: 2.2px dashed #aaa;
+  background: rgba(40,40,60,0.29);
+  transition: border 0.17s, background 0.17s;
+}
+.sit-btn {
+  background: #23243c;
+  color: #fff;
+  border-radius: 7px;
+  border: 1.7px solid #eee;
+  font-weight: 800;
+  padding: 8px 22px;
+  font-size: 1.13em;
+  cursor: pointer;
+  margin-top: 18px;
+  box-shadow: 0 2px 12px #0004;
+  transition: background .13s;
+  outline: none;
+}
+.sit-btn:hover { background: #3ce0ba; color: #202; }
 #poker-root, #table-ui {
   width: 100vw; height: 100vh; position: absolute; top: 0; left: 0;
   overflow: hidden;
