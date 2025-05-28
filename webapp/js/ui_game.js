@@ -163,6 +163,8 @@ leaveBtn.onclick = async () => {
   window.location.href = 'index.html';
 };
 
+window.currentUserId = userId; 
+
 // Перерендер стола при изменении размеров окна
 window.addEventListener('resize', () => {
   if (window.currentTableState) renderTable(window.currentTableState, userId);
