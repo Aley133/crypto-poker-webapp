@@ -118,7 +118,7 @@ header {
   pointer-events: none;
 }
 /* Все элементы — позиция absolute, центрируются из JS! */
-#poker-table, #poker-table-border, #seats {
+#poker-table, #poker-table-border {
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
@@ -186,9 +186,13 @@ header {
 
 #seats {
  position: absolute;
-  left: 0; top: 0; width: 100%; height: 100%;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
   z-index: 15;
   pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
 /* Сиденье игрока */
