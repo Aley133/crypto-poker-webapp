@@ -153,6 +153,15 @@ export function positionActionsEl(state, userId) {
   actionsEl.style.display  = 'flex';
 }
 
+function joinSeat(seatId) {
+  // Например, отправить через fetch или WS
+  fetch(`/api/join-seat?table_id=${tableId}&user_id=${userId}&seat=${seatId}`, { method: 'POST' })
+    .then(() => {
+      // Перерисовать стол по факту ответа
+      reloadGameState(); // твоя функция, которая обновит состояние
+    });
+}
+
 // Для hotfix: пересчитывай layout и render при resize/mutation
 window.addEventListener('resize', () => {
   if (window.currentTableState)
