@@ -13,14 +13,28 @@ async def broadcast(table_id: int):
     if not state:
         return
 
+    N = 6
+    seats = state.get("seats", [None] * N)
+    player_seats = state.get("player_seats", {})
+
+    # Формируем payload игроков: seat обязателен
+    players_payload = []
+    for seat_idx, uid in enumerate(seats):
+        if not uid:
+            continue
+        players_payload.append({
+            "user_id": uid,
+            "username": state.get("usernames", {}).get(uid, uid),
+            "seat": seat_idx,
+            # другие нужные поля (stack, contributions) можно добавить тут
+        })
+
     payload = {
         "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
-        "players_count": len(state.get("players", [])),
-        "players": [
-            {"user_id": uid, "username": state.get("usernames", {}).get(uid, uid)}
-            for uid in state.get("players", [])
-        ],
+        "players_count": len([u for u in seats if u]),
+        "players": players_payload,
+        "seats": seats,  # список user_id либо None — для SIT на фронте
         "community": state.get("community", []),
         "current_player": state.get("current_player"),
         "pot": state.get("pot", 0),
@@ -42,13 +56,15 @@ async def broadcast(table_id: int):
         try:
             await ws.send_json(payload)
         except:
-            pass
+            try:
+                await ws.close()
+            except:
+                pass
+            connections.get(table_id, []).remove(ws)
 
 async def _auto_restart(table_id: int):
-    # Ждём RESULT_DELAY секунд
     await asyncio.sleep(RESULT_DELAY)
     state = game_states.get(table_id)
-    # Если всё ещё в фазе result — рестартим
     if state and state.get("phase") == "result":
         start_hand(table_id)
         state["phase"] = "pre-flop"
@@ -62,30 +78,50 @@ async def ws_game(websocket: WebSocket, table_id: int):
     uid = websocket.query_params.get("user_id")
     username = websocket.query_params.get("username", uid)
 
-    # Регистрация соединения
+    N = 6
     conns = connections.setdefault(table_id, [])
-    if len(conns) >= MAX_PLAYERS:
+    state = game_states.setdefault(table_id, {})
+    seats = state.setdefault("seats", [None] * N)
+    player_seats = state.setdefault("player_seats", {})
+    usernames = state.setdefault("usernames", {})
+    players = state.setdefault("players", [])
+
+    # Проверяем: уже сидит или нет
+    already_seated = False
+    for s, occupant in enumerate(seats):
+        if occupant == uid:
+            already_seated = True
+            break
+
+    # Садим нового игрока, если не сидит
+    if not already_seated:
+        for s in range(N):
+            if seats[s] is None:
+                seats[s] = uid
+                player_seats[uid] = s
+                break
+
+    usernames[uid] = username
+    players = [u for u in seats if u]
+    state["players"] = players
+    state["usernames"] = usernames
+    state["seats"] = seats
+    state["player_seats"] = player_seats
+
+    # Добавляем соединение
+    if websocket not in conns:
+        conns.append(websocket)
+    if len(conns) > N:
         await websocket.close(code=1013)
         return
-    conns.append(websocket)
 
-    # Гарантируем базовое состояние
-    state = game_states.setdefault(table_id, {})
-    state.setdefault("players", [])
-    state.setdefault("usernames", {})
-
-    # Обновляем список игроков и юзернеймы
-    state["usernames"][uid] = username
-    state["players"] = [ws_.query_params.get("user_id") for ws_ in conns]
-
-    # Старт новой раздачи, если нужно
-    if len(state["players"]) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
+    # Старт новой раздачи если нужно
+    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
         start_hand(table_id)
 
-    # Первый broadcast
     await broadcast(table_id)
 
-    # Если только что перешли в result — запускаем фоновый рестарт
+    # Авто-ребут если только что result
     st = game_states.get(table_id, {})
     if st.get("phase") == "result":
         asyncio.create_task(_auto_restart(table_id))
@@ -100,21 +136,42 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
             apply_action(table_id, pid, action, amount)
 
-            # После каждого хода рассылаем обновлённое состояние
+            s = game_states[table_id]
+            s["players"] = [u for u in s.get("seats", [None] * N) if u]
             await broadcast(table_id)
 
-            # Если мы сейчас в result — создаём таск, чтобы рестартить через RESULT_DELAY
             st = game_states.get(table_id, {})
             if st.get("phase") == "result":
                 asyncio.create_task(_auto_restart(table_id))
+    finally:
+        # Освобождаем место
+        if uid in player_seats:
+            seat_idx = player_seats[uid]
+            if 0 <= seat_idx < N and seats[seat_idx] == uid:
+                seats[seat_idx] = None
+            del player_seats[uid]
+        usernames.pop(uid, None)
+        if uid in players:
+            players.remove(uid)
+        state["players"] = [u for u in seats if u]
+        state["usernames"] = usernames
+        state["seats"] = seats
+        state["player_seats"] = player_seats
+        await broadcast(table_id)
+        if websocket in conns:
+            conns.remove(websocket)
 
+    # Чистим после WebSocketDisconnect
+    # (оставим эту секцию для совместимости)
+    try:
+        pass
     except WebSocketDisconnect:
-        conns.remove(websocket)
+        if websocket in conns:
+            conns.remove(websocket)
         remaining = [ws_.query_params.get("user_id") for ws_ in conns]
         if remaining:
             state = game_states.setdefault(table_id, {})
             state["players"] = remaining
-            # При необходимости рестартим
             if len(remaining) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
                 start_hand(table_id)
             await broadcast(table_id)
