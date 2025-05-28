@@ -70,7 +70,7 @@ header {
 #poker-table-wrapper {
   position: absolute;
   left: 0; top: 0;
-  width: 100vw; height: 80vh;
+  width: 100vw; height: 100vh;
   min-width: 400px; min-height: 280px;
   display: flex;
   justify-content: center;
