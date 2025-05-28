@@ -62,14 +62,15 @@ async function loadTables() {
         await joinTable(t.id, userId);
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
-        window.location.href =
-          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`;
+        window.open(
+          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`,
+          '_blank'
+        );
       });
       infoContainer.appendChild(card);
     });
   } catch (err) {
-    console.error(err);
-    infoContainer.textContent = 'Ошибка загрузки столов';
+    infoContainer.textContent = 'Ошибка загрузки столов!';
   }
 }
 
