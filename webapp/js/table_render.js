@@ -81,6 +81,7 @@ export function renderTable(state, userId) {
   players.forEach((p, i) => {
     const seat = document.createElement('div');
     seat.className = 'seat';
+    seat.style.position = 'absolute';
     // Позиция от центра wrapper!
     const rad = seatOrder[i] * Math.PI / 180;
     seat.style.position  = 'absolute';
@@ -140,6 +141,7 @@ export function renderTable(state, userId) {
     if (typeof state.dealer_index !== 'undefined' && Number(state.dealer_index) === i) {
       const rad = seatOrder[i] * Math.PI / 180;
       dealerChipEl.style.position = 'absolute';
+      seat.style.position = 'absolute';
       dealerChipEl.style.left  = (cx + rx * Math.cos(rad) + 34) + 'px';
       dealerChipEl.style.top   = (cy + ry * Math.sin(rad) - 36) + 'px';
       dealerChipEl.style.display = 'flex';
