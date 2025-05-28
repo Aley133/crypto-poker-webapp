@@ -151,12 +151,12 @@ export function renderTable(state, userId) {
   if (actionsEl && players.length > 0) {
     const rad = seatOrder[0] * Math.PI / 180;
     actionsEl.style.position = 'absolute';
-    actionsEl.style.left     = (cx + rx * Math.cos(rad)) + 'px';
-    actionsEl.style.top      = (cy + ry * Math.sin(rad) + 54) + 'px';
+    actionsEl.style.zIndex = 999;
+    actionsEl.style.display = 'flex';
+    const rad = seatOrder[0] * Math.PI / 180;
+    actionsEl.style.left = (cx + rx * Math.cos(rad)) + 'px';
+    actionsEl.style.top  = (cy + ry * Math.sin(rad) + 54) + 'px';
     actionsEl.style.transform = 'translate(-50%, 0)';
-    actionsEl.style.zIndex   = 999;
-    actionsEl.style.display  = 'flex';
-    seatsEl.appendChild(actionsEl);
   }
 }
 
