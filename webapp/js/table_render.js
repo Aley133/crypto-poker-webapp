@@ -10,7 +10,7 @@ function getSeatAngles(N) {
   return out;
 }
 
-const BORDER_OFFSET = 55;
+const BORDER_OFFSET = 85;
 function getTableDims() {
   const table = document.getElementById('poker-table');
   const W = table.offsetWidth;
