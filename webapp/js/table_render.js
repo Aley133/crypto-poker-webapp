@@ -5,11 +5,11 @@ function getTableDims() {
   const wrapper = document.getElementById('poker-table-wrapper');
   const W = wrapper.offsetWidth;
   const H = wrapper.offsetHeight;
-  // Соотношение: ширина всегда <= 90% wrapper, высота через пропорцию (овальный стол)
-  let w = Math.min(W * 0.9, 960);  // макс ширина 960px
-  let h = w * 0.60;                // овальность (подбирай, если нужно)
+  // Соотношение: ширина <= 90% wrapper, высота через пропорцию (овальный стол)
+  let w = Math.min(W * 0.9, 960);
+  let h = w * 0.60;
   const cx = W / 2, cy = H / 2;
-  return { w, h, cx, cy, rx: w * 0.44, ry: h * 0.41 }; // rx/ry - "орбиты" для игроков
+  return { w, h, cx, cy, rx: w * 0.44, ry: h * 0.41 };
 }
 
 // Генерация углов для мест
@@ -31,7 +31,6 @@ export function renderTable(state, userId) {
   const borderEl     = document.getElementById('poker-table-border');
   const wrapperEl    = document.getElementById('poker-table-wrapper');
   const seatsEl      = document.getElementById('seats');
-  const actionsEl    = document.getElementById('actions');
   const communityEl  = document.getElementById('community-cards');
 
   // Очистка
@@ -50,7 +49,7 @@ export function renderTable(state, userId) {
     setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
   });
 
-  // 2. Габариты и абсолютное центрирование
+  // 2. Габариты и центрирование
   const { w, h, cx, cy, rx, ry } = getTableDims();
   [pokerTableEl, borderEl, seatsEl].forEach(el => {
     if (!el) return;
@@ -146,31 +145,41 @@ export function renderTable(state, userId) {
       dealerChipEl.style.display = 'flex';
     }
   });
+}
 
-  // 5. Кнопки действий — всегда под своим местом
-  if (actionsEl && players.length > 0) {
-    const rad = seatOrder[0] * Math.PI / 180;
-    actionsEl.style.position = 'absolute';
-    actionsEl.style.zIndex = 999;
-    actionsEl.style.display = 'flex';
-    const rad = seatOrder[0] * Math.PI / 180;
-    actionsEl.style.left = (cx + rx * Math.cos(rad)) + 'px';
-    actionsEl.style.top  = (cy + ry * Math.sin(rad) + 54) + 'px';
-    actionsEl.style.transform = 'translate(-50%, 0)';
-  }
+// Абсолютное позиционирование блока кнопок (НЕ добавляем actionsEl в DOM!)
+export function positionActionsEl(state, userId) {
+  const wrapper = document.getElementById('poker-table-wrapper');
+  const actionsEl = document.getElementById('actions');
+  const { cx, cy, rx, ry } = getTableDims();
+  const players = state.players || [];
+  const userIndex = players.findIndex(p => String(p.user_id) === String(userId));
+  const N = players.length;
+  if (N === 0) return;
+  const angles = getSeatAngles(N);
+  const seatOrder = [];
+  for (let i = 0; i < N; ++i) seatOrder.push(angles[(i - userIndex + N) % N]);
+  const rad = seatOrder[0] * Math.PI / 180;
+  actionsEl.style.position = 'absolute';
+  actionsEl.style.left     = (cx + rx * Math.cos(rad)) + 'px';
+  actionsEl.style.top      = (cy + ry * Math.sin(rad) + 54) + 'px';
+  actionsEl.style.transform = 'translate(-50%, 0)';
+  actionsEl.style.zIndex   = 999;
+  actionsEl.style.display  = 'flex';
 }
 
 // Для hotfix: пересчитывай layout и render при resize/mutation
 window.addEventListener('resize', () => {
   if (window.currentTableState)
     renderTable(window.currentTableState, window.currentUserId);
+  if (window.currentTableState && window.currentUserId)
+    positionActionsEl(window.currentTableState, window.currentUserId);
 });
 
-// Хак: исправляет баг первого запуска с багнутым центром (телеграм/вебвью)
-// Форсируем пересчет layout по таймеру, если не центровано
+// Для первого запуска — форсируем пересчет через таймаут (баг Telegram)
 setTimeout(() => {
   if (window.currentTableState)
     renderTable(window.currentTableState, window.currentUserId);
+  if (window.currentTableState && window.currentUserId)
+    positionActionsEl(window.currentTableState, window.currentUserId);
 }, 200);
-
-
