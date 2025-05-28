@@ -14,15 +14,13 @@ function getTableDims() {
   const table = document.getElementById('poker-table');
   const W = table.offsetWidth;
   const H = table.offsetHeight;
-  console.log('poker-table dims:', W, H);
   const cx = W / 2, cy = H / 2;
   return {
     cx, cy,
-    rx: W * 0.44,
+    rx: W * 0.44,  // 0.44 — примерно по краю эллипса
     ry: H * 0.41
   };
 }
-
 
 // Главная функция рендера стола и мест
 export function renderTable(state, userId) {
