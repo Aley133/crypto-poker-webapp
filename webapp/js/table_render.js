@@ -10,6 +10,7 @@ function getSeatAngles(N) {
   return out;
 }
 
+const BORDER_OFFSET = 55;
 function getTableDims() {
   const table = document.getElementById('poker-table');
   const W = table.offsetWidth;
@@ -17,8 +18,8 @@ function getTableDims() {
   const cx = W / 2, cy = H / 2;
   return {
     cx, cy,
-    rx: W * 0.44,  // 0.44 — примерно по краю эллипса
-    ry: H * 0.41
+    rx: W * 0.44 + BORDER_OFFSET,
+    ry: H * 0.41 + BORDER_OFFSET
   };
 }
 
