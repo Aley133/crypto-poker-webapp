@@ -1,7 +1,7 @@
 import { createWebSocket } from './ws.js';
-import { renderTable } from './table_render.js'; // Твой модуль рендера
+import { renderTable, positionActionsEl } from './table_render.js';
 
-// URL parameters
+// --- Params ---
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
@@ -15,7 +15,9 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-// Overlay для отображения результата раздачи
+let ws;
+
+// Overlay для результата
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
@@ -26,8 +28,6 @@ Object.assign(resultOverlayEl.style, {
 });
 document.body.appendChild(resultOverlayEl);
 
-let ws;
-
 // Безопасная отправка WS
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -35,7 +35,7 @@ function safeSend(payload) {
   }
 }
 
-// =================== UI ===================
+// ======= UI Logic =======
 function updateUI(state) {
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
@@ -87,7 +87,6 @@ function updateUI(state) {
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
-    actionsEl.innerHTML      = '';
     return;
   }
 
@@ -115,7 +114,6 @@ function updateUI(state) {
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
-  // ============ Генерируем новые кнопки =============
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
@@ -151,12 +149,13 @@ function updateUI(state) {
   actionsEl.appendChild(btnRaise);
 }
 
-// =========== WS INIT & Events ============
+// ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   window.currentTableState = state;
   updateUI(state);
-  renderTable(state, userId); // userId нужен для вычисления своего seat
+  renderTable(state, userId);
+  positionActionsEl(state, userId);
 });
 
 leaveBtn.onclick = async () => {
@@ -166,6 +165,18 @@ leaveBtn.onclick = async () => {
 
 window.currentUserId = userId;
 
+// Перерендер стола при изменении размеров окна
 window.addEventListener('resize', () => {
-  if (window.currentTableState) renderTable(window.currentTableState, userId);
+  if (window.currentTableState) {
+    renderTable(window.currentTableState, userId);
+    positionActionsEl(window.currentTableState, userId);
+  }
 });
+
+// Hotfix: повторный рендер через небольшой таймаут
+setTimeout(() => {
+  if (window.currentTableState) {
+    renderTable(window.currentTableState, userId);
+    positionActionsEl(window.currentTableState, userId);
+  }
+}, 200);
