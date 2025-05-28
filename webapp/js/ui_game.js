@@ -1,5 +1,5 @@
 import { createWebSocket } from './ws.js';
-import { renderTable, positionActionsEl } from './table_render.js';
+import { renderTable } from './table_render.js';
 
 // --- Params ---
 const params   = new URLSearchParams(window.location.search);
@@ -116,23 +116,27 @@ function updateUI(state) {
 
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
+  btnFold.className = 'poker-action-btn poker-action-fold';
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
   actionsEl.appendChild(btnFold);
 
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
+  btnCheck.className = 'poker-action-btn';
   btnCheck.disabled    = toCall !== 0;
   btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
   actionsEl.appendChild(btnCheck);
 
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+  btnCall.className = 'poker-action-btn';
   btnCall.disabled    = toCall <= 0 || myStack < toCall;
   btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
   actionsEl.appendChild(btnCall);
 
   const btnBet = document.createElement('button');
   btnBet.textContent = 'Bet';
+  btnBet.className = 'poker-action-btn poker-action-bet';
   btnBet.onclick     = () => {
     const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
     safeSend({ user_id: userId, action: 'bet', amount });
@@ -141,6 +145,7 @@ function updateUI(state) {
 
   const btnRaise = document.createElement('button');
   btnRaise.textContent = 'Raise';
+  btnRaise.className = 'poker-action-btn poker-action-raise';
   btnRaise.disabled    = toCall <= 0;
   btnRaise.onclick     = () => {
     const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
@@ -155,16 +160,12 @@ ws = createWebSocket(tableId, userId, username, e => {
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
-  positionActionsEl(state, userId);
 });
 
 leaveBtn.onclick = async () => {
-  // 1. Можно очистить state, если нужно
   window.currentTableState = null;
-  // 2. Сообщить серверу
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-  // 3. Перенаправить в лобби
-  window.location.href = '/lobby'; // или на нужную страницу
+  window.location.href = '/lobby';
 };
 
 window.currentUserId = userId;
@@ -173,7 +174,6 @@ window.currentUserId = userId;
 window.addEventListener('resize', () => {
   if (window.currentTableState) {
     renderTable(window.currentTableState, userId);
-    positionActionsEl(window.currentTableState, userId);
   }
 });
 
@@ -181,6 +181,5 @@ window.addEventListener('resize', () => {
 setTimeout(() => {
   if (window.currentTableState) {
     renderTable(window.currentTableState, userId);
-    positionActionsEl(window.currentTableState, userId);
   }
 }, 200);
