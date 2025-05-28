@@ -1,11 +1,16 @@
+// table_render.js
+
 const N_SEATS = 6;
 
-// Углы для 6 мест, 0 — всегда снизу по центру, по часовой стрелке
+// Углы для 6 мест (seat 0 внизу по центру)
 function getSeatAngles(N) {
-  return [90, 150, 210, 270, 330, 30];
+  if (N === 6) return [90, 150, 210, 270, 330, 30];
+  let out = [];
+  for (let i = 0; i < N; ++i) out.push(90 + (360 / N) * i);
+  return out;
 }
 
-// Получаем размеры и центр стола
+const BORDER_OFFSET = 55;
 function getTableDims() {
   const table = document.getElementById('poker-table');
   const W = table.offsetWidth;
@@ -13,37 +18,59 @@ function getTableDims() {
   const cx = W / 2, cy = H / 2;
   return {
     cx, cy,
-    rx: W * 0.48, // 0.48 чтобы игроки были прям у борта, но вне овала
-    ry: H * 0.48
+    rx: W * 0.44 + BORDER_OFFSET,
+    ry: H * 0.41 + BORDER_OFFSET
   };
 }
 
 // Главная функция рендера стола и мест
-function renderTable(state, userId) {
-  const seatsEl = document.getElementById('seats');
-  seatsEl.innerHTML = '';
+export function renderTable(state, userId) {
+  const pokerTableEl = document.getElementById('poker-table');
+  const borderEl     = document.getElementById('poker-table-border');
+  const wrapperEl    = document.getElementById('poker-table-wrapper');
+  const seatsEl      = document.getElementById('seats');
+  const communityEl  = document.getElementById('community-cards');
 
+  // Очистка
+  seatsEl.innerHTML = '';
+  communityEl.innerHTML = '';
+
+  // Общие карты
+  (state.community || []).forEach((card, idx) => {
+    const cEl = document.createElement('div');
+    cEl.className = 'card';
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    cEl.innerHTML = `<span class="rank">${rank}</span><span class="suit">${suit}</span>`;
+    if (suit === '♥' || suit === '♦') cEl.classList.add('red');
+    communityEl.appendChild(cEl);
+    setTimeout(() => cEl.classList.add('visible'), 120 + idx * 90);
+  });
+
+  // Размеры и центр
   const { cx, cy, rx, ry } = getTableDims();
+
+  // Подготовим массив мест: seatId => игрок
+  const players = state.players || [];
+  const seatsMap = Array(N_SEATS).fill(null);
+  players.forEach(p => {
+    if (typeof p.seat !== "undefined" && p.seat >= 0 && p.seat < N_SEATS)
+      seatsMap[p.seat] = p;
+  });
+
   const angles = getSeatAngles(N_SEATS);
 
-  // Формируем отображение: кто сидит где (seatMap[seatId] = {...})
-  const seatMap = Array(N_SEATS).fill(null);
-  if (state.players) {
-    state.players.forEach(p => {
-      // Предполагаем p.seat — seatId (0..5), p.user_id, p.username
-      if (typeof p.seat === 'number') seatMap[p.seat] = p;
-    });
-  }
-
-  // Дилер
+  // Определяем seat дилера (если есть)
   let dealerSeat = null;
-  if (typeof state.dealer_index === 'number') {
-    const dealerPlayer = state.players?.[state.dealer_index];
-    if (dealerPlayer && typeof dealerPlayer.seat === "number") {
+  if (typeof state.dealer_index === "number") {
+    // dealer_index = индекс игрока в массиве players — найдём seat:
+    const dealerPlayer = players[state.dealer_index];
+    if (dealerPlayer && typeof dealerPlayer.seat !== "undefined") {
       dealerSeat = dealerPlayer.seat;
     }
   }
 
+  // Рисуем 6 мест
   for (let seatId = 0; seatId < N_SEATS; ++seatId) {
     const rad = angles[seatId] * Math.PI / 180;
     const left = cx + rx * Math.cos(rad);
@@ -51,10 +78,12 @@ function renderTable(state, userId) {
 
     const seatDiv = document.createElement('div');
     seatDiv.className = 'seat';
+    seatDiv.style.position = 'absolute';
     seatDiv.style.left = left + 'px';
     seatDiv.style.top = top + 'px';
+    seatDiv.style.transform = 'translate(-50%, -50%)';
 
-    // Дилер чип
+    // Дилер чип (отрисовывается даже если seat пустой)
     if (dealerSeat === seatId) {
       const dealerChip = document.createElement('div');
       dealerChip.className = 'dealer-chip';
@@ -62,23 +91,19 @@ function renderTable(state, userId) {
       seatDiv.appendChild(dealerChip);
     }
 
-    const player = seatMap[seatId];
+    const player = seatsMap[seatId];
     if (player) {
+      // Место занято — игрок
       if (String(player.user_id) === String(userId)) seatDiv.classList.add('my-seat');
       if (String(state.current_player) === String(player.user_id)) seatDiv.classList.add('active');
 
       // Карты игрока
       const cardsEl = document.createElement('div');
       cardsEl.className = 'cards';
-      const playerCards = (state.hole_cards?.[player.user_id] || []);
-      playerCards.forEach(c => {
+      (state.hole_cards?.[player.user_id] || []).forEach(c => {
         const cd = document.createElement('div');
         cd.className = 'card';
-        // Показываем карты только если это наш пользователь или showdown
-        if (
-          String(player.user_id) === String(userId) ||
-          (state.phase === "result" && state.revealed_hands?.[player.user_id])
-        ) {
+        if (String(player.user_id) === String(userId)) {
           const rk = c.slice(0, -1);
           const st = c.slice(-1);
           cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;
@@ -100,7 +125,7 @@ function renderTable(state, userId) {
 
       const stackEl = document.createElement('div');
       stackEl.className = 'player-stack';
-      stackEl.textContent = state.stacks?.[player.user_id] ?? 0;
+      stackEl.textContent = state.stacks?.[player.user_id] || 0;
       block.appendChild(stackEl);
 
       seatDiv.appendChild(block);
@@ -121,15 +146,26 @@ function renderTable(state, userId) {
 // Сажаем игрока на место (реализуй reloadGameState сам)
 function joinSeat(seatId) {
   fetch(`/api/join-seat?table_id=${tableId}&user_id=${userId}&seat=${seatId}`, { method: 'POST' })
-    .then(() => reloadGameState());
+    .then(() => {
+      reloadGameState();
+    });
 }
 
-// Авто-отрисовка при ресайзе и запуске
+// На resize — перерисовка
 window.addEventListener('resize', () => {
   if (window.currentTableState)
     renderTable(window.currentTableState, window.currentUserId);
 });
-window.addEventListener('DOMContentLoaded', () => {
+
+// Первый запуск — доп. таймаут для Telegram WebView/медленных девайсов
+setTimeout(() => {
   if (window.currentTableState)
     renderTable(window.currentTableState, window.currentUserId);
-});
+}, 200);
+
+function safeRenderTable(state, userId) {
+  setTimeout(() => renderTable(state, userId), 0);
+  // Или requestAnimationFrame
+}
+
+setTimeout(() => renderTable(state, userId), 0);
