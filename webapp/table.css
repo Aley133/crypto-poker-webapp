@@ -99,7 +99,7 @@ position: absolute;
 #poker-table {
   background: #457564;
   border-radius: 30% 30% / 50% 50%;
-  border: 3px solid #bfbcbc;
+  border: 2px solid red;
   box-shadow: 0 0 20px 5px #bfbcbc, 0 0 33px 40px #7aa17d55 inset;
   z-index: 10;
 }
