@@ -14,14 +14,15 @@ function getTableDims() {
   const table = document.getElementById('poker-table');
   const W = table.offsetWidth;
   const H = table.offsetHeight;
+  console.log('poker-table dims:', W, H);
   const cx = W / 2, cy = H / 2;
-  // Эллипс чуть меньше реального размера
   return {
     cx, cy,
     rx: W * 0.44,
     ry: H * 0.41
   };
 }
+
 
 // Главная функция рендера стола и мест
 export function renderTable(state, userId) {
@@ -162,3 +163,10 @@ setTimeout(() => {
   if (window.currentTableState)
     renderTable(window.currentTableState, window.currentUserId);
 }, 200);
+
+function safeRenderTable(state, userId) {
+  setTimeout(() => renderTable(state, userId), 0);
+  // Или requestAnimationFrame
+}
+
+setTimeout(() => renderTable(state, userId), 0);
