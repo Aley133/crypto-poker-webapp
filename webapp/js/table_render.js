@@ -10,17 +10,17 @@ function getSeatAngles(N) {
   return out;
 }
 
-// Возвращает центр и радиусы орбиты
 function getTableDims() {
-  const wrapper = document.getElementById('poker-table-wrapper');
-  const W = wrapper.offsetWidth;
-  const H = wrapper.offsetHeight;
-  let w = Math.min(W * 0.9, 960);
-  let h = w * 0.60;
+  const table = document.getElementById('poker-table');
+  const W = table.offsetWidth;
+  const H = table.offsetHeight;
   const cx = W / 2, cy = H / 2;
-  const rx = Math.min(W * 0.40, H * 0.40); // чуть меньше половины
-  const ry = Math.min(H * 0.35, W * 0.35); // еще чуть меньше
-  return { w, h, cx, cy, rx: w * 0.44, ry: h * 0.41 };
+  // Эллипс чуть меньше реального размера
+  return {
+    cx, cy,
+    rx: W * 0.44,
+    ry: H * 0.41
+  };
 }
 
 // Главная функция рендера стола и мест
