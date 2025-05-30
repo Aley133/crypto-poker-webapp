@@ -44,7 +44,7 @@ export default function renderActions(container, state, userId, sendAction) {
   const canRaise = currentBet > 0 && myStack > toCall;
 
   // Создаем кнопки
-  const btnFold  = document.createElement('button');
+  const btnFold  = document.createElement('button');('button');
   const btnCall  = document.createElement('button');
   const btnBet   = document.createElement('button');
   const btnCheck = document.createElement('button');
