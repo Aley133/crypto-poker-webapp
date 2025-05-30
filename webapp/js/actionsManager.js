@@ -1,44 +1,64 @@
 // webapp/js/actionsManager.js
 
 /**
- * Рендерит панель действий исходя из массива allowed_actions, присылаемого сервером.
- * Порядок кнопок: Fold, Call, Bet/Raise, Check
- * @param {HTMLElement} container  – .action-buttons-wrapper
- * @param {object}      state      – состояние игры из WS, содержит state.allowed_actions и state.current_bet, state.contributions
- * @param {string}      userId     – ваш user_id
- * @param {function}    sendAction – функция safeSend({ user_id, action, amount? })
+ * Рендерит панель действий по списку state.allowed_actions.
+ * Порядок: Fold, Call, Bet→Raise, Check.
  */
 export default function renderActions(container, state, userId, sendAction) {
-  if (!container || !state.allowed_actions) return;
+  if (!container || !Array.isArray(state.allowed_actions)) return;
 
-  // Очистка
+  // Предварительные toggle-состояния (Fold/Call вне хода)
+  container._toggles = container._toggles || { fold: false, call: false };
+  const toggles = container._toggles;
+
+  const isMyTurn = String(state.current_player) === String(userId);
+  const cb       = state.current_bet || 0;
+  const contrib  = state.contributions?.[userId] || 0;
+  const toCall   = Math.max(0, cb - contrib);
+
   container.innerHTML = '';
 
-  // Параметры ставок
-  const cb = state.current_bet || 0;
-  const contrib = (state.contributions?.[userId] || 0);
-  const toCall = Math.max(0, cb - contrib);
-
-  // Кнопки в заданном порядке
   const order = ['fold','call','bet','raise','check'];
   order.forEach(action => {
     if (!state.allowed_actions.includes(action)) return;
 
     const btn = document.createElement('button');
     btn.className = `poker-action-btn ${action}`;
-    switch(action) {
-      case 'fold':  btn.textContent = 'Fold';     break;
-      case 'call':  btn.textContent = `Call ${toCall}`; break;
-      case 'check': btn.textContent = 'Check';    break;
-      case 'bet':   btn.textContent = 'Bet';      break;
-      case 'raise': btn.textContent = 'Raise';    break;
+    // Текст
+    if      (action === 'fold')  btn.textContent = 'Fold';
+    else if (action === 'call')  btn.textContent = `Call ${toCall}`;
+    else if (action === 'bet')   btn.textContent = 'Bet';
+    else if (action === 'raise') btn.textContent = 'Raise';
+    else if (action === 'check') btn.textContent = 'Check';
+
+    // Доступность
+    let disabled = false;
+    if (!isMyTurn && !['fold','call'].includes(action)) {
+      disabled = true;  // вне хода только Fold/Call toggleable
+    }
+    btn.disabled = disabled;
+
+    // Стили
+    if (disabled) {
+      btn.classList.add('dimmed');
+    } else if (isMyTurn) {
+      btn.classList.add('highlight');
+    }
+    // Пресованный state для Fold/Call toggle
+    if (!isMyTurn && (action === 'fold' || action === 'call')) {
+      if (toggles[action]) btn.classList.add('pressed');
     }
 
-    btn.disabled = false; // доступна кнопка, если сервер её отправил
-    btn.onclick   = () => {
-      const payload = { user_id: userId, action };
-      // Bet/Raise могут требовать amount, но Логика prompt может быть в ui_game.js
-      sendAction(payload);
+    // Клик
+    btn.onclick = () => {
+      if (!isMyTurn && (action === 'fold' || action === 'call')) {
+        // toggle вне хода
+        toggles[action] = !toggles[action];
+        btn.classList.toggle('pressed', toggles[action]);
+        return;
+      }
+      if (disabled) return;
+      sendAction({ user_id: userId, action });
     };
 
     container.appendChild(btn);
