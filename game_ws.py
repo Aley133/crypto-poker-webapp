@@ -102,10 +102,11 @@ async def broadcast(table_id: int):
         uid = ws.query_params.get('user_id')
         payload = base.copy()
         # Добавляем разрешенные действия для этого пользователя
-        payload['allowed_actions'] = compute_allowed_actions(state, str(uid))
+        payload["allowed_actions"] = compute_allowed_actions(state, str(uid))
+        
         try:
             await ws.send_json(payload)
-        except:
+        except Exception:
             try:
                 await ws.close()
             except:
