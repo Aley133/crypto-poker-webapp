@@ -1,61 +1,84 @@
+// webapp/js/actionsManager.js
 
-// actionsManager.js
-
-let foldToggle = false;
-let callToggle = false;
+// Храним отложенные (toggle) состояния для Fold и Call
+let foldPending = false;
+let callPending = false;
 
 /**
- * Рисует 4 кнопки (Fold, Check, Call, Bet/Raise) и управляет их состояниями.
- * @param {HTMLElement} container — .action-buttons-wrapper
- * @param {object} state — текущее состояние игры из сервера
- * @param {string} userId — ваш user_id
- * @param {function} safeSend — функция для отправки WS
+ * Рисует кнопки действий и управляет их состояниями.
+ * @param {HTMLElement} container – элемент .action-buttons-wrapper
+ * @param {object} state – текущее состояние игры из WS
+ * @param {string} userId – ваш идентификатор
+ * @param {function} safeSend – функция для отправки WS-сообщений
  */
 export default function renderActions(container, state, userId, safeSend) {
-  const cb        = state.current_bet || 0;
-  const contribs  = state.contributions || {};
-  const myContrib = contribs[userId] || 0;
-  const toCall    = cb - myContrib;
-  const stacks    = state.stacks || {};
-  const myStack   = stacks[userId] || 0;
   const isMyTurn  = String(state.current_player) === String(userId);
+  const contribs  = state.contributions    || {};
+  const myContrib = contribs[userId]       || 0;
+  const cb        = state.current_bet      || 0;
+  const toCall    = cb - myContrib;
+  const myStack   = (state.stacks?.[userId]) || 0;
 
-  // Очищаем контейнер
+  // 1) При вашем ходе — сначала отправляем отложенные действия
+  if (isMyTurn) {
+    if (foldPending) {
+      foldPending = false;
+      safeSend({ user_id: userId, action: 'fold' });
+      return;  // дождёмся нового состояния от сервера
+    }
+    if (callPending && toCall > 0) {
+      callPending = false;
+      safeSend({ user_id: userId, action: 'call' });
+      return;
+    }
+  }
+
+  // 2) Очищаем контейнер
   container.innerHTML = '';
 
-  // 1) Fold (toggleable, всегда кликабелен)
-  const btnFold = document.createElement('button');
-  btnFold.textContent = 'Fold';
-  btnFold.className = 'poker-action-btn fold';
-  btnFold.onclick = () => {
-    foldToggle = !foldToggle;
-    btnFold.classList.toggle('pressed', foldToggle);
-  };
-
-  // 2) Check (импульсная отправка, только когда toCall === 0)
+  // 3) Создаём четыре кнопки
+  const btnFold  = document.createElement('button');
   const btnCheck = document.createElement('button');
-  btnCheck.textContent = 'Check';
-  btnCheck.className = 'poker-action-btn check';
-  btnCheck.onclick = () => safeSend({ user_id: userId, action: 'check' });
+  const btnCall  = document.createElement('button');
+  const btnBet   = document.createElement('button');
 
-  // 3) Call (toggleable, доступен если toCall > 0)
-  const btnCall = document.createElement('button');
-  btnCall.textContent = `Call ${toCall > 0 ? toCall : ''}`;
-  btnCall.className = 'poker-action-btn call';
-  btnCall.onclick = () => {
-    if (toCall > 0) {
-      callToggle = !callToggle;
-      btnCall.classList.toggle('pressed', callToggle);
+  btnFold .textContent = 'Fold';
+  btnCheck.textContent = 'Check';
+  btnCall .textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+  btnBet  .textContent = cb > 0 ? 'Raise' : 'Bet';
+
+  // Добавляем базовый класс и нужный модификатор
+  btnFold.className  = 'poker-action-btn fold';
+  btnCheck.className = 'poker-action-btn check';
+  btnCall.className  = 'poker-action-btn call';
+  btnBet.className   = `poker-action-btn ${cb > 0 ? 'raise' : 'bet'}`;
+
+  // Вставляем в контейнер
+  [btnFold, btnCheck, btnCall, btnBet].forEach(b => container.appendChild(b));
+
+  // 4) Назначаем обработчики
+  // Fold — toggle
+  btnFold.onclick = () => {
+    foldPending = !foldPending;
+    btnFold.classList.toggle('pressed', foldPending);
+  };
+  // Check — мгновенная отправка (только если toCall===0)
+  btnCheck.onclick = () => {
+    if (isMyTurn && toCall === 0) {
+      safeSend({ user_id: userId, action: 'check' });
     }
   };
-
-  // 4) Bet / Raise (импульсная отправка)
-  const isRaise = cb > 0;
-  const btnBet = document.createElement('button');
-  btnBet.textContent = isRaise ? 'Raise' : 'Bet';
-  btnBet.className = `poker-action-btn ${isRaise ? 'raise' : 'bet'}`;
+  // Call — toggle (только если toCall>0)
+  btnCall.onclick = () => {
+    if (toCall > 0) {
+      callPending = !callPending;
+      btnCall.classList.toggle('pressed', callPending);
+    }
+  };
+  // Bet/Raise — мгновенная отправка
   btnBet.onclick = () => {
-    const action = isRaise ? 'raise' : 'bet';
+    if (!isMyTurn) return;
+    const action = cb > 0 ? 'raise' : 'bet';
     const promptText = action === 'bet'
       ? 'Сколько поставить?'
       : `До какого размера рейз? (больше ${cb})`;
@@ -63,34 +86,28 @@ export default function renderActions(container, state, userId, safeSend) {
     safeSend({ user_id: userId, action, amount });
   };
 
-  // Собираем кнопки и вставляем
-  [btnFold, btnCheck, btnCall, btnBet].forEach(btn => container.appendChild(btn));
-
-  // --- Управление enabled/disabled и классами dimmed/highlight ---
+  // 5) Устанавливаем disabled и классы .dimmed/.highlight
+  const allBtns = [btnFold, btnCheck, btnCall, btnBet];
 
   if (!isMyTurn) {
-    // Когда не ваш ход: 
-    // • Fold всегда кликабелен, но выглядит dimmed
-    // • Call кликабелен только если toCall > 0, выглядит dimmed
-    // • Check и Bet/Raise полностью отключены
+    // Вне вашего хода: Fold & Call можно зажать, остальные отключены
     btnFold.disabled  = false;
     btnCall.disabled  = toCall <= 0;
     btnCheck.disabled = true;
     btnBet.disabled   = true;
 
-    [btnFold, btnCall, btnCheck, btnBet].forEach(b => {
+    allBtns.forEach(b => {
       b.classList.add('dimmed');
       b.classList.remove('highlight');
     });
   } else {
     // Ваш ход:
-    // Fold — всегда активен
-    // Check/Call — в зависимости от toCall
-    // Bet/Raise — если у вас есть фишки
-    btnFold.disabled  = false;
+    // Fold всегда активна
+    btnFold.disabled = false;
     btnFold.classList.add('highlight');
     btnFold.classList.remove('dimmed');
 
+    // Check vs Call
     if (toCall > 0) {
       btnCheck.disabled = true;
       btnCall.disabled  = myStack < toCall;
@@ -109,19 +126,9 @@ export default function renderActions(container, state, userId, safeSend) {
       btnCheck.classList.remove('dimmed');
     }
 
+    // Bet/Raise: активна при наличии стека
     btnBet.disabled = myStack <= 0;
     btnBet.classList.add('highlight');
     btnBet.classList.remove('dimmed');
-  }
-
-  // Если наступил ваш ход и есть отложенные toggles — отправляем их
-  if (isMyTurn) {
-    if (foldToggle) {
-      foldToggle = false;
-      safeSend({ user_id: userId, action: 'fold' });
-    } else if (callToggle && toCall > 0) {
-      callToggle = false;
-      safeSend({ user_id: userId, action: 'call' });
-    }
   }
 }
