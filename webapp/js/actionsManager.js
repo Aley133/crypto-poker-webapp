@@ -1,134 +1,204 @@
-// webapp/js/actionsManager.js
+// Модуль управления отрисовкой действий игрока в онлайн-покере
+let preAction = null;  // хранит выбранное заранее действие ('fold' или 'call'), если игрок нажал заранее
 
-// Храним отложенные (toggle) состояния для Fold и Call
-let foldPending = false;
-let callPending = false;
+export default function renderActions(state, userId, sendCallback) {
+    const container = document.querySelector('.action-buttons-wrapper');
+    if (!container) return;
 
-/**
- * Рисует кнопки действий и управляет их состояниями.
- * @param {HTMLElement} container – элемент .action-buttons-wrapper
- * @param {object} state – текущее состояние игры из WS
- * @param {string} userId – ваш идентификатор
- * @param {function} safeSend – функция для отправки WS-сообщений
- */
-export default function renderActions(container, state, userId, safeSend) {
-  const isMyTurn  = String(state.current_player) === String(userId);
-  const contribs  = state.contributions    || {};
-  const myContrib = contribs[userId]       || 0;
-  const cb        = state.current_bet      || 0;
-  const toCall    = cb - myContrib;
-  const myStack   = (state.stacks?.[userId]) || 0;
-
-  // 1) При вашем ходе — сначала отправляем отложенные действия
-  if (isMyTurn) {
-    if (foldPending) {
-      foldPending = false;
-      safeSend({ user_id: userId, action: 'fold' });
-      return;  // дождёмся нового состояния от сервера
-    }
-    if (callPending && toCall > 0) {
-      callPending = false;
-      safeSend({ user_id: userId, action: 'call' });
-      return;
-    }
-  }
-
-  // 2) Очищаем контейнер
-  container.innerHTML = '';
-
-  // 3) Создаём четыре кнопки
-  const btnFold  = document.createElement('button');
-  const btnCheck = document.createElement('button');
-  const btnCall  = document.createElement('button');
-  const btnBet   = document.createElement('button');
-
-  btnFold .textContent = 'Fold';
-  btnCheck.textContent = 'Check';
-  btnCall .textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnBet  .textContent = cb > 0 ? 'Raise' : 'Bet';
-
-  // Добавляем базовый класс и нужный модификатор
-  btnFold.className  = 'poker-action-btn fold';
-  btnCheck.className = 'poker-action-btn check';
-  btnCall.className  = 'poker-action-btn call';
-  btnBet.className   = `poker-action-btn ${cb > 0 ? 'raise' : 'bet'}`;
-
-  // Вставляем в контейнер
-  [btnFold, btnCheck, btnCall, btnBet].forEach(b => container.appendChild(b));
-
-  // 4) Назначаем обработчики
-  // Fold — toggle
-  btnFold.onclick = () => {
-    foldPending = !foldPending;
-    btnFold.classList.toggle('pressed', foldPending);
-  };
-  // Check — мгновенная отправка (только если toCall===0)
-  btnCheck.onclick = () => {
-    if (isMyTurn && toCall === 0) {
-      safeSend({ user_id: userId, action: 'check' });
-    }
-  };
-  // Call — toggle (только если toCall>0)
-  btnCall.onclick = () => {
-    if (toCall > 0) {
-      callPending = !callPending;
-      btnCall.classList.toggle('pressed', callPending);
-    }
-  };
-  // Bet/Raise — мгновенная отправка
-  btnBet.onclick = () => {
-    if (!isMyTurn) return;
-    const action = cb > 0 ? 'raise' : 'bet';
-    const promptText = action === 'bet'
-      ? 'Сколько поставить?'
-      : `До какого размера рейз? (больше ${cb})`;
-    const amount = parseInt(prompt(promptText), 10) || 0;
-    safeSend({ user_id: userId, action, amount });
-  };
-
-  // 5) Устанавливаем disabled и классы .dimmed/.highlight
-  const allBtns = [btnFold, btnCheck, btnCall, btnBet];
-
-  if (!isMyTurn) {
-    // Вне вашего хода: Fold & Call можно зажать, остальные отключены
-    btnFold.disabled  = false;
-    btnCall.disabled  = toCall <= 0;
-    btnCheck.disabled = true;
-    btnBet.disabled   = true;
-
-    allBtns.forEach(b => {
-      b.classList.add('dimmed');
-      b.classList.remove('highlight');
-    });
-  } else {
-    // Ваш ход:
-    // Fold всегда активна
-    btnFold.disabled = false;
-    btnFold.classList.add('highlight');
-    btnFold.classList.remove('dimmed');
-
-    // Check vs Call
-    if (toCall > 0) {
-      btnCheck.disabled = true;
-      btnCall.disabled  = myStack < toCall;
-
-      btnCheck.classList.add('dimmed');
-      btnCheck.classList.remove('highlight');
-      btnCall.classList.add('highlight');
-      btnCall.classList.remove('dimmed');
+    // Определяем вклад игрока (contribution) и стек (stack)
+    let userContribution;
+    let userStack;
+    // Предполагаем, что state.contributions и state.stacks индексируются по идентификаторам игроков или по порядку сидений.
+    if (Array.isArray(state.contributions) && typeof userId === 'number') {
+        // Если contributions - массив, а userId - индекс
+        userContribution = state.contributions[userId] || 0;
+        userStack = state.stacks[userId] || 0;
     } else {
-      btnCall.disabled  = true;
-      btnCheck.disabled = false;
-
-      btnCall.classList.add('dimmed');
-      btnCall.classList.remove('highlight');
-      btnCheck.classList.add('highlight');
-      btnCheck.classList.remove('dimmed');
+        // Иначе, если contributions - объект по ключу userId
+        userContribution = state.contributions[userId] || 0;
+        userStack = state.stacks[userId] || 0;
     }
 
-    // Bet/Raise: активна при наличии стека
-    btnBet.disabled = myStack <= 0;
-    btnBet.classList.add('highlight');
-    btnBet.classList.remove('dimmed');
-  }
+    // Проверяем, является ли сейчас ход данного игрока
+    const isCurrentPlayer = state.current_player === userId || state.current_player === Number(userId);
+
+    // Если наступил ход игрока и было выбрано действие заранее, отправляем его автоматически
+    if (isCurrentPlayer && preAction) {
+        // Отправляем сохраненное действие и сбрасываем preAction
+        sendCallback(preAction);
+        preAction = null;
+        // Выходим, чтобы не рисовать кнопки заново для этого хода (действие уже выполнено)
+        return;
+    }
+
+    // Очищаем контейнер перед отрисовкой новых кнопок
+    container.innerHTML = '';
+
+    // Вычисляем суммы и доступность действий
+    const currentBet = state.current_bet || 0;
+    const toCall = Math.max(0, currentBet - userContribution);  // сумма, которую нужно уравнять для Call (если > 0)
+    const canCall = toCall > 0;
+    const canCheck = currentBet === userContribution;           // можно Check, если нет чужой ставки сверх вклада игрока
+    const noBetYet = currentBet === 0;                          // признак, что в раунде еще не было ставок (кроме блайндов)
+    // Возможность Raise: есть текущая ставка и после колла у игрока останутся фишки для повышения
+    let canRaise = false;
+    if (currentBet > 0) {
+        // Требуется, чтобы у игрока оставались фишки сверх уравнивания ставки для Raise
+        canRaise = userStack > (currentBet - userContribution);
+    }
+    // Возможность Bet: если в текущем раунде еще никто не делал ставку
+    const canBet = noBetYet;
+
+    // Создаем элементы кнопок действий
+    const foldBtn = document.createElement('button');
+    foldBtn.className = 'poker-action-btn fold';
+    foldBtn.textContent = 'Fold';
+    // Fold всегда доступен (можно нажать даже вне своей очереди)
+    // Отмечаем заранее выбранный Fold
+    if (preAction === 'fold') {
+        foldBtn.classList.add('highlight');  // подсвечиваем полностью, если выбрано заранее
+    }
+    // Fold не дизейблим, т.к. всегда разрешен
+    foldBtn.addEventListener('click', () => {
+        if (!isCurrentPlayer) {
+            // Ход еще не наш: фиксируем/отменяем предварительное действие Fold
+            if (preAction === 'fold') {
+                // Если Fold уже выбран, отменяем его
+                preAction = null;
+            } else {
+                // Иначе устанавливаем Fold как выбранное заранее действие
+                preAction = 'fold';
+            }
+            // Перерисовываем кнопки для обновления подсветки
+            renderActions(state, userId, sendCallback);
+        } else {
+            // Если сейчас очередь игрока — отправляем действие сразу
+            sendCallback('fold');
+            // После отправки блокируем кнопки до обновления состояния игры
+            container.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+    });
+
+    const callBtn = document.createElement('button');
+    callBtn.className = 'poker-action-btn call';
+    callBtn.textContent = canCall ? `Call ${toCall}` : 'Call';
+    // Доступность Call: если есть ставка, которую нужно уравнять
+    if (isCurrentPlayer) {
+        if (canCall) {
+            callBtn.disabled = false;
+        } else {
+            // Нечего коллить — кнопка неактивна (вместо этого может быть Check)
+            callBtn.disabled = true;
+            callBtn.classList.add('dimmed');
+        }
+    } else {
+        if (canCall) {
+            // Не наш ход, но есть ставка -> можно заранее выбрать Call
+            callBtn.disabled = false;
+        } else {
+            // Нет ставки и не наш ход -> Call неактивен
+            callBtn.disabled = true;
+            callBtn.classList.add('dimmed');
+        }
+    }
+    // Отмечаем заранее выбранный Call
+    if (preAction === 'call' && !isCurrentPlayer) {
+        callBtn.classList.add('highlight');
+    }
+    callBtn.addEventListener('click', () => {
+        if (!isCurrentPlayer) {
+            // Предварительный выбор действия Call
+            if (preAction === 'call') {
+                preAction = null;
+            } else {
+                preAction = 'call';
+            }
+            renderActions(state, userId, sendCallback);
+        } else {
+            // Сейчас очередь игрока
+            if (canCall) {
+                sendCallback('call');
+            } else {
+                // Если toCall == 0, то фактически это Check
+                sendCallback('check');
+            }
+            container.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+    });
+
+    const checkBtn = document.createElement('button');
+    checkBtn.className = 'poker-action-btn check';
+    checkBtn.textContent = 'Check';
+    // Check доступен только если текущая ставка равна вкладу игрока (нет чужой ставки)
+    if (isCurrentPlayer) {
+        if (canCheck) {
+            checkBtn.disabled = false;
+        } else {
+            checkBtn.disabled = true;
+            checkBtn.classList.add('dimmed');
+        }
+    } else {
+        // Вне своей очереди Check неактивен
+        checkBtn.disabled = true;
+        checkBtn.classList.add('dimmed');
+    }
+    // (Предварительный Check не выбирается)
+    checkBtn.addEventListener('click', () => {
+        if (isCurrentPlayer && canCheck) {
+            sendCallback('check');
+            container.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+    });
+
+    const betBtn = document.createElement('button');
+    betBtn.className = 'poker-action-btn bet';
+    betBtn.textContent = 'Bet';
+    // Bet доступен, если в раунде ещё не было ставок и это ход игрока
+    if (isCurrentPlayer) {
+        if (canBet) {
+            betBtn.disabled = false;
+        } else {
+            betBtn.disabled = true;
+            betBtn.classList.add('dimmed');
+        }
+    } else {
+        // Вне очереди Bet неактивен
+        betBtn.disabled = true;
+        betBtn.classList.add('dimmed');
+    }
+    // (Предварительный Bet не выбирается)
+    betBtn.addEventListener('click', () => {
+        if (isCurrentPlayer && canBet) {
+            // Отправляем действие Bet (сумма ставки определяется отдельно)
+            sendCallback('bet');
+            container.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+    });
+
+    const raiseBtn = document.createElement('button');
+    raiseBtn.className = 'poker-action-btn raise';
+    raiseBtn.textContent = 'Raise';
+    // Raise доступен, если уже есть ставка и у игрока достаточно фишек для повышения
+    if (isCurrentPlayer) {
+        if (canRaise) {
+            raiseBtn.disabled = false;
+        } else {
+            raiseBtn.disabled = true;
+            raiseBtn.classList.add('dimmed');
+        }
+    } else {
+        raiseBtn.disabled = true;
+        raiseBtn.classList.add('dimmed');
+    }
+    // (Предварительный Raise не выбирается)
+    raiseBtn.addEventListener('click', () => {
+        if (isCurrentPlayer && canRaise) {
+            // Отправляем действие Raise (конкретная сумма рейза выбирается дополнительно в интерфейсе)
+            sendCallback('raise');
+            container.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+    });
+
+    // Добавляем все кнопки в контейнер
+    container.append(foldBtn, callBtn, checkBtn, betBtn, raiseBtn);
 }
