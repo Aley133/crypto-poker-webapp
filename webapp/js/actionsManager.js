@@ -1,122 +1,130 @@
 // webapp/js/actionsManager.js
 
-// Хранит отложенное действие ('fold' или 'call')
-let pendingAction = null;
+// Предварительно выбранные действия (toggle) вне вашего хода
+let foldPending = false;
+let callPending = false;
 
 /**
- * Рендерит и управляет кнопками действий игрока.
+ * Рендерит панель действий игрока: Fold, Check, Call, Bet↔Raise.
+ * Сохраняет логику original ui_game.js, добавляя возможность toggle для Fold и Call.
  *
- * @param {HTMLElement} container — элемент .action-buttons-wrapper
- * @param {object} state          — текущее состояние игры
- * @param {string|number} userId  — ваш идентификатор
- * @param {function} sendCallback — функция для отправки действия на сервер
+ * @param {HTMLElement} container – .action-buttons-wrapper
+ * @param {object}      state     – текущее состояние игры
+ * @param {string}      userId    – ваш user_id
+ * @param {function}    safeSend  – функция safeSend из ui_game.js
  */
-export default function renderActions(container, state, userId, sendCallback) {
+export default function renderActions(container, state, userId, safeSend) {
   if (!container) return;
 
-  // Вычисляем вклад и стек пользователя
-  const contributions = state.contributions || {};
-  const stacks        = state.stacks        || {};
-  const userContribution = contributions[userId] || 0;
-  const userStack        = stacks[userId]       || 0;
-
-  // Проверяем, ваш ли сейчас ход
+  // 1) Проверяем, наш ли сейчас ход
   const isMyTurn = String(state.current_player) === String(userId);
 
-  // Если наступил ваш ход и есть отложенное действие — отправляем его
-  if (isMyTurn && pendingAction) {
-    const actionToSend = pendingAction;
-    pendingAction = null;
-    sendCallback(actionToSend);
+  // 2) Если наступил наш ход и есть pending, отправляем его сразу
+  if (isMyTurn && foldPending) {
+    foldPending = false;
+    safeSend({ user_id: userId, action: 'fold' });
+    return;
+  }
+  if (isMyTurn && callPending) {
+    callPending = false;
+    safeSend({ user_id: userId, action: 'call' });
     return;
   }
 
-  // Очищаем контейнер перед новой отрисовкой
+  // 3) Очищаем контейнер перед перерисовкой
   container.innerHTML = '';
 
-  // Считаем параметры ставок
-  const currentBet = state.current_bet || 0;
-  const toCall     = Math.max(0, currentBet - userContribution);
-  const canCall    = toCall > 0 && userStack >= toCall;
-  const canCheck   = toCall === 0;
-  const noBetYet   = currentBet === 0;
-  const canBet     = noBetYet && userStack > 0;
-  const canRaise   = !noBetYet && userStack > toCall;
+  // 4) Вычисляем параметры ставок
+  const contribs = state.contributions || {};
+  const stacks  = state.stacks        || {};
+  const myContrib = contribs[userId] || 0;
+  const myStack   = stacks[userId]    || 0;
+  const cb        = state.current_bet || 0;
+  const toCall    = cb - myContrib;
 
-  // --- Создаем кнопки ---
+  // Условие доступности
+  const canCall  = toCall > 0 && myStack >= toCall;
+  const canCheck = toCall === 0;
+  const noBetYet = cb === 0;
+  const canBet   = noBetYet && myStack > 0;
+  const canRaise = cb > 0 && myStack > toCall;
+
+  // 5) Создаём пять кнопок
   const btnFold  = document.createElement('button');
-  const btnCall  = document.createElement('button');
   const btnCheck = document.createElement('button');
+  const btnCall  = document.createElement('button');
   const btnBet   = document.createElement('button');
   const btnRaise = document.createElement('button');
 
-  btnFold .textContent = 'Fold';
-  btnCall .textContent = canCall ? `Call ${toCall}` : 'Call';
+  btnFold.textContent  = 'Fold';
   btnCheck.textContent = 'Check';
-  btnBet  .textContent = 'Bet';
+  btnCall.textContent  = canCall ? `Call ${toCall}` : 'Call';
+  btnBet.textContent   = 'Bet';
   btnRaise.textContent = 'Raise';
 
-  btnFold .className = 'poker-action-btn fold';
-  btnCall .className = 'poker-action-btn call';
-  btnCheck.className = 'poker-action-btn check';
-  btnBet  .className = 'poker-action-btn bet';
-  btnRaise.className = 'poker-action-btn raise';
+  // Назначаем базовые классы (можете скорректировать под ваши CSS)
+  btnFold.className  = 'poker-action-btn poker-action-fold';
+  btnCheck.className = 'poker-action-btn';
+  btnCall.className  = 'poker-action-btn';
+  btnBet.className   = 'poker-action-btn poker-action-bet';
+  btnRaise.className = 'poker-action-btn poker-action-raise';
 
-  container.append(btnFold, btnCall, btnCheck, btnBet, btnRaise);
+  // Добавляем в контейнер
+  [btnFold, btnCheck, btnCall, btnBet, btnRaise].forEach(b => container.appendChild(b));
 
-  // --- Обработчики ---
+  // 6) Обработчики клика
 
-  // Fold: toggle в любое время
+  // Fold: toggle если вне хода, иначе instant send
   btnFold.onclick = () => {
     if (!isMyTurn) {
-      pendingAction = pendingAction === 'fold' ? null : 'fold';
-      btnFold.classList.toggle('pressed', pendingAction === 'fold');
+      foldPending = !foldPending;
+      btnFold.classList.toggle('pressed', foldPending);
     } else {
-      sendCallback('fold');
+      safeSend({ user_id: userId, action: 'fold' });
       disableAll(container);
     }
   };
 
-  // Call: toggle, если можно коллить
+  // Call: toggle вне хода, instant send в свой ход
   btnCall.onclick = () => {
     if (!isMyTurn) {
       if (canCall) {
-        pendingAction = pendingAction === 'call' ? null : 'call';
-        btnCall.classList.toggle('pressed', pendingAction === 'call');
+        callPending = !callPending;
+        btnCall.classList.toggle('pressed', callPending);
       }
     } else if (canCall) {
-      sendCallback('call');
+      safeSend({ user_id: userId, action: 'call' });
       disableAll(container);
     }
   };
 
-  // Check: мгновенно, только в ваш ход и если можно
+  // Check: только instant в свой ход
   btnCheck.onclick = () => {
     if (isMyTurn && canCheck) {
-      sendCallback('check');
+      safeSend({ user_id: userId, action: 'check' });
       disableAll(container);
     }
   };
 
-  // Bet: мгновенно, только в ваш ход и если можно
+  // Bet: instant в свой ход
   btnBet.onclick = () => {
     if (isMyTurn && canBet) {
-      sendCallback('bet');
+      safeSend({ user_id: userId, action: 'bet' });
       disableAll(container);
     }
   };
 
-  // Raise: мгновенно, только в ваш ход и если можно
+  // Raise: instant в свой ход
   btnRaise.onclick = () => {
     if (isMyTurn && canRaise) {
-      sendCallback('raise');
+      safeSend({ user_id: userId, action: 'raise' });
       disableAll(container);
     }
   };
 
-  // --- Активность и стили ---
+  // 7) Устанавливаем disabled / классы .dimmed / .highlight
 
-  // Fold всегда доступна
+  // Fold всегда доступна, не дизейблится
   btnFold.disabled = false;
 
   if (!isMyTurn) {
@@ -131,44 +139,52 @@ export default function renderActions(container, state, userId, sendCallback) {
       b.classList.remove('highlight');
     });
   } else {
-    // Ваш ход: подсветка доступных действий
+    // В ваш ход: подсветка доступных кнопок
     btnFold.classList.add('highlight');
 
     if (canCall) {
       btnCall.disabled = false;
       btnCall.classList.add('highlight');
+      btnCall.classList.remove('dimmed');
     } else {
       btnCall.disabled = true;
       btnCall.classList.add('dimmed');
+      btnCall.classList.remove('highlight');
     }
 
     if (canCheck) {
       btnCheck.disabled = false;
       btnCheck.classList.add('highlight');
+      btnCheck.classList.remove('dimmed');
     } else {
       btnCheck.disabled = true;
       btnCheck.classList.add('dimmed');
+      btnCheck.classList.remove('highlight');
     }
 
     if (canBet) {
       btnBet.disabled = false;
       btnBet.classList.add('highlight');
+      btnBet.classList.remove('dimmed');
     } else {
       btnBet.disabled = true;
       btnBet.classList.add('dimmed');
+      btnBet.classList.remove('highlight');
     }
 
     if (canRaise) {
       btnRaise.disabled = false;
       btnRaise.classList.add('highlight');
+      btnRaise.classList.remove('dimmed');
     } else {
       btnRaise.disabled = true;
       btnRaise.classList.add('dimmed');
+      btnRaise.classList.remove('highlight');
     }
   }
 }
 
-// Блокируем все кнопки в контейнере
+// Вспомогательная функция: блокирует все кнопки
 function disableAll(container) {
-  container.querySelectorAll('button').forEach(b => b.disabled = true);
+  container.querySelectorAll('button').forEach(btn => btn.disabled = true);
 }
