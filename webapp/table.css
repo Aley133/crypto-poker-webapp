@@ -364,6 +364,10 @@ position: absolute;
   border-radius: 8px;
   transition: border-color .2s, opacity .2s;
 }
+.action-buttons-wrapper .pressed {
+  background-color: currentColor;
+  opacity: 0.3;
+}
 
 .action-buttons-wrapper .fold  { border-color: #e74c3c; color: #e74c3c; }
 .action-buttons-wrapper .bet   { border-color: #2ecc71; color: #2ecc71; }
