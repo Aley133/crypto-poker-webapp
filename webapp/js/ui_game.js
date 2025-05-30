@@ -15,7 +15,10 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-// Убедимся, что в HTML внутри #actions есть контейнер:
+// Будет хранить WebSocket
+let ws;
+
+// Внутри #actions в HTML должен быть контейнер:
 // <div id="actions"><div class="action-buttons-wrapper"></div></div>
 const wrapperEl = actionsEl.querySelector('.action-buttons-wrapper');
 
@@ -23,14 +26,14 @@ const wrapperEl = actionsEl.querySelector('.action-buttons-wrapper');
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
-  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
   background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
   alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
   fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
 });
 document.body.appendChild(resultOverlayEl);
 
-// Безопасная отправка WS
+// Безопасная отправка через WS
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
@@ -39,32 +42,31 @@ function safeSend(payload) {
 
 // ======= UI Logic =======
 function updateUI(state) {
-  // Результат раздачи
+  // --- Фаза результата ---
   if (state.phase === 'result') {
-    wrapperEl.innerHTML = ''; // убираем кнопки
+    // Скрываем основной UI
     pokerTableEl.style.display = 'none';
     actionsEl.style.display    = 'none';
     statusEl.style.display     = 'none';
     potEl.style.display        = 'none';
     currentBetEl.style.display = 'none';
+    wrapperEl.innerHTML        = '';
 
     // Показываем оверлей
     resultOverlayEl.innerHTML = '';
-    const msg = document.createElement('div');
-    msg.style.marginBottom = '20px';
-    if (Array.isArray(state.winner)) {
-      msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
-    } else {
-      msg.textContent = `Winner: ${state.usernames[state.winner] || state.winner}`;
-    }
-    resultOverlayEl.appendChild(msg);
+    const header = document.createElement('div');
+    header.style.marginBottom = '20px';
+    header.textContent = Array.isArray(state.winner)
+      ? `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`
+      : `Winner: ${state.usernames[state.winner] || state.winner}`;
+    resultOverlayEl.appendChild(header);
 
     const handsDiv = document.createElement('div');
-    for (const [uid, cards] of Object.entries(state.revealed_hands || {})) {
+    Object.entries(state.revealed_hands || {}).forEach(([uid, cards]) => {
       const p = document.createElement('div');
       p.textContent = `${state.usernames[uid] || uid}: ${cards.join(' ')}`;
       handsDiv.appendChild(p);
-    }
+    });
     resultOverlayEl.appendChild(handsDiv);
 
     if (state.split_pots) {
@@ -76,47 +78,48 @@ function updateUI(state) {
           .join(', ');
       resultOverlayEl.appendChild(splitDiv);
     }
+
     resultOverlayEl.style.display = 'flex';
     return;
   }
 
-  // Снимаем оверлей
+  // Скрыть оверлей, показать основной UI
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // До старта
+  // --- Если игра ещё не началась ---
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
-    wrapperEl.innerHTML      = '';
     actionsEl.style.display  = 'none';
+    wrapperEl.innerHTML      = '';
     return;
   }
 
-  // Подготовка статуса и панели
+  // --- Статус хода и стек ---
   const isMyTurn = String(state.current_player) === String(userId);
   statusEl.textContent     = isMyTurn
     ? 'Ваш ход'
     : `Ход игрока: ${state.usernames[state.current_player] || state.current_player}`;
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-  actionsEl.style.display  = 'block';
+  // Показываем панель действий
+  actionsEl.style.display = '';
+  // Очищаем старые кнопки
+  wrapperEl.innerHTML = '';
 
-  // Расчёт вкладов для Call/Check
+  // --- Расчёты для Call/Check/Bet ---
   const contribs  = state.contributions || {};
   const myContrib = contribs[userId] || 0;
   const cb        = state.current_bet || 0;
   const toCall    = cb - myContrib;
   const myStack   = state.stacks?.[userId] ?? 0;
 
-  // Очистка старых кнопок
-  wrapperEl.innerHTML = '';
-
-  // Создаём кнопки
+  // --- Создаём кнопки ---
   const btnFold  = document.createElement('button');
   const btnCheck = document.createElement('button');
   const btnCall  = document.createElement('button');
@@ -125,45 +128,44 @@ function updateUI(state) {
   btnFold.textContent  = 'Fold';
   btnCheck.textContent = 'Check';
   btnCall.textContent  = toCall > 0 ? `Call ${toCall}` : 'Call';
+
   // Bet ↔ Raise
   if (cb > 0) {
     btnBet.textContent = 'Raise';
-    btnBet.className   = 'poker-action-btn raise';
+    btnBet.className   = 'fold poker-action-btn raise';
   } else {
     btnBet.textContent = 'Bet';
-    btnBet.className   = 'poker-action-btn bet';
+    btnBet.className   = 'fold poker-action-btn bet';
   }
 
-  // Общие классы и обработчики
+  // Добавляем общие классы и вешаем обработчики
   [btnFold, btnCheck, btnCall, btnBet].forEach(btn => {
     btn.classList.add('poker-action-btn');
     wrapperEl.appendChild(btn);
   });
 
   btnFold.classList.add('fold');
-  btnFold.onclick  = () => safeSend({ user_id: userId, action: 'fold' });
+  btnFold.onclick = () => safeSend({ user_id: userId, action: 'fold' });
 
   btnCheck.classList.add('check');
   btnCheck.onclick = () => safeSend({ user_id: userId, action: 'check' });
 
   btnCall.classList.add('call');
-  btnCall.onclick  = () => safeSend({ user_id: userId, action: 'call' });
+  btnCall.onclick = () => safeSend({ user_id: userId, action: 'call' });
 
-  btnBet.onclick   = () => {
-    const amount = parseInt(prompt(`${btnBet.textContent} amount?`), 10) || 0;
-    safeSend({ user_id: userId, action: btnBet.textContent.toLowerCase(), amount });
+  btnBet.onclick  = () => {
+    const action = btnBet.textContent.toLowerCase();
+    const promptText = action === 'bet'
+      ? 'Сколько поставить?'
+      : `До какого размера рейз? (больше ${cb})`;
+    const amount = parseInt(prompt(promptText), 10) || 0;
+    safeSend({ user_id: userId, action, amount });
   };
 
-  // Если ставка > 0, добавляем кнопку Raise (либо вместо кнопки Bet)
-  let btnRaise = null;
-  if (cb > 0) {
-    btnRaise = btnBet; // уже отражает Raise
-  }
+  // Список всех кнопок
+  const allBtns = [btnFold, btnCheck, btnCall, btnBet];
 
-  // Собираем все кнопки для управления состоянием
-  const allBtns = btnRaise ? [btnFold, btnCheck, btnCall, btnRaise] : [btnFold, btnCheck, btnCall, btnBet];
-
-  // Устанавливаем disabled и классы .dimmed/.highlight
+  // --- Устанавливаем disabled / dimmed / highlight ---
   if (!isMyTurn) {
     allBtns.forEach(b => {
       b.disabled = true;
@@ -195,15 +197,15 @@ function updateUI(state) {
       btnCheck.classList.remove('dimmed');
     }
 
-    // Bet/Raise всегда доступен
-    btnBet.disabled = false;
+    // Bet/Raise всегда доступен, если есть стек
+    btnBet.disabled = myStack <= 0;
     btnBet.classList.add('highlight');
     btnBet.classList.remove('dimmed');
   }
 }
 
 // ======= WS + Логика =======
-const ws = createWebSocket(tableId, userId, username, e => {
+ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
   window.currentTableState = state;
   updateUI(state);
@@ -218,12 +220,12 @@ leaveBtn.onclick = async () => {
 
 window.currentUserId = userId;
 
-// Перерендер стола при изменении размеров
+// Перерендер стола при изменении окон
 window.addEventListener('resize', () => {
   if (window.currentTableState) renderTable(window.currentTableState, userId);
 });
 
-// Hotfix: повторный рендер жестко
+// Повторный рендер (hotfix)
 setTimeout(() => {
   if (window.currentTableState) renderTable(window.currentTableState, userId);
 }, 200);
