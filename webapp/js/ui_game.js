@@ -1,5 +1,6 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
+import renderActions from './actionsManager.js';
 
 // --- Params ---
 const params   = new URLSearchParams(window.location.search);
@@ -15,11 +16,7 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-// Button pending states
-let foldPending = false;
-let callPending = false;
-
-// Ensure .action-buttons-wrapper exists
+// Ensure .action-buttons-wrapper exists inside #actions
 let wrapperEl = actionsEl.querySelector('.action-buttons-wrapper');
 if (!wrapperEl) {
   wrapperEl = document.createElement('div');
@@ -27,11 +24,11 @@ if (!wrapperEl) {
   actionsEl.appendChild(wrapperEl);
 }
 
-// Overlay for result
+// Overlay for end‐of‐hand result
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
-  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
   background: 'rgba(0,0,0,0.8)', color: '#fff', display: 'none',
   alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
   fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
@@ -41,24 +38,26 @@ document.body.appendChild(resultOverlayEl);
 // Placeholder for WebSocket
 let ws;
 
-// Safe WS send
+// Safe WS send helper
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   }
 }
 
-// Main UI update
+// Main UI update function
 function updateUI(state) {
-  // --- Result phase ---
+  // === Result phase ===
   if (state.phase === 'result') {
-    pokerTableEl.style.display = 'none';
-    actionsEl.style.display    = 'none';
-    statusEl.style.display     = 'none';
-    potEl.style.display        = 'none';
-    currentBetEl.style.display = 'none';
-    wrapperEl.innerHTML        = '';
+    // hide main UI
+    pokerTableEl.style.display    = 'none';
+    actionsEl.style.display       = 'none';
+    statusEl.style.display        = 'none';
+    potEl.style.display           = 'none';
+    currentBetEl.style.display    = 'none';
+    wrapperEl.innerHTML           = '';
 
+    // build overlay
     resultOverlayEl.innerHTML = '';
     const header = document.createElement('div');
     header.style.marginBottom = '20px';
@@ -84,19 +83,18 @@ function updateUI(state) {
           .join(', ');
       resultOverlayEl.appendChild(splitDiv);
     }
-
     resultOverlayEl.style.display = 'flex';
     return;
   }
 
-  // Show main UI
+  // === Show main UI ===
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // Before game starts
+  // === Before game start ===
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
@@ -106,141 +104,35 @@ function updateUI(state) {
     return;
   }
 
-  // Compute turn & stacks
-  const isMyTurn  = String(state.current_player) === String(userId);
-  const contribs  = state.contributions || {};
-  const myContrib = contribs[userId] || 0;
-  const cb        = state.current_bet || 0;
-  const toCall    = cb - myContrib;
-  const myStack   = state.stacks?.[userId] ?? 0;
+  // === During game ===
+  const isMyTurn = String(state.current_player) === String(userId);
 
-  // Auto-send pending action at turn
-  if (isMyTurn) {
-    if (foldPending) {
-      foldPending = false;
-      safeSend({ user_id: userId, action: 'fold' });
-      return;
-    }
-    if (callPending && toCall > 0) {
-      callPending = false;
-      safeSend({ user_id: userId, action: 'call' });
-      return;
-    }
-  }
-
-  // Update status display
+  // update status and pot info
   statusEl.textContent     = isMyTurn
     ? 'Ваш ход'
     : `Ход игрока: ${state.usernames[state.current_player] || state.current_player}`;
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-  actionsEl.style.display  = '';
 
-  // Clear old buttons
+  // show actions panel
+  actionsEl.style.display = '';
+
+  // render action buttons via external manager
   wrapperEl.innerHTML = '';
+  renderActions(wrapperEl, state, userId, safeSend);
 
-  // Create buttons
-  const btnFold  = document.createElement('button');
-  const btnCheck = document.createElement('button');
-  const btnCall  = document.createElement('button');
-  const btnBet   = document.createElement('button');
-
-  btnFold.textContent  = 'Fold';
-  btnCheck.textContent = 'Check';
-  btnCall.textContent  = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnBet.textContent   = cb > 0 ? 'Raise' : 'Bet';
-
-  // Add base classes
-  [btnFold, btnCheck, btnCall, btnBet].forEach(btn => {
-    btn.classList.add('poker-action-btn');
-    wrapperEl.appendChild(btn);
-  });
-
-  // Fold toggle
-  btnFold.classList.add('fold');
-  btnFold.onclick = () => {
-    foldPending = !foldPending;
-    btnFold.classList.toggle('pressed', foldPending);
-  };
-
-  // Check immediate send
-  btnCheck.classList.add('check');
-  btnCheck.onclick = () => safeSend({ user_id: userId, action: 'check' });
-
-  // Call toggle
-  btnCall.classList.add('call');
-  btnCall.onclick = () => {
-    if (toCall > 0) {
-      callPending = !callPending;
-      btnCall.classList.toggle('pressed', callPending);
-    }
-  };
-
-  // Bet/Raise immediate send
-  btnBet.classList.add(cb > 0 ? 'raise' : 'bet');
-  btnBet.onclick  = () => {
-    const action = btnBet.textContent.toLowerCase();
-    const promptText = action === 'bet'
-      ? 'Сколько поставить?'
-      : `До какого размера рейз? (больше ${cb})`;
-    const amount = parseInt(prompt(promptText), 10) || 0;
-    safeSend({ user_id: userId, action, amount });
-  };
-
-  // All buttons array
-  const allBtns = [btnFold, btnCheck, btnCall, btnBet];
-
-  // Apply disabled / dimmed / highlight
-  if (!isMyTurn) {
-    allBtns.forEach(btn => {
-      btn.disabled = false;          // still clickable for toggles
-      btn.classList.add('dimmed');
-      btn.classList.remove('highlight');
-    });
-    // But Bet & Check should be fully disabled (not clickable)
-    btnBet.disabled   = true;
-    btnCheck.disabled = true;
-  } else {
-    // Highlight available actions
-    btnFold.disabled = false;
-    btnFold.classList.add('highlight');
-    btnFold.classList.remove('dimmed');
-
-    // Check vs Call
-    if (toCall > 0) {
-      btnCheck.disabled = true;
-      btnCheck.classList.add('dimmed');
-      btnCheck.classList.remove('highlight');
-
-      btnCall.disabled = myStack < toCall;
-      btnCall.classList.add('highlight');
-      btnCall.classList.remove('dimmed');
-    } else {
-      btnCall.disabled = true;
-      btnCall.classList.add('dimmed');
-      btnCall.classList.remove('highlight');
-
-      btnCheck.disabled = false;
-      btnCheck.classList.add('highlight');
-      btnCheck.classList.remove('dimmed');
-    }
-
-    // Bet/Raise
-    btnBet.disabled = myStack <= 0;
-    btnBet.classList.add('highlight');
-    btnBet.classList.remove('dimmed');
-  }
+  // finally, draw the table
+  renderTable(state, userId);
 }
 
-// ======= WebSocket setup =======
-ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
+// ===== WebSocket setup =====
+ws = createWebSocket(tableId, userId, username, event => {
+  const state = JSON.parse(event.data);
   window.currentTableState = state;
   updateUI(state);
-  renderTable(state, userId);
 });
 
-// Leave button
+// leave button
 leaveBtn.onclick = async () => {
   window.currentTableState = null;
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
@@ -249,12 +141,15 @@ leaveBtn.onclick = async () => {
 
 window.currentUserId = userId;
 
-// Re-render on resize
+// rerender on resize
 window.addEventListener('resize', () => {
-  if (window.currentTableState) renderTable(window.currentTableState, userId);
+  if (window.currentTableState) {
+    renderTable(window.currentTableState, userId);
+    updateUI(window.currentTableState);
+  }
 });
 
-// Hotfix extra render
+// hotfix extra render
 setTimeout(() => {
-  if (window.currentTableState) renderTable(window.currentTableState, userId);
+  if (window.currentTableState) updateUI(window.currentTableState);
 }, 200);
