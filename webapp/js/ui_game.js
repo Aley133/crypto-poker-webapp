@@ -119,7 +119,7 @@ function updateUI(state) {
 
   // render action buttons via external manager
   wrapperEl.innerHTML = '';
-  renderActions(wrapperEl, state, userId, safeSend);
+  renderActions(wrapperEl, state, userId, payload => safeSend(payload));
 
   // finally, draw the table
   renderTable(state, userId);
