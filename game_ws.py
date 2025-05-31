@@ -24,10 +24,20 @@ let ws;
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
-  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-  background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
-  alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-  fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
+  position: 'fixed',
+  top: '0',
+  left: '0',
+  width: '100%',
+  height: '100%',
+  background: 'rgba(0, 0, 0, 0.8)',
+  color: '#fff',
+  display: 'none',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexDirection: 'column',
+  fontFamily: 'sans-serif',
+  fontSize: '18px',
+  zIndex: '1000'
 });
 document.body.appendChild(resultOverlayEl);
 
@@ -40,10 +50,12 @@ function safeSend(payload) {
 
 // ======= UI Logic =======
 function updateUI(state) {
+  // 1) Если стадия «result» – показываем оверлей
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
+
     if (Array.isArray(state.winner)) {
       msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
     } else {
