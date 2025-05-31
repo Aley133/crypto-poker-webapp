@@ -2,6 +2,7 @@ import random
 import time
 from typing import Dict, List, Set, Tuple
 from game_data import seat_map
+from some_module import game_states, ROUNDS, DECISION_TIME
 
 # Хранилища состояний и WS-соединений
 game_states: Dict[int, dict] = {}
@@ -152,27 +153,32 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if not state:
         return
     uid = str(uid)
+
     players = state.get("players", [])
-    stacks = state["stacks"]
-    contrib = state["contributions"]
-    folds = set(state.get("folds", set()))
-    cb = state.get("current_bet", 0)
+    stacks = state["stacks"]                    # {uid: стек}
+    contrib = state["contributions"]            # {uid: сумма в банк на этой улице}
+    folds = set(state.get("folds", set()))      # игроки, сбросившие руку
+    cb = state.get("current_bet", 0)            # текущая ставка (для выхода)
     deadline = state.get("timer_deadline", now)
 
+    # Если время на ход вышло — считаем fold
     if now > deadline:
         action = "fold"
 
+    # Проверяем, ходит ли этот игрок именно сейчас
     if uid not in stacks or state.get("current_player") != uid:
         return
 
+    # 1) Обработка fold
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
-        # Фильтруем игроков по наличию стека и не в fold
+
+        # Если остался один игрок — сразу шоудаун
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
         if len(alive) == 1:
             winner = alive[0]
-            # раскрываем только те руки, которые были разданы
+            # Раскрываем все раздeнные руки
             revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
             state.update({
                 "revealed_hands": revealed,
@@ -182,9 +188,11 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 "split_pots": {winner: state.get("pot", 0)},
                 "phase": "result",
                 "result_delay_deadline": time.time() + RESULT_DELAY,
+                "started": False,
             })
-            state["started"] = False
             return
+
+        # Передаём ход следующему игроку
         idx = players.index(uid)
         for i in range(1, len(players)):
             cand = players[(idx + i) % len(players)]
@@ -193,68 +201,116 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 break
         state["timer_deadline"] = now + DECISION_TIME
 
-    # Обработка ставок и коллов
-    if action == "check":
+    # 2) Обработка check/call/bet/raise
+    elif action == "check":
+        # Можно чекать только если вклад равен текущей ставке
         if contrib.get(uid, 0) != cb:
             return
+
     elif action == "call":
-        to_call = cb - contrib.get(uid, 0)
+        needed = cb - contrib.get(uid, 0)
+        to_call = min(needed, stacks[uid])
         stacks[uid] -= to_call
         state["pot"] += to_call
         contrib[uid] += to_call
+
     elif action == "bet" and amount > cb and stacks.get(uid, 0) >= amount:
+        # Новый bet (под current_bet ещё не было ставкм)
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
         state["pot"] += diff
         contrib[uid] = amount
+
     elif action == "raise" and amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
+        # Raise на amount
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
         state["pot"] += diff
         contrib[uid] = amount
+
     else:
+        # Некорректное действие (например, bet меньше cb, или недостаточно фишек) — выходим
         return
 
-    acted = set(state.get("acted", set()))
-    acted.add(uid)
-    state["acted"] = acted
+    # Сохраняем изменения во внесенных ставках и стеках
+    state["stacks"] = stacks
+    state["contributions"] = contrib
+
+    # ------ НИЖЕ: новая логика учёта сделанных ходов (state["acted"]) ------
+
+    # 3) Если action == bet или raise, начинаем новый круг торгов — сбрасываем всех, кроме того, кто поставил
+    if action in ("bet", "raise"):
+        state["acted"] = {uid}
+    else:
+        # Иначе (call/check/fold) добавляем uid в уже существующий набор
+        acted = set(state.get("acted", set()))
+        acted.add(uid)
+        state["acted"] = acted
+
+    # Обновляем таймер для следующего действия
     state["timer_deadline"] = now + DECISION_TIME
 
-    # Переход улицы
+    # 4) Проверяем, завершился ли круг торгов:
+    #    если все живые (не в folds и с ненулевым стеком) уже сделали ход, переходим на следующую улицу
     alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
-    if acted >= set(alive):
+    if state["acted"] >= set(alive):
+        # Сбрасываем tracked-ходы для следующей улицы
         state["acted"] = set()
         state["timer_deadline"] = now + DECISION_TIME
+
+        # Раздача флопа/терна/ривера
         rnd = state.get("current_round")
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
+
         if rnd in ["pre-flop", "flop", "turn"]:
-            deck.pop()
+            # “Сжигаем” одну карту
+            if deck:
+                deck.pop()
+            # Количество карт для выкладки: 3 для флопа, иначе 1
             cnt = 3 if rnd == "pre-flop" else 1
-            state["community"] += [deck.pop() for _ in range(cnt)]
+            for _ in range(cnt):
+                if deck:
+                    state["community"].append(deck.pop())
+            # Переходим к следующему раунду
             state["current_round"] = ROUNDS[idx + 1]
+
         elif rnd == "river":
+            # Если это был ривер, сразу идём на шоудаун
             state["current_round"] = "showdown"
 
-    # Showdown
+        # Обновляем колоду и общие карты
+        state["deck"] = deck
+
+    # 5) Если наступил шоудаун (current_round == "showdown"), подводим итоги
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
-        # раскрываем только те руки, которые были разданы
-        hands = {p: state["hole_cards"].get(p, []) + state["community"] for p in state["hole_cards"].keys()}
-        scores = {p: evaluate_hand(h) for p, h in hands.items()}
-        best_rank = max(s[0] for s in scores.values())
-        candidates = [p for p, s in scores.items() if s[0] == best_rank]
-        max_tb = max(scores[p][1] for p in candidates)
-        winners = [p for p in candidates if scores[p][1] == max_tb]
-        pot = state.get("pot", 0)
-        share, rem = divmod(pot, len(winners))
+        # Собираем руки: hole_cards + community
+        hands = {}
+        for p in state["hole_cards"].keys():
+            hole = state["hole_cards"].get(p, [])
+            boards = state["community"]
+            hands[p] = hole + boards
+
+        # Оцениваем каждую руку (evaluate_hand должен возвращать, например, (rank, tiebreaker))
+        scores = {p: evaluate_hand(hands[p]) for p in hands.keys()}
+        best_rank = max(score[0] for score in scores.values())
+        contenders = [p for p, score in scores.items() if score[0] == best_rank]
+        # Среди лучших по рангу ищем максимальный tiebreaker
+        max_tb = max(scores[p][1] for p in contenders)
+        winners = [p for p in contenders if scores[p][1] == max_tb]
+
+        pot_total = state.get("pot", 0)
+        share, rem = divmod(pot_total, len(winners))
         split = {w: share for w in winners}
         if rem:
+            # Забирает остаток дилер
             dealer = players[state["dealer_index"]]
             split[dealer] = split.get(dealer, 0) + rem
 
+        # Сохраняем результаты
         state.update({
             "revealed_hands": hands,
             "winner": winners[0] if len(winners) == 1 else winners,
@@ -263,26 +319,31 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             "game_over_reason": "showdown",
             "phase": "result",
             "result_delay_deadline": time.time() + RESULT_DELAY,
+            "started": False,
         })
-        state["started"] = False
+        # Выходим, т.к. дальше не нужно менять current_player
+        game_states[table_id] = state
+        return
 
-    # Смена игрока
+    # 6) Если ещё не шоудаун и более одного живого игрока, передаём ход следующему
     alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if len(alive) > 1 and uid in alive:
-        ai = alive.index(uid)
-        state["current_player"] = alive[(ai + 1) % len(alive)]
+        idx_alive = alive.index(uid)
+        state["current_player"] = alive[(idx_alive + 1) % len(alive)]
 
-    # фиксируем действие игрока (bubble для UI)
+    # 7) Обновляем “пузырьки” (bubble) для UI: сохраняем последний action
     state.setdefault("player_actions", {})
     state["player_actions"][uid] = {
         "type": action,
         "amount": amount if action in ("bet", "raise") else None,
-        "ts": time.time()
+        "ts": now
     }
-    # Оставляем только свежие действия (1.8 сек)
+    # Убираем старые события старше 1.8 секунды
     state["player_actions"] = {
         k: v for k, v in state["player_actions"].items()
-        if time.time() - v["ts"] < 1.8
+        if now - v["ts"] < 1.8
     }
 
+    # 8) Сохраняем обновлённое состояние
     game_states[table_id] = state
+    return {"status": "action applied"}
