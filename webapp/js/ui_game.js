@@ -105,6 +105,15 @@ function highlightButtons() {
   }
 }
 
+// Простой CSS-класс для «затемнения» кнопок:
+const style = document.createElement('style');
+style.textContent = `
+  .dimmed {
+    opacity: 0.4;
+  }
+`;
+document.head.appendChild(style);
+
 // ======= UI Logic =======
 function updateUI(state) {
   window.currentTableState = state;
@@ -198,17 +207,18 @@ function updateUI(state) {
   actionsEl.style.display = 'flex';
   actionsEl.innerHTML     = '';
 
-  const disabledAll = !isMyTurn;
+  // Класс для затемнения: если не ваш ход, ставим всем кнопкам .dimmed,
+  // но не отключаем их полностью — они остаются кликабельными.
+  const dimClass = !isMyTurn ? 'dimmed' : '';
 
-  // 1) Fold (кнопка сама по себе + переключение авто-fold при неактивном ходе)
+  // 1) Fold (всегда кликабельна; если не ваш ход, просто переключает авто-Fold)
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
-  btnFold.className   = 'poker-action-btn poker-action-fold';
-  btnFold.disabled    = disabledAll;
+  btnFold.className   = `poker-action-btn poker-action-fold ${dimClass}`;
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
-    if (disabledAll) {
-      // не ваш ход → переключаем авто-fold
+    if (!isMyTurn) {
+      // переключаем авто-fold
       autoFoldEnabled = !autoFoldEnabled;
       if (autoFoldEnabled) {
         autoCallEnabled = false;
@@ -216,21 +226,20 @@ function updateUI(state) {
       highlightButtons();
       clearAutoAction();
     } else {
-      // ваш ход → делаем fold
+      // если ваш ход, выполняем fold
       safeSend({ user_id: userId, action: 'fold' });
     }
   };
   actionsEl.appendChild(btnFold);
 
-  // 2) Call (аналогично + переключение авто-call при неактивном ходе)
+  // 2) Call (всегда кликабельна; если не ваш ход, переключает авто-Call)
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnCall.className   = 'poker-action-btn poker-action-call';
-  btnCall.disabled    = disabledAll || !(toCall > 0 && myStack >= toCall);
+  btnCall.className   = `poker-action-btn poker-action-call ${dimClass}`;
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
-    if (disabledAll) {
-      // не ваш ход → переключаем авто-call
+    if (!isMyTurn) {
+      // переключаем авто-call
       autoCallEnabled = !autoCallEnabled;
       if (autoCallEnabled) {
         autoFoldEnabled = false;
@@ -238,7 +247,7 @@ function updateUI(state) {
       highlightButtons();
       clearAutoAction();
     } else {
-      // ваш ход → делаем call
+      // если ваш ход, выполняем call
       if (toCall > 0 && myStack >= toCall) {
         safeSend({ user_id: userId, action: 'call' });
       }
@@ -246,29 +255,28 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCall);
 
-  // 3) Check
+  // 3) Check (всегда кликабельна; если не ваш ход, не делает ничего)
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
-  btnCheck.className   = 'poker-action-btn poker-action-check';
-  btnCheck.disabled    = disabledAll || (toCall !== 0);
+  btnCheck.className   = `poker-action-btn poker-action-check ${dimClass}`;
   btnCheck.onclick     = () => {
-    if (toCall === 0) {
+    if (isMyTurn && toCall === 0) {
       safeSend({ user_id: userId, action: 'check' });
     }
   };
   actionsEl.appendChild(btnCheck);
 
-  // 4) Bet / Raise (восстановлена логика «Raise» на префлопе)
+  // 4) Bet / Raise (альтернативное название: Raise, если cb > 0 на префлопе)
   const btnBetOrRaise = document.createElement('button');
+  btnBetOrRaise.className = `poker-action-btn ${dimClass}`;
   const communityCards = state.community || [];
   const isFlopStage   = communityCards.length >= 3 && state.current_round === 'flop';
   const isPostFlop    = state.current_round !== 'pre-flop';
 
   if (isFlopStage || isPostFlop) {
     btnBetOrRaise.textContent = 'Bet';
-    btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
-    btnBetOrRaise.disabled    = disabledAll || (myStack <= 0);
     btnBetOrRaise.onclick     = () => {
+      if (!isMyTurn) return;
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
       if (amount > 0 && amount <= myStack) {
         safeSend({ user_id: userId, action: 'bet', amount });
@@ -277,10 +285,9 @@ function updateUI(state) {
   } else {
     if (cb > 0) {
       btnBetOrRaise.textContent = 'Raise';
-      btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
-      const minRaise = Math.max(cb * 2, cb + 1);
-      btnBetOrRaise.disabled = disabledAll || !((myContrib + myStack) >= minRaise);
-      btnBetOrRaise.onclick  = () => {
+      btnBetOrRaise.onclick     = () => {
+        if (!isMyTurn) return;
+        const minRaise = Math.max(cb * 2, cb + 1);
         const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
         if (target >= minRaise && target <= (myContrib + myStack)) {
           safeSend({ user_id: userId, action: 'raise', amount: target });
@@ -288,9 +295,8 @@ function updateUI(state) {
       };
     } else {
       btnBetOrRaise.textContent = 'Bet';
-      btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
-      btnBetOrRaise.disabled    = disabledAll || (myStack <= 0);
       btnBetOrRaise.onclick     = () => {
+        if (!isMyTurn) return;
         const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
         if (amount > 0 && amount <= myStack) {
           safeSend({ user_id: userId, action: 'bet', amount });
@@ -300,7 +306,7 @@ function updateUI(state) {
   }
   actionsEl.appendChild(btnBetOrRaise);
 
-  // Обновляем подсветку Fold/Call
+  // После добавления кнопок обновим их подсветку
   highlightButtons();
 }
 
