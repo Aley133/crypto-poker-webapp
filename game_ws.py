@@ -10,76 +10,45 @@ MAX_PLAYERS = 6
 
 
 def compute_allowed_actions(state, uid: str):
-    """
-    Возвращает список разрешённых действий для игрока uid на основе текущего состояния стола по правилам покера.
-    Покрывает все стадии: pre-flop, flop, turn, river. 
-    Действия: 'fold', 'call', 'check', 'bet', 'raise'.
-    """
     actions = []
     contribs = state.get('contributions', {})
-    stacks  = state.get('stacks', {})
+    stacks = state.get('stacks', {})
     my_contrib = contribs.get(uid, 0)
-    my_stack   = stacks.get(uid, 0)
+    my_stack = stacks.get(uid, 0)
     current_bet = state.get('current_bet', 0)
     to_call = max(0, current_bet - my_contrib)
     is_current = str(state.get('current_player')) == str(uid)
-
     phase = state.get("phase")
     players = state.get("players", [])
     dealer_idx = state.get("dealer_index", -1)
     num_players = len(players)
-    # Вычисляем позиции
     sb_idx = (dealer_idx + 1) % num_players if num_players >= 2 else -1
-    bb_idx = (dealer_idx + 2) % num_players if num_players >= 2 else -1
     first_to_act_uid = players[sb_idx] if sb_idx != -1 else None
 
-    # Определяем, был ли уже bet/raise на этой улице (ставка больше нуля)
-    street_bet_started = current_bet > 0
-
-    # === Для игрока, у которого сейчас ход ===
     if is_current:
-        # FOLD всегда доступен (если ход у тебя)
         actions.append('fold')
-
-        # === PRE-FLOP, первый ходит малый блайнд (SB) ===
         if phase == "pre-flop" and uid == first_to_act_uid:
-            # Он может только сбросить или уравнять BB (call)
             if to_call > 0 and my_stack >= to_call:
                 actions.append('call')
-            # Всё, никаких check/bet/raise
             return actions
-
-        # === Если есть что уравнивать (кто-то уже поставил ставку) ===
         if to_call > 0:
-            # CALL доступен, если хватает стека
             if my_stack >= to_call:
                 actions.append('call')
-            # RAISE доступен, если есть чем рейзить (мин-рейз по правилам задаёшь сам)
-            min_raise = current_bet * 2 if current_bet > 0 else 2  # можно доработать под правила
-            if my_stack > to_call:  # можно более строго: my_stack >= (to_call + min_raise)
+            if my_stack > to_call:
                 actions.append('raise')
-            # CHECK и BET здесь недоступны (когда есть to_call)
         else:
-            # === Нет ставки — твой ход (или ты BB после call всех на префлопе) ===
             actions.append('check')
-            # BET доступен только если на улице ещё не было ставок (current_bet == 0)
-            if not street_bet_started and my_stack > 0:
+            if current_bet == 0 and my_stack > 0:
                 actions.append('bet')
-            # RAISE не нужен (raise появляется только после ставки)
-            # CALL здесь тоже не нужен
-
-    # === Для игрока, у которого сейчас НЕ ход ===
     else:
-        # Можно заранее сделать CALL, если есть что коллить
         if to_call > 0 and my_stack >= to_call:
             actions.append('call')
-        # Все остальные действия доступны только на своём ходу
 
-    # Жёсткий порядок для рендера
     ordered = []
     for act in ['fold','call','bet','raise','check']:
         if act in actions:
             ordered.append(act)
+    print(f"[DEBUG] {uid=}, {phase=}, {current_bet=}, {my_contrib=}, {to_call=}, allowed={ordered}")        
     return ordered
 
 
