@@ -19,7 +19,7 @@ const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
 
 let ws;
-let previousState = null; // для отслеживания начала новой раздачи
+let previousState = null;   // для отслеживания переходов между улицами и руками
 
 // Авто-настройки
 let autoFoldEnabled = false;
@@ -64,7 +64,7 @@ function safeSend(payload) {
   }
 }
 
-// Планирование авто-действия
+// Планирование авто-действия (с задержкой 300ms для учета возможных рейзов)
 function scheduleAutoAction() {
   clearAutoAction();
   autoActionTimeout = setTimeout(() => {
@@ -91,7 +91,7 @@ function scheduleAutoAction() {
     if (autoCallEnabled && toCall > 0 && myStack >= toCall) {
       safeSend({ user_id: userId, action: 'call' });
     }
-    // Если auto-fold и toCall == 0 (никаких ставок) → фолд
+    // Если auto-fold и нет ставки (toCall == 0) → фолд
     else if (autoFoldEnabled && toCall === 0) {
       safeSend({ user_id: userId, action: 'fold' });
     }
@@ -107,7 +107,7 @@ function clearAutoAction() {
   }
 }
 
-// Подсветка кнопок Fold и Call
+// Подсветка кнопок Fold и Call при активных авто-режимах
 function highlightButtons() {
   const btnFold = document.querySelector('.poker-action-fold');
   const btnCall = document.querySelector('.poker-action-call');
@@ -121,16 +121,21 @@ function highlightButtons() {
 
 // ======= UI Logic =======
 function updateUI(state) {
-  // Сбрасываем авто-настройки при старте новой раздачи
+  // Если началась новая рука (ранее не было started, а теперь started = true), сбрасываем авто-режимы
   if (state.started && (!previousState || !previousState.started)) {
     autoFoldEnabled = false;
     autoCallEnabled = false;
+  }
+  // Если перешли на новую улицу (current_round изменился), сбрасываем авто-колл (и авто-fold тоже)
+  if (previousState && previousState.current_round !== state.current_round) {
+    autoCallEnabled = false;
+    autoFoldEnabled = false;
   }
   previousState = state;
 
   window.currentTableState = state;
 
-  // 1) Если стадия «result» – показываем оверлей и сбрасываем таймаут
+  // 1) Показываем оверлей с результатом, если phase === 'result'
   if (state.phase === 'result') {
     clearAutoAction();
     resultOverlayEl.innerHTML = '';
@@ -171,14 +176,14 @@ function updateUI(state) {
     return;
   }
 
-  // 2) Скрываем оверлей
+  // 2) Скрываем оверлей, показываем всю остальную UI
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // 3) Если нет игры — «ожидаем» и сбрасываем таймаут
+  // 3) Если раздача не началась, показываем «Ожидаем игроков» и сбрасываем таймаут
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
@@ -195,7 +200,7 @@ function updateUI(state) {
   const toCall = cb - myContrib;
   const myStack = state.stacks?.[userId] ?? 0;
 
-  // Если это мой ход и включён хотя бы один авто-режим — планируем авто-действие
+  // Если это мой ход и включён хоть один авто-режим — запускаем планировщик
   if (isMyTurn && (autoCallEnabled || autoFoldEnabled)) {
     if (autoCallEnabled) {
       lastCallAmount = toCall;
@@ -205,7 +210,7 @@ function updateUI(state) {
     clearAutoAction();
   }
 
-  // Отображаем статус
+  // Отображаем статус: чей ход
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
@@ -219,7 +224,7 @@ function updateUI(state) {
   actionsEl.style.display = 'flex';
   actionsEl.innerHTML     = '';
 
-  // Все кнопки затемняются, если не ваш ход (dimmed), но остаются кликабельными
+  // Добавляем класс «dimmed» ко всем кнопкам, если очередь не ваша
   const dimClass = !isMyTurn ? 'dimmed' : '';
 
   // 1) Fold
@@ -229,13 +234,13 @@ function updateUI(state) {
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (!isMyTurn) {
-      // переключаем auto-fold
+      // Переключаем авто-fold
       autoFoldEnabled = !autoFoldEnabled;
       if (autoFoldEnabled) autoCallEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
-      // если ваш ход, выполняем fold
+      // Если ваш ход — делаем fold
       safeSend({ user_id: userId, action: 'fold' });
     }
   };
@@ -248,13 +253,13 @@ function updateUI(state) {
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (!isMyTurn) {
-      // переключаем auto-call
+      // Переключаем авто-call
       autoCallEnabled = !autoCallEnabled;
       if (autoCallEnabled) autoFoldEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
-      // если ваш ход, выполняем call
+      // Ваш ход: делаем call, если можем
       if (toCall > 0 && myStack >= toCall) {
         safeSend({ user_id: userId, action: 'call' });
       }
@@ -280,7 +285,19 @@ function updateUI(state) {
   const isFlopStage   = communityCards.length >= 3 && state.current_round === 'flop';
   const isPostFlop    = state.current_round !== 'pre-flop';
 
-  if (isFlopStage || isPostFlop) {
+  // Если уже есть ставка (cb > 0) — «Raise», иначе «Bet». Это справедливо и на префлопе, и на любых улицах.
+  if (cb > 0) {
+    btnBetOrRaise.textContent = 'Raise';
+    btnBetOrRaise.onclick     = () => {
+      if (!isMyTurn) return;
+      const minRaise = Math.max(cb * 2, cb + 1);
+      const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
+      if (target >= minRaise && target <= (myContrib + myStack)) {
+        safeSend({ user_id: userId, action: 'raise', amount: target });
+      }
+    };
+  } else {
+    // Ставки нет → «Bet»
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
@@ -289,27 +306,6 @@ function updateUI(state) {
         safeSend({ user_id: userId, action: 'bet', amount });
       }
     };
-  } else {
-    if (cb > 0) {
-      btnBetOrRaise.textContent = 'Raise';
-      btnBetOrRaise.onclick     = () => {
-        if (!isMyTurn) return;
-        const minRaise = Math.max(cb * 2, cb + 1);
-        const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
-        if (target >= minRaise && target <= (myContrib + myStack)) {
-          safeSend({ user_id: userId, action: 'raise', amount: target });
-        }
-      };
-    } else {
-      btnBetOrRaise.textContent = 'Bet';
-      btnBetOrRaise.onclick     = () => {
-        if (!isMyTurn) return;
-        const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
-        if (amount > 0 && amount <= myStack) {
-          safeSend({ user_id: userId, action: 'bet', amount });
-        }
-      };
-    }
   }
   actionsEl.appendChild(btnBetOrRaise);
 
