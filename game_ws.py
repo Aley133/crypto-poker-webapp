@@ -30,7 +30,10 @@ def compute_allowed_actions(state, uid: str):
         if phase == "pre-flop" and uid == first_to_act_uid:
             if to_call > 0 and my_stack >= to_call:
                 actions.append('call')
-            return actions
+            # Первый игрок префлопа — только fold, call
+            ordered = [act for act in ['fold','call','bet','raise','check'] if act in actions]
+            print(f"[ACTIONS DEBUG] uid={uid} phase={phase} cb={current_bet} contrib={my_contrib} to_call={to_call} allowed={ordered} current_player={state.get('current_player')}")
+            return ordered
         if to_call > 0:
             if my_stack >= to_call:
                 actions.append('call')
@@ -38,20 +41,14 @@ def compute_allowed_actions(state, uid: str):
                 actions.append('raise')
         else:
             actions.append('check')
-            # ВАЖНО! Bet доступен, если на улице нет ставки (current_bet == 0)
             if current_bet == 0 and my_stack > 0:
                 actions.append('bet')
     else:
         if to_call > 0 and my_stack >= to_call:
             actions.append('call')
-
-    ordered = []
-    for act in ['fold','call','bet','raise','check']:
-        if act in actions:
-            ordered.append(act)
-    print(f"[ACTIONS DEBUG] uid={uid} phase={phase} cb={current_bet} contrib={my_contrib} to_call={to_call} allowed={ordered} current_player={state.get('current_player')} stacks={state.get('stacks')} contributions={state.get('contributions')}")
+    ordered = [act for act in ['fold','call','bet','raise','check'] if act in actions]
+    print(f"[ACTIONS DEBUG] uid={uid} phase={phase} cb={current_bet} contrib={my_contrib} to_call={to_call} allowed={ordered} current_player={state.get('current_player')}")
     return ordered
-
 
 async def broadcast(table_id: int):
     state = game_states.get(table_id)
@@ -62,12 +59,21 @@ async def broadcast(table_id: int):
     seats = state.get("seats", [None] * N)
     player_seats = state.get("player_seats", {})
 
-    # Общий payload без actions
-    base = {
+    players_payload = []
+    for seat_idx, uid in enumerate(seats):
+        if not uid:
+            continue
+        players_payload.append({
+            "user_id": uid,
+            "username": state.get("usernames", {}).get(uid, uid),
+            "seat": seat_idx,
+        })
+
+    payload = {
         "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
         "players_count": len([u for u in seats if u]),
-        "players": [],
+        "players": players_payload,
         "seats": seats,
         "community": state.get("community", []),
         "current_player": state.get("current_player"),
@@ -86,26 +92,13 @@ async def broadcast(table_id: int):
         "player_actions": state.get("player_actions", {}),
     }
 
-    # Формируем список игроков
-    for seat_idx, uid in enumerate(seats):
-        if uid is None:
-            continue
-        base['players'].append({
-            'user_id': uid,
-            'username': state.get('usernames', {}).get(uid, uid),
-            'seat': seat_idx,
-        })
-
-    # Отправляем персонализированный payload каждому WS
     for ws in list(connections.get(table_id, [])):
-        uid = ws.query_params.get('user_id')
-        payload = base.copy()
-        # Добавляем разрешенные действия для этого пользователя
+        uid = ws.query_params.get("user_id")
+        # Добавляем allowed_actions для каждого игрока
         payload["allowed_actions"] = compute_allowed_actions(state, str(uid))
-        
         try:
             await ws.send_json(payload)
-        except Exception:
+        except:
             try:
                 await ws.close()
             except:
