@@ -24,10 +24,20 @@ let ws;
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
-  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
-  background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
-  alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-  fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
+  position: 'fixed',
+  top: '0',
+  left: '0',
+  width: '100%',
+  height: '100%',
+  background: 'rgba(0, 0, 0, 0.8)',
+  color: '#fff',
+  display: 'none',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexDirection: 'column',
+  fontFamily: 'sans-serif',
+  fontSize: '18px',
+  zIndex: '1000'
 });
 document.body.appendChild(resultOverlayEl);
 
@@ -45,6 +55,7 @@ function updateUI(state) {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
+
     if (Array.isArray(state.winner)) {
       msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
     } else {
@@ -155,16 +166,15 @@ function updateUI(state) {
 
   // --- 4) Bet / Raise ---
   const btnBetOrRaise = document.createElement('button');
-  if (cb >= BIG_BLIND) {
-    // Если уже есть ставка ≥ big blind, пишем «Raise»
+  if (cb > 0) {
+    // Если уже есть ставка > 0, пишем «Raise»
     btnBetOrRaise.textContent = 'Raise';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
 
-    // Считаем минимальный рейз (например, двойная ставка).
-    // Вы можете подставить свою формулу minRaise.
+    // Считаем минимальный рейз, например двойная ставка
     const minRaise = Math.max(cb * 2, cb + 1);
 
-    // Raise должен быть активен, если у игрока в сумме (contrib + stack) ≥ minRaise
+    // Raise активен, если у игрока в сумме (contrib + stack) ≥ minRaise
     btnBetOrRaise.disabled = !((myContrib + myStack) >= minRaise);
     btnBetOrRaise.onclick  = () => {
       const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
@@ -173,7 +183,7 @@ function updateUI(state) {
       }
     };
   } else {
-    // Иначе текущая ставка < big blind → пишем «Bet»
+    // cb == 0 → пишем «Bet» (в том числе на флопе)
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
 
