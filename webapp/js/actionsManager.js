@@ -23,10 +23,15 @@ export default function renderActions(container, state, userId, send) {
     const btn = document.createElement('button');
     btn.className = `poker-action-btn ${act}`;
     btn.textContent = actionTitles[act];
-    // Активность — только если действие разрешено сервером
     if (state.allowed_actions.includes(act)) {
       btn.disabled = false;
-      btn.onclick  = () => send({ user_id: userId, action: act });
+      if (act === 'bet') {
+        btn.onclick = () => send({ user_id: userId, action: act, amount: 20 }); // фиксированная ставка
+      } else if (act === 'raise') {
+        btn.onclick = () => send({ user_id: userId, action: act, amount: (cb + 20) }); // фиксированный raise
+      } else {
+        btn.onclick = () => send({ user_id: userId, action: act });
+      }
     } else {
       btn.disabled = true;
     }
