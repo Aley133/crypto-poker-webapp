@@ -2,7 +2,7 @@ import random
 import time
 from typing import Dict, List, Set, Tuple
 
-from game_data import seat_map  # (при желании можно удалить, если не используете)
+from game_data import seat_map  # Удалите, если действительно не используете
 
 # ---------- Хранилища состояний и WS‐соединений ----------
 game_states: Dict[int, dict] = {}
@@ -53,9 +53,7 @@ def new_deck() -> List[str]:
 def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
     """
     Оценивает руку из списка карт (hole + community).
-    Возвращает кортеж (ранг_комбинации, tiebreaker_list), 
-    где ранги соответствуют HAND_RANKS, а tiebreaker_list 
-    нужен для сравнения двух рук одного ранга.
+    Возвращает кортеж (ранг_комбинации, tiebreaker_list).
     """
     vals = [RANK_ORDER[c[:-1]] for c in cards]
     suits = [c[-1] for c in cards]
@@ -67,7 +65,7 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
         sorted(
             [v for v, su in zip(vals, suits) if su == flush_suit],
             reverse=True
-        )[:5] 
+        )[:5]
     ) if flush_suit else []
 
     # Ищем стрит
@@ -119,14 +117,13 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
 
 def start_hand(table_id: int):
     """
-    Начинает новую раздачу (раздаёт игрокам по 2 карты, выставляет блайнды и т.д.).
+    Начинает новую раздачу: раздаёт hole‐карты, выставляет блайнды, инициализирует стейт.
     """
     state = game_states.get(table_id)
     if not state:
         return
     players = state.get("players", [])
     if len(players) < MIN_PLAYERS:
-        # Недостаточно игроков — убираем стол
         game_states.pop(table_id, None)
         return
 
@@ -139,6 +136,7 @@ def start_hand(table_id: int):
     hole = {u: [deck.pop(), deck.pop()] for u in players}
 
     stacks = {u: STARTING_STACK for u in players}
+    # Списываем блайнды
     stacks[sb_uid] -= BLIND_SMALL
     stacks[bb_uid] -= BLIND_BIG
 
@@ -155,8 +153,8 @@ def start_hand(table_id: int):
         "pot": BLIND_SMALL + BLIND_BIG,
         "current_bet": BLIND_BIG,
         "contributions": contributions,
-        "current_round": ROUNDS[0],
-        "current_player": players[(bb + 1) % len(players)],
+        "current_round": ROUNDS[0],  # "pre-flop"
+        "current_player": players[(bb + 1) % len(players)],  # первый ход после big blind
         "started": True,
         "folds": set(),
         "acted": set(),
@@ -181,29 +179,29 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
     players = state.get("players", [])
     stacks = state["stacks"]                    # {uid: стек}
-    contrib = state["contributions"]            # {uid: сумма в банк на этой улице}
-    folds = set(state.get("folds", set()))      # игроки, сбросившие руку
-    cb = state.get("current_bet", 0)            # текущая ставка (для выхода)
+    contrib = state["contributions"]            # {uid: сумма, внесённая в банк на этой улице}
+    folds = set(state.get("folds", set()))      # множество тех, кто сделал fold
+    cb = state.get("current_bet", 0)            # текущая ставка (для call/check)
     deadline = state.get("timer_deadline", now)
 
     # Если время на ход вышло — считаем fold
     if now > deadline:
         action = "fold"
 
-    # Проверяем, что действительно ходит этот игрок
+    # Проверяем, что именно этот игрок сейчас ходит
     if uid not in stacks or state.get("current_player") != uid:
         return
 
-    # == 1) Обработка fold ==
+    # === 1) Обработка fold ===
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
 
-        # Если после fold остался только один игрок — сразу шоудаун
+        # Если после fold остался только один игрок — шоудаун
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
         if len(alive) == 1:
             winner = alive[0]
-            # Раскрываем все раздeнные руки
+            # Раскрываем все hole‐карты для UI
             revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
             state.update({
                 "revealed_hands": revealed,
@@ -217,7 +215,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             })
             return
 
-        # Передаём ход следующему игроку
+        # Передаём ход следующему за uid игроку
         idx = players.index(uid)
         for i in range(1, len(players)):
             cand = players[(idx + i) % len(players)]
@@ -226,9 +224,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 break
         state["timer_deadline"] = now + DECISION_TIME
 
-    # == 2) Обработка check / call / bet / raise ==
+    # === 2) Обработка check / call / bet / raise ===
     elif action == "check":
-        # Можно чекать только если вклад равен текущей ставке
+        # Нельзя чекать, если вклад меньше текущей ставки
         if contrib.get(uid, 0) != cb:
             return
 
@@ -239,47 +237,63 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         state["pot"] += to_call
         contrib[uid] += to_call
 
-    elif action == "bet" and amount > cb and stacks.get(uid, 0) >= amount:
-        # Первый bet (current_bet ещё не был выставлен выше 0) — устанавливаем новую ставку
-        state["current_bet"] = amount
-        diff = amount - contrib.get(uid, 0)
-        stacks[uid] -= diff
-        state["pot"] += diff
-        contrib[uid] = amount
-
-    elif action == "raise" and amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
-        # Raise: существующая ставка cb заменяется на новую amount
-        state["current_bet"] = amount
-        diff = amount - contrib.get(uid, 0)
-        stacks[uid] -= diff
-        state["pot"] += diff
-        contrib[uid] = amount
+    # === Новая логика для “bet/raise” ===
+    # Теперь “bet” или “raise” обрабатываются едино: 
+    # - если cb > 0 и amount == cb, это считается call‐ом (complete the bet);
+    # - если cb > 0 и amount > cb, это raise;
+    # - если cb == 0 и amount > 0, это настоящий bet.
+    elif action in ("bet", "raise"):
+        if cb > 0:
+            if amount == cb:
+                # Это complete bet (call)
+                needed = cb - contrib.get(uid, 0)
+                to_call = min(needed, stacks[uid])
+                stacks[uid] -= to_call
+                state["pot"] += to_call
+                contrib[uid] += to_call
+            elif amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
+                # Это raise
+                state["current_bet"] = amount
+                diff = amount - contrib.get(uid, 0)
+                stacks[uid] -= diff
+                state["pot"] += diff
+                contrib[uid] = amount
+            else:
+                return
+        else:
+            # cb == 0 → это настоящий bet (первый в этой улице)
+            if amount > 0 and stacks.get(uid, 0) >= amount:
+                state["current_bet"] = amount
+                diff = amount - contrib.get(uid, 0)
+                stacks[uid] -= diff
+                state["pot"] += diff
+                contrib[uid] = amount
+            else:
+                return
 
     else:
-        # Некорректное действие — выходим
+        # Некорректное действие (например, попытка bet < cb, или call без достаточного вклада) — выходим
         return
 
-    # Сохраняем изменения в стеках и вкладах
+    # Сохраняем изменения в стеках и вкладе
     state["stacks"] = stacks
     state["contributions"] = contrib
 
-    # == 3) Логика сброса/дозаписи «acted» ==
-    # Если это bet или raise, начинаем новый круг торгов: сбрасываем всех, кроме того, кто поставил
+    # === 3) Логика учёта сделанных ходов (state["acted"]) ===
     if action in ("bet", "raise"):
+        # Начинаем новый круг торгов: сбрасываем прежнее и «записываем» только этого игрока
         state["acted"] = {uid}
     else:
-        # Иначе (call / check / fold) просто добавляем uid в уже существующий набор
         acted = set(state.get("acted", set()))
         acted.add(uid)
         state["acted"] = acted
 
-    # Обновляем таймер для следующего хода
     state["timer_deadline"] = now + DECISION_TIME
 
-    # == 4) Проверка завершения круга торгов ==
+    # === 4) Проверка: завершился ли круг торгов? ===
     alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if state["acted"] >= set(alive):
-        # Все живые игроки сделали ход — переходим на следующую улицу
+        # Круг торгов окончен — переходим на следующую улицу
         state["acted"] = set()
         state["timer_deadline"] = now + DECISION_TIME
 
@@ -287,30 +301,36 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
 
+        # === СБРОС ВКЛАДОВ И СТАВКИ ПРИ СМЕНЕ УЛИЦЫ ===
+        # На новой улице все вклады начинаются заново, текущая ставка обнуляется.
+        # То есть contributions[p] = 0 для всех живых, current_bet = 0.
+        state["current_bet"] = 0
+        for p in alive:
+            state["contributions"][p] = 0
+
+        # === Раздача community‐карт (флоп/терн/ривер) ===
         if rnd in ["pre-flop", "flop", "turn"]:
-            # «Сжигаем» одну карту
+            # Сжигаем картинку
             if deck:
                 deck.pop()
-            # Выкладываем 3 карты на флоп или по 1 карте на терн/ривер
+            # Выкладываем 3 карты на флоп или 1 карту на терн/ривер
             cnt = 3 if rnd == "pre-flop" else 1
             for _ in range(cnt):
                 if deck:
                     state["community"].append(deck.pop())
-            # Переключаем улицу
+            # Переход к следующему раунду
             state["current_round"] = ROUNDS[idx + 1]
-
         elif rnd == "river":
             # После ривера сразу шоудаун
             state["current_round"] = "showdown"
 
-        # Обновляем колоду и общие карты
         state["deck"] = deck
 
-    # == 5) Шоудаун ==
+    # === 5) Шоудаун, если новая улица — showdown ===
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
 
-        # Собираем полные 7-карточные руки (hole + community)
+        # Собираем полные руки (hole + community)
         hands = {}
         for p in state["hole_cards"].keys():
             hole = state["hole_cards"].get(p, [])
@@ -345,25 +365,25 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         game_states[table_id] = state
         return
 
-    # == 6) Передача хода следующему игроку ==
+    # === 6) Передаём ход следующему игроку (если игра не закончена) ===
     alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if len(alive) > 1 and uid in alive:
         idx_alive = alive.index(uid)
         state["current_player"] = alive[(idx_alive + 1) % len(alive)]
 
-    # == 7) «Пузырёк» для UI (player_actions) ==
+    # === 7) “Пузырёк” для UI: сохраняем последнее действие игрока ===
     state.setdefault("player_actions", {})
     state["player_actions"][uid] = {
         "type": action,
         "amount": amount if action in ("bet", "raise") else None,
         "ts": now
     }
-    # Очищаем старые действия (старше 1.8 секунды)
+    # Удаляем старые действия старше 1.8 сек
     state["player_actions"] = {
         k: v for k, v in state["player_actions"].items()
         if now - v["ts"] < 1.8
     }
 
-    # == 8) Сохраняем итоговое состояние ==
+    # === 8) Сохраняем обновлённое состояние ===
     game_states[table_id] = state
     return {"status": "action applied"}
