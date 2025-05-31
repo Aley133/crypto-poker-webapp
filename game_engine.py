@@ -237,7 +237,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             cnt = 3 if rnd == "pre-flop" else 1
             state["community"] += [deck.pop() for _ in range(cnt)]
             state["current_round"] = ROUNDS[idx + 1]
-            print(f"[PHASE SHIFT] round={rnd} → {state.get('current_round')}, current_bet={state['current_bet']}, contributions={state['contributions']}")
+            # === ОТЛАДКА: выводим полный state
+            print(f"[PHASE SHIFT] round={rnd} → {state.get('current_round')}, current_bet={state['current_bet']}, contributions={state['contributions']}, current_player={state.get('current_player')}, phase={state.get('phase')}, players={state.get('players')}")
+            print(f"[PHASE SHIFT STATE] {state}")
         elif rnd == "river":
             state["current_round"] = "showdown"
 
