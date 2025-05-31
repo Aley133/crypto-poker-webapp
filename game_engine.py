@@ -232,7 +232,6 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         idx = ROUNDS.index(rnd)
         if rnd in ["pre-flop", "flop", "turn"]:
             state["current_bet"]    = 0
-            # все игроки начинают этот раунд с нулевым вкладом
             state["contributions"]  = { u: 0 for u in state.get("players", []) }
             deck.pop()
             cnt = 3 if rnd == "pre-flop" else 1
