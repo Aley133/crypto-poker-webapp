@@ -1,8 +1,8 @@
 import random
 import time
 from typing import Dict, List, Set, Tuple
-from game_data import seat_map
-from some_module import game_states, ROUNDS, DECISION_TIME
+from game_data import seat_map              # если вам действительно нужен seat_map
+from path.to.your.evaluator import evaluate_hand
 
 # Хранилища состояний и WS-соединений
 game_states: Dict[int, dict] = {}
