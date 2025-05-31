@@ -131,6 +131,15 @@ function updateUI(state) {
   const toCall     = cb - myContrib;
   const myStack    = state.stacks?.[userId] ?? 0;
 
+  // Определяем, находится ли стол именно на флопе (разданы 3 community-карты)
+  const communityCards = state.community || [];
+  const isFlopStage = communityCards.length >= 3 && state.current_round === 'flop';
+
+  // Если мы уже на флопе (ровно три карты) – кнопка должна называться «Bet»
+  // даже если в state.current_bet > 0 осталось значение от pre-flop
+  // (то есть игнорируем label «Raise» до тех пор, пока текущая стадия – «flop»)
+  const forceBetOnFlop = isFlopStage;
+
   // --- 1) Fold (всегда активна) ---
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
@@ -166,24 +175,9 @@ function updateUI(state) {
 
   // --- 4) Bet / Raise ---
   const btnBetOrRaise = document.createElement('button');
-  if (cb > 0) {
-    // Если уже есть ставка > 0, пишем «Raise»
-    btnBetOrRaise.textContent = 'Raise';
-    btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
 
-    // Считаем минимальный рейз, например двойная ставка
-    const minRaise = Math.max(cb * 2, cb + 1);
-
-    // Raise активен, если у игрока в сумме (contrib + stack) ≥ minRaise
-    btnBetOrRaise.disabled = !((myContrib + myStack) >= minRaise);
-    btnBetOrRaise.onclick  = () => {
-      const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
-      if (target >= minRaise && target <= (myContrib + myStack)) {
-        safeSend({ user_id: userId, action: 'raise', amount: target });
-      }
-    };
-  } else {
-    // cb == 0 → пишем «Bet» (в том числе на флопе)
+  if (forceBetOnFlop) {
+    // Если это ровно стадия «flop» (три community-карты), то кнопка всегда «Bet»
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
 
@@ -195,7 +189,40 @@ function updateUI(state) {
         safeSend({ user_id: userId, action: 'bet', amount });
       }
     };
+  } else {
+    // Во всех остальных ситуациях (до флопа и после флопа) – обычная логика:
+    // если current_bet > 0, показываем «Raise», иначе – «Bet».
+    if (cb > 0) {
+      btnBetOrRaise.textContent = 'Raise';
+      btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
+
+      // Минимальный рейз (например, двойная ставка)
+      const minRaise = Math.max(cb * 2, cb + 1);
+
+      // Raise активен, если у игрока в сумме (contrib + stack) ≥ minRaise
+      btnBetOrRaise.disabled = !((myContrib + myStack) >= minRaise);
+      btnBetOrRaise.onclick  = () => {
+        const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
+        if (target >= minRaise && target <= (myContrib + myStack)) {
+          safeSend({ user_id: userId, action: 'raise', amount: target });
+        }
+      };
+    } else {
+      // cb == 0 → пишем «Bet»
+      btnBetOrRaise.textContent = 'Bet';
+      btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
+
+      // Bet активен, если у игрока ≥ 1 фишки
+      btnBetOrRaise.disabled    = (myStack <= 0);
+      btnBetOrRaise.onclick     = () => {
+        const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
+        if (amount > 0 && amount <= myStack) {
+          safeSend({ user_id: userId, action: 'bet', amount });
+        }
+      };
+    }
   }
+
   actionsEl.appendChild(btnBetOrRaise);
 }
 
