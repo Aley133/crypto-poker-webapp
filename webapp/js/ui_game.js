@@ -23,7 +23,7 @@ let ws;
 // Авто-настройки
 let autoFoldEnabled = false;
 let autoCallEnabled = false;
-let lastCallAmount = 0;      // Для отслеживания роста toCall
+let lastCallAmount = 0;      // хранит значение toCall, при котором включился авто-call
 let autoActionTimeout = null;
 
 // Overlay для результата
@@ -70,7 +70,7 @@ function scheduleAutoAction() {
     const toCall = cb - myContrib;
     const myStack = state.stacks?.[userId] ?? 0;
 
-    // Если включён авто-call, но toCall вырос – сбросим авто-call
+    // Если авто-call был включён, но toCall вырос — сбросим авто-call
     if (autoCallEnabled && toCall > lastCallAmount) {
       autoCallEnabled = false;
       highlightButtons();
@@ -93,7 +93,7 @@ function clearAutoAction() {
   }
 }
 
-// Обновление подсветки кнопок
+// Подсветка кнопок Fold и Call
 function highlightButtons() {
   const btnFold = document.querySelector('.poker-action-fold');
   const btnCall = document.querySelector('.poker-action-call');
@@ -195,20 +195,20 @@ function updateUI(state) {
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
   }
-  actionsEl.style.display  = 'flex';
-  actionsEl.innerHTML      = '';
+  actionsEl.style.display = 'flex';
+  actionsEl.innerHTML     = '';
 
   const disabledAll = !isMyTurn;
 
-  // 1) Fold — клик по кнопке: если enabled, отправляем fold, иначе переключаем autoFold
+  // 1) Fold (кнопка сама по себе + переключение авто-fold при неактивном ходе)
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.className   = 'poker-action-btn poker-action-fold';
-  btnFold.disabled    = disabledAll && !autoFoldEnabled;
+  btnFold.disabled    = disabledAll;
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (disabledAll) {
-      // не ваш ход, переключаем авто-fold
+      // не ваш ход → переключаем авто-fold
       autoFoldEnabled = !autoFoldEnabled;
       if (autoFoldEnabled) {
         autoCallEnabled = false;
@@ -216,21 +216,21 @@ function updateUI(state) {
       highlightButtons();
       clearAutoAction();
     } else {
-      // ваш ход, просто делаем fold
+      // ваш ход → делаем fold
       safeSend({ user_id: userId, action: 'fold' });
     }
   };
   actionsEl.appendChild(btnFold);
 
-  // 2) Call — клик по кнопке: если enabled, отправляем call, иначе переключаем autoCall
+  // 2) Call (аналогично + переключение авто-call при неактивном ходе)
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   btnCall.className   = 'poker-action-btn poker-action-call';
-  btnCall.disabled    = disabledAll && !autoCallEnabled;
+  btnCall.disabled    = disabledAll || !(toCall > 0 && myStack >= toCall);
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (disabledAll) {
-      // не ваш ход, переключаем авто-call
+      // не ваш ход → переключаем авто-call
       autoCallEnabled = !autoCallEnabled;
       if (autoCallEnabled) {
         autoFoldEnabled = false;
@@ -238,7 +238,7 @@ function updateUI(state) {
       highlightButtons();
       clearAutoAction();
     } else {
-      // ваш ход, делаем call
+      // ваш ход → делаем call
       if (toCall > 0 && myStack >= toCall) {
         safeSend({ user_id: userId, action: 'call' });
       }
@@ -258,7 +258,7 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCheck);
 
-  // 4) Bet / Raise (восстанавливаем логику появления Raise)
+  // 4) Bet / Raise (восстановлена логика «Raise» на префлопе)
   const btnBetOrRaise = document.createElement('button');
   const communityCards = state.community || [];
   const isFlopStage   = communityCards.length >= 3 && state.current_round === 'flop';
@@ -300,7 +300,7 @@ function updateUI(state) {
   }
   actionsEl.appendChild(btnBetOrRaise);
 
-  // Обновляем подсветку (Fold/Call) после отрисовки
+  // Обновляем подсветку Fold/Call
   highlightButtons();
 }
 
