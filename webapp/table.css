@@ -328,19 +328,28 @@ position: absolute;
   box-shadow: 0 0 14px #5ad4fca4;
 }
 .poker-action-btn:disabled {
-  background: #bbb !important;    /* светло-серый фон */
-  color: #666 !important;         /* тёмно-серый текст */
+  background: #bbb !important;
+  color: #666 !important;
   border-color: #aaa !important;
   cursor: not-allowed !important;
-  opacity: 1 !important;          /* не делаем полупрозрачными, а именно серыми */
-  box-shadow: none !important;
+  opacity: 1 !important;
 }
 
 .poker-action-fold { border-color: #e74a6e; color: #ffb3c2;}
-.poker-action-raise { border-color: #78fcaf; color: #bfffcf;}
-.poker-action-bet { border-color: #ffe05a; color: #fffbdf;}
-
-
+.poker-action-btn.raise, .poker-action-btn.bet {
+  background: #66ff66;
+}
+.poker-action-btn:active {
+  filter: brightness(0.9);
+}
+input[type=number] {
+  font-size: 18px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1.5px solid #ccc;
+  background: #232323;
+  color: #fff;
+}
 .dimmed {
   opacity: 0.4;
   pointer-events: none;
