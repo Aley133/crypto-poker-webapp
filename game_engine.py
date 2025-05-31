@@ -242,7 +242,17 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             print(f"[PHASE SHIFT STATE] {state}")
         elif rnd == "river":
             state["current_round"] = "showdown"
-
+# ОТЛАДКА перехода улицы
+    if phase_shift:
+        print(f"[PHASE SHIFT] round={rnd} → {state.get('current_round')}, current_bet={state.get('current_bet')}, contributions={state.get('contributions')}, current_player={state.get('current_player')}, phase={state.get('phase')}, players={state.get('players')}")
+        print(f"[PHASE SHIFT STATE] {state}")
+        # Принудительный broadcast после смены улицы (асинхронно!)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(broadcast(table_id))
+        except RuntimeError:
+            pass  # если нет loop, ничего не делаем
+            
     # Showdown
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
