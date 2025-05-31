@@ -49,7 +49,7 @@ def compute_allowed_actions(state, uid: str):
     for act in ['fold','call','bet','raise','check']:
         if act in actions:
             ordered.append(act)
-    print(f"[ACTIONS DEBUG] uid={uid} phase={phase} cb={current_bet} contrib={my_contrib} to_call={to_call} allowed={ordered} current_player={state.get('current_player')}")
+    print(f"[ACTIONS DEBUG] uid={uid} phase={phase} cb={current_bet} contrib={my_contrib} to_call={to_call} allowed={ordered} current_player={state.get('current_player')} stacks={state.get('stacks')} contributions={state.get('contributions')}")
     return ordered
 
 
