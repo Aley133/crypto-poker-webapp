@@ -7,20 +7,34 @@ const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2, оставьте 2; иначе поправьте)
+// Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2, оставьте 2)
 const BIG_BLIND = 2;
 
 // DOM elements
-const statusEl     = document.getElementById('status');
-const potEl        = document.getElementById('pot');
-const currentBetEl = document.getElementById('current-bet');
-const actionsEl    = document.getElementById('actions');
-const leaveBtn     = document.getElementById('leave-btn');
-const pokerTableEl = document.getElementById('poker-table');
+const statusEl       = document.getElementById('status');
+const potEl          = document.getElementById('pot');
+const currentBetEl   = document.getElementById('current-bet');
+const actionsEl      = document.getElementById('actions');
+const leaveBtn       = document.getElementById('leave-btn');
+const pokerTableEl   = document.getElementById('poker-table');
+
+// Добавляем чекбокс для осознанного автоклика
+const autoContainer  = document.createElement('div');
+autoContainer.style.marginBottom = '8px';
+const autoCheckbox   = document.createElement('input');
+autoCheckbox.type    = 'checkbox';
+autoCheckbox.id      = 'auto-checkbox';
+const autoLabel      = document.createElement('label');
+autoLabel.htmlFor    = 'auto-checkbox';
+autoLabel.textContent = 'Enable Auto Call/Fold';
+autoContainer.appendChild(autoCheckbox);
+autoContainer.appendChild(autoLabel);
+// Вставляем над блоком кнопок
+actionsEl.parentNode.insertBefore(autoContainer, actionsEl);
 
 let ws;
-// Флаг, чтобы автодействие не срабатывало до тех пор, пока мы не убедимся в финальном toCall
-let autoActionPending = false;
+// Хранит ID таймаута для авто-действия
+let autoActionTimeout = null;
 
 // Overlay для результата
 const resultOverlayEl = document.createElement('div');
@@ -50,15 +64,53 @@ function safeSend(payload) {
   }
 }
 
+// Менеджер таймаута для авто-действия
+function scheduleAutoAction() {
+  clearAutoAction();
+  // Ждём 300 мс, чтобы дождаться возможных рейзов
+  autoActionTimeout = setTimeout(() => {
+    const state = window.currentTableState;
+    if (!state) return;
+
+    const isMyTurn = String(state.current_player) === String(userId);
+    // Если авто-чекбокс не включен или это не мой ход, не делаем ничего
+    if (!isMyTurn || state.phase === 'result' || !state.started || !autoCheckbox.checked) {
+      return;
+    }
+    const contribs = state.contributions || {};
+    const myContrib = contribs[userId] || 0;
+    const cb = state.current_bet || 0;
+    const toCall = cb - myContrib;
+    const myStack = state.stacks?.[userId] ?? 0;
+
+    if (toCall > 0 && myStack >= toCall) {
+      safeSend({ user_id: userId, action: 'call' });
+    } else {
+      safeSend({ user_id: userId, action: 'fold' });
+    }
+    autoActionTimeout = null;
+  }, 300);
+}
+
+function clearAutoAction() {
+  if (autoActionTimeout) {
+    clearTimeout(autoActionTimeout);
+    autoActionTimeout = null;
+  }
+}
+
 // ======= UI Logic =======
 function updateUI(state) {
-  // Если стадия «result» – показываем оверлей и сбрасываем авто-флаг
-  if (state.phase === 'result') {
-    resultOverlayEl.innerHTML = '';
-    autoActionPending = false;
+  // Сохраняем стейт глобально
+  window.currentTableState = state;
 
+  // 1) Если стадия «result» – показываем оверлей и сбрасываем авто-таймаут
+  if (state.phase === 'result') {
+    clearAutoAction();
+    resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
+
     if (Array.isArray(state.winner)) {
       msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
     } else {
@@ -86,6 +138,7 @@ function updateUI(state) {
 
     resultOverlayEl.style.display    = 'flex';
     pokerTableEl.style.display       = 'none';
+    autoContainer.style.display      = 'none'; // скрываем чекбокс тоже во время результата
     actionsEl.style.display          = 'none';
     statusEl.style.display           = 'none';
     potEl.style.display              = 'none';
@@ -93,20 +146,21 @@ function updateUI(state) {
     return;
   }
 
-  // Скрываем оверлей
+  // 2) Скрываем оверлей
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
+  autoContainer.style.display   = ''; // показываем чекбокс
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // Если нет игры — “ожидаем” и сбрасываем авто-флаг
+  // 3) Если нет игры — «ожидаем» и сбрасываем авто-таймаут
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
-    autoActionPending = false;
+    clearAutoAction();
     return;
   }
 
@@ -117,52 +171,27 @@ function updateUI(state) {
   const toCall = cb - myContrib;
   const myStack = state.stacks?.[userId] ?? 0;
 
-  // Автоклик: если это мой ход и ещё не запланировано авто-действие
-  if (isMyTurn && !autoActionPending) {
-    autoActionPending = true;
-
-    // Ждём 10 мс, чтобы, возможно, успел прилететь новый стейт с более высоким toCall
-    setTimeout(() => {
-      // Берём свежий state из глобальной переменной
-      const freshState = window.currentTableState;
-      const freshContribs = freshState.contributions || {};
-      const freshMyContrib = freshContribs[userId] || 0;
-      const freshCb = freshState.current_bet || 0;
-      const freshToCall = freshCb - freshMyContrib;
-      const freshStack = freshState.stacks?.[userId] ?? 0;
-
-      if (freshState.phase !== 'result' && freshState.started && String(freshState.current_player) === String(userId)) {
-        if (freshToCall > 0 && freshStack >= freshToCall) {
-          safeSend({ user_id: userId, action: 'call' });
-        } else {
-          safeSend({ user_id: userId, action: 'fold' });
-        }
-      }
-      // После отправки авто-действия флаг остаётся true. 
-      // Сбросим его, когда придёт новый стейт, где не мой ход:
-      // это произойдёт дальше в updateUI.
-    }, 10);
+  // Если это мой ход и чекбокс включён — планируем авто-действие
+  if (isMyTurn && autoCheckbox.checked) {
+    scheduleAutoAction();
+  } else {
+    clearAutoAction();
   }
 
-  // Если не мой ход – сбрасываем авто-флаг и рендерим «светлые» кнопки, но disabled
+  // Отображаем статус и рендерим кнопки (всегда, но disabled, если не мой ход)
   if (!isMyTurn) {
-    autoActionPending = false;
-
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-    actionsEl.style.display  = 'flex';
-    actionsEl.innerHTML      = ''; // впоследствии заполним кнопками
   } else {
     statusEl.textContent     = 'Ваш ход';
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-    actionsEl.style.display  = 'flex';
-    actionsEl.innerHTML      = '';
   }
+  actionsEl.style.display  = 'flex';
+  actionsEl.innerHTML      = '';
 
-  // Рендерим СО ВСЕМИ четырьмя кнопками, но, если не мой ход, просто делаем их disabled.
   const disabledAll = !isMyTurn;
 
   // 1) Fold
@@ -199,12 +228,12 @@ function updateUI(state) {
 
   // 4) Bet / Raise
   const btnBetOrRaise = document.createElement('button');
-  // Вычисляем, на каком раунде (stadia): если флоп, то force «Bet»
   const communityCards = state.community || [];
-  const isFlopStage = communityCards.length >= 3 && state.current_round === 'flop';
-  const isPostFlop   = state.current_round !== 'pre-flop';
+  const isFlopStage   = communityCards.length >= 3 && state.current_round === 'flop';
+  const isPostFlop    = state.current_round !== 'pre-flop';
 
   if (isFlopStage || isPostFlop) {
+    // На флопе / далее — всегда «Bet»
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
     btnBetOrRaise.disabled    = disabledAll || (myStack <= 0);
@@ -215,7 +244,7 @@ function updateUI(state) {
       }
     };
   } else {
-    // Префлоп: если есть ставка > 0 → «Raise», иначе → «Bet»
+    // Префлоп: если стоит ставка > 0 — «Raise», иначе — «Bet»
     if (cb > 0) {
       btnBetOrRaise.textContent = 'Raise';
       btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
@@ -245,7 +274,6 @@ function updateUI(state) {
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
-  // Сохраняем стейт в глобал, чтобы авто-функция брала обновлённые значения
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
