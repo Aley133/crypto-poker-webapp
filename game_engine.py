@@ -1,26 +1,28 @@
 import random
 import time
 from typing import Dict, List, Set, Tuple
-from game_data import seat_map              # если вам действительно нужен seat_map
-from path.to.your.evaluator import evaluate_hand
 
-# Хранилища состояний и WS-соединений
+from game_data import seat_map  # (при желании можно удалить, если не используете)
+
+# ---------- Хранилища состояний и WS‐соединений ----------
 game_states: Dict[int, dict] = {}
 connections: Dict[int, List] = {}
 
-# Константы
+# ---------- Константы ----------
 STARTING_STACK = 1000
 BLIND_SMALL    = 1
 BLIND_BIG      = 2
 MIN_PLAYERS    = 2
+
 # Время показа результата перед новой раздачей
 RESULT_DELAY   = 5
-DECISION_TIME  = 30  # секута на ход
+# Время на ход игрока (секунды)
+DECISION_TIME  = 30  
 
 # Порядок улиц
 ROUNDS = ["pre-flop", "flop", "turn", "river", "showdown"]
 
-# Ранжирование комбинаций
+# Ранжирование комбинаций (используется в функции evaluate_hand)
 HAND_RANKS = {
     'high_card': 1,
     'one_pair': 2,
@@ -32,12 +34,16 @@ HAND_RANKS = {
     'four_of_a_kind': 8,
     'straight_flush': 9,
 }
+
 RANK_ORDER = {r: i for i, r in enumerate(
     ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], start=2)}
 SUITS = ['♠','♥','♦','♣']
 
 
 def new_deck() -> List[str]:
+    """
+    Генерирует и тасует новую колоду карт.
+    """
     ranks = [str(x) for x in range(2, 11)] + list("JQKA")
     deck = [r + s for r in ranks for s in SUITS]
     random.shuffle(deck)
@@ -45,14 +51,26 @@ def new_deck() -> List[str]:
 
 
 def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
+    """
+    Оценивает руку из списка карт (hole + community).
+    Возвращает кортеж (ранг_комбинации, tiebreaker_list), 
+    где ранги соответствуют HAND_RANKS, а tiebreaker_list 
+    нужен для сравнения двух рук одного ранга.
+    """
     vals = [RANK_ORDER[c[:-1]] for c in cards]
     suits = [c[-1] for c in cards]
     vals.sort(reverse=True)
-    flush_suit = next((s for s in SUITS if suits.count(s) >= 5), None)
-    flush_cards = sorted(
-        [v for v, su in zip(vals, suits) if su == flush_suit],
-        reverse=True)[:5] if flush_suit else []
 
+    # Пытаемся найти флеш
+    flush_suit = next((s for s in SUITS if suits.count(s) >= 5), None)
+    flush_cards = (
+        sorted(
+            [v for v, su in zip(vals, suits) if su == flush_suit],
+            reverse=True
+        )[:5] 
+    ) if flush_suit else []
+
+    # Ищем стрит
     unique_vals = sorted(set(vals), reverse=True)
     straight_high = 0
     for i in range(len(unique_vals) - 4):
@@ -60,12 +78,15 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
         if window[0] - window[-1] == 4:
             straight_high = window[0]
             break
+    # Специальный случай «колесо» (A-2-3-4-5)
     if set([14, 5, 4, 3, 2]).issubset(unique_vals):
         straight_high = 5
 
+    # Группируем по количеству совпадений (для пар/сетов/etc)
     counts = {v: vals.count(v) for v in set(vals)}
     groups = sorted(counts.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
 
+    # Определяем категорию руки и tiebreaker
     if flush_suit and straight_high:
         category, tiebreaker = 'straight_flush', [straight_high]
     elif groups[0][1] == 4:
@@ -97,11 +118,15 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
 
 
 def start_hand(table_id: int):
+    """
+    Начинает новую раздачу (раздаёт игрокам по 2 карты, выставляет блайнды и т.д.).
+    """
     state = game_states.get(table_id)
     if not state:
         return
     players = state.get("players", [])
     if len(players) < MIN_PLAYERS:
+        # Недостаточно игроков — убираем стол
         game_states.pop(table_id, None)
         return
 
@@ -165,16 +190,16 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if now > deadline:
         action = "fold"
 
-    # Проверяем, ходит ли этот игрок именно сейчас
+    # Проверяем, что действительно ходит этот игрок
     if uid not in stacks or state.get("current_player") != uid:
         return
 
-    # 1) Обработка fold
+    # == 1) Обработка fold ==
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
 
-        # Если остался один игрок — сразу шоудаун
+        # Если после fold остался только один игрок — сразу шоудаун
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
         if len(alive) == 1:
             winner = alive[0]
@@ -201,7 +226,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
                 break
         state["timer_deadline"] = now + DECISION_TIME
 
-    # 2) Обработка check/call/bet/raise
+    # == 2) Обработка check / call / bet / raise ==
     elif action == "check":
         # Можно чекать только если вклад равен текущей ставке
         if contrib.get(uid, 0) != cb:
@@ -215,7 +240,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         contrib[uid] += to_call
 
     elif action == "bet" and amount > cb and stacks.get(uid, 0) >= amount:
-        # Новый bet (под current_bet ещё не было ставкм)
+        # Первый bet (current_bet ещё не был выставлен выше 0) — устанавливаем новую ставку
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
@@ -223,7 +248,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         contrib[uid] = amount
 
     elif action == "raise" and amount > cb and stacks.get(uid, 0) >= (amount - contrib.get(uid, 0)):
-        # Raise на amount
+        # Raise: существующая ставка cb заменяется на новую amount
         state["current_bet"] = amount
         diff = amount - contrib.get(uid, 0)
         stacks[uid] -= diff
@@ -231,74 +256,71 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         contrib[uid] = amount
 
     else:
-        # Некорректное действие (например, bet меньше cb, или недостаточно фишек) — выходим
+        # Некорректное действие — выходим
         return
 
-    # Сохраняем изменения во внесенных ставках и стеках
+    # Сохраняем изменения в стеках и вкладах
     state["stacks"] = stacks
     state["contributions"] = contrib
 
-    # ------ НИЖЕ: новая логика учёта сделанных ходов (state["acted"]) ------
-
-    # 3) Если action == bet или raise, начинаем новый круг торгов — сбрасываем всех, кроме того, кто поставил
+    # == 3) Логика сброса/дозаписи «acted» ==
+    # Если это bet или raise, начинаем новый круг торгов: сбрасываем всех, кроме того, кто поставил
     if action in ("bet", "raise"):
         state["acted"] = {uid}
     else:
-        # Иначе (call/check/fold) добавляем uid в уже существующий набор
+        # Иначе (call / check / fold) просто добавляем uid в уже существующий набор
         acted = set(state.get("acted", set()))
         acted.add(uid)
         state["acted"] = acted
 
-    # Обновляем таймер для следующего действия
+    # Обновляем таймер для следующего хода
     state["timer_deadline"] = now + DECISION_TIME
 
-    # 4) Проверяем, завершился ли круг торгов:
-    #    если все живые (не в folds и с ненулевым стеком) уже сделали ход, переходим на следующую улицу
+    # == 4) Проверка завершения круга торгов ==
     alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if state["acted"] >= set(alive):
-        # Сбрасываем tracked-ходы для следующей улицы
+        # Все живые игроки сделали ход — переходим на следующую улицу
         state["acted"] = set()
         state["timer_deadline"] = now + DECISION_TIME
 
-        # Раздача флопа/терна/ривера
         rnd = state.get("current_round")
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
 
         if rnd in ["pre-flop", "flop", "turn"]:
-            # “Сжигаем” одну карту
+            # «Сжигаем» одну карту
             if deck:
                 deck.pop()
-            # Количество карт для выкладки: 3 для флопа, иначе 1
+            # Выкладываем 3 карты на флоп или по 1 карте на терн/ривер
             cnt = 3 if rnd == "pre-flop" else 1
             for _ in range(cnt):
                 if deck:
                     state["community"].append(deck.pop())
-            # Переходим к следующему раунду
+            # Переключаем улицу
             state["current_round"] = ROUNDS[idx + 1]
 
         elif rnd == "river":
-            # Если это был ривер, сразу идём на шоудаун
+            # После ривера сразу шоудаун
             state["current_round"] = "showdown"
 
         # Обновляем колоду и общие карты
         state["deck"] = deck
 
-    # 5) Если наступил шоудаун (current_round == "showdown"), подводим итоги
+    # == 5) Шоудаун ==
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
-        # Собираем руки: hole_cards + community
+
+        # Собираем полные 7-карточные руки (hole + community)
         hands = {}
         for p in state["hole_cards"].keys():
             hole = state["hole_cards"].get(p, [])
             boards = state["community"]
             hands[p] = hole + boards
 
-        # Оцениваем каждую руку (evaluate_hand должен возвращать, например, (rank, tiebreaker))
+        # Оцениваем каждую руку
         scores = {p: evaluate_hand(hands[p]) for p in hands.keys()}
         best_rank = max(score[0] for score in scores.values())
         contenders = [p for p, score in scores.items() if score[0] == best_rank]
-        # Среди лучших по рангу ищем максимальный tiebreaker
         max_tb = max(scores[p][1] for p in contenders)
         winners = [p for p in contenders if scores[p][1] == max_tb]
 
@@ -306,11 +328,10 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         share, rem = divmod(pot_total, len(winners))
         split = {w: share for w in winners}
         if rem:
-            # Забирает остаток дилер
+            # Остаток получает дилер
             dealer = players[state["dealer_index"]]
             split[dealer] = split.get(dealer, 0) + rem
 
-        # Сохраняем результаты
         state.update({
             "revealed_hands": hands,
             "winner": winners[0] if len(winners) == 1 else winners,
@@ -321,29 +342,28 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             "result_delay_deadline": time.time() + RESULT_DELAY,
             "started": False,
         })
-        # Выходим, т.к. дальше не нужно менять current_player
         game_states[table_id] = state
         return
 
-    # 6) Если ещё не шоудаун и более одного живого игрока, передаём ход следующему
+    # == 6) Передача хода следующему игроку ==
     alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
     if len(alive) > 1 and uid in alive:
         idx_alive = alive.index(uid)
         state["current_player"] = alive[(idx_alive + 1) % len(alive)]
 
-    # 7) Обновляем “пузырьки” (bubble) для UI: сохраняем последний action
+    # == 7) «Пузырёк» для UI (player_actions) ==
     state.setdefault("player_actions", {})
     state["player_actions"][uid] = {
         "type": action,
         "amount": amount if action in ("bet", "raise") else None,
         "ts": now
     }
-    # Убираем старые события старше 1.8 секунды
+    # Очищаем старые действия (старше 1.8 секунды)
     state["player_actions"] = {
         k: v for k, v in state["player_actions"].items()
         if now - v["ts"] < 1.8
     }
 
-    # 8) Сохраняем обновлённое состояние
+    # == 8) Сохраняем итоговое состояние ==
     game_states[table_id] = state
     return {"status": "action applied"}
