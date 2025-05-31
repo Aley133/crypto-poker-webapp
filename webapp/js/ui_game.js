@@ -19,11 +19,12 @@ const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
 
 let ws;
+let previousState = null; // для отслеживания начала новой раздачи
 
 // Авто-настройки
 let autoFoldEnabled = false;
 let autoCallEnabled = false;
-let lastCallAmount = 0;      // хранит значение toCall, при котором включился авто-call
+let lastCallAmount = 0;      // хранит toCall в момент включения auto-call
 let autoActionTimeout = null;
 
 // Overlay для результата
@@ -46,6 +47,15 @@ Object.assign(resultOverlayEl.style, {
   zIndex: '1000'
 });
 document.body.appendChild(resultOverlayEl);
+
+// Добавляем CSS-класс для «затемнения» кнопок
+const style = document.createElement('style');
+style.textContent = `
+  .dimmed {
+    opacity: 0.4;
+  }
+`;
+document.head.appendChild(style);
 
 // Безопасная отправка WS
 function safeSend(payload) {
@@ -70,18 +80,22 @@ function scheduleAutoAction() {
     const toCall = cb - myContrib;
     const myStack = state.stacks?.[userId] ?? 0;
 
-    // Если авто-call был включён, но toCall вырос — сбросим авто-call
+    // Если auto-call был включён, но toCall вырос (рейз) — сбросим auto-call
     if (autoCallEnabled && toCall > lastCallAmount) {
       autoCallEnabled = false;
       highlightButtons();
       return;
     }
 
+    // Если auto-call и есть что коллить
     if (autoCallEnabled && toCall > 0 && myStack >= toCall) {
       safeSend({ user_id: userId, action: 'call' });
-    } else if (autoFoldEnabled && toCall === 0) {
+    }
+    // Если auto-fold и toCall == 0 (никаких ставок) → фолд
+    else if (autoFoldEnabled && toCall === 0) {
       safeSend({ user_id: userId, action: 'fold' });
     }
+
     autoActionTimeout = null;
   }, 300);
 }
@@ -105,17 +119,15 @@ function highlightButtons() {
   }
 }
 
-// Простой CSS-класс для «затемнения» кнопок:
-const style = document.createElement('style');
-style.textContent = `
-  .dimmed {
-    opacity: 0.4;
-  }
-`;
-document.head.appendChild(style);
-
 // ======= UI Logic =======
 function updateUI(state) {
+  // Сбрасываем авто-настройки при старте новой раздачи
+  if (state.started && (!previousState || !previousState.started)) {
+    autoFoldEnabled = false;
+    autoCallEnabled = false;
+  }
+  previousState = state;
+
   window.currentTableState = state;
 
   // 1) Если стадия «result» – показываем оверлей и сбрасываем таймаут
@@ -183,7 +195,7 @@ function updateUI(state) {
   const toCall = cb - myContrib;
   const myStack = state.stacks?.[userId] ?? 0;
 
-  // Если это мой ход и включена любая авто-функция — планируем авто-действие
+  // Если это мой ход и включён хотя бы один авто-режим — планируем авто-действие
   if (isMyTurn && (autoCallEnabled || autoFoldEnabled)) {
     if (autoCallEnabled) {
       lastCallAmount = toCall;
@@ -207,22 +219,19 @@ function updateUI(state) {
   actionsEl.style.display = 'flex';
   actionsEl.innerHTML     = '';
 
-  // Класс для затемнения: если не ваш ход, ставим всем кнопкам .dimmed,
-  // но не отключаем их полностью — они остаются кликабельными.
+  // Все кнопки затемняются, если не ваш ход (dimmed), но остаются кликабельными
   const dimClass = !isMyTurn ? 'dimmed' : '';
 
-  // 1) Fold (всегда кликабельна; если не ваш ход, просто переключает авто-Fold)
+  // 1) Fold
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.className   = `poker-action-btn poker-action-fold ${dimClass}`;
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (!isMyTurn) {
-      // переключаем авто-fold
+      // переключаем auto-fold
       autoFoldEnabled = !autoFoldEnabled;
-      if (autoFoldEnabled) {
-        autoCallEnabled = false;
-      }
+      if (autoFoldEnabled) autoCallEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
@@ -232,18 +241,16 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnFold);
 
-  // 2) Call (всегда кликабельна; если не ваш ход, переключает авто-Call)
+  // 2) Call
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   btnCall.className   = `poker-action-btn poker-action-call ${dimClass}`;
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (!isMyTurn) {
-      // переключаем авто-call
+      // переключаем auto-call
       autoCallEnabled = !autoCallEnabled;
-      if (autoCallEnabled) {
-        autoFoldEnabled = false;
-      }
+      if (autoCallEnabled) autoFoldEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
@@ -255,7 +262,7 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCall);
 
-  // 3) Check (всегда кликабельна; если не ваш ход, не делает ничего)
+  // 3) Check
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
   btnCheck.className   = `poker-action-btn poker-action-check ${dimClass}`;
@@ -266,7 +273,7 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCheck);
 
-  // 4) Bet / Raise (альтернативное название: Raise, если cb > 0 на префлопе)
+  // 4) Bet / Raise
   const btnBetOrRaise = document.createElement('button');
   btnBetOrRaise.className = `poker-action-btn ${dimClass}`;
   const communityCards = state.community || [];
@@ -306,7 +313,7 @@ function updateUI(state) {
   }
   actionsEl.appendChild(btnBetOrRaise);
 
-  // После добавления кнопок обновим их подсветку
+  // Обновляем подсветку Fold/Call
   highlightButtons();
 }
 
@@ -326,7 +333,7 @@ leaveBtn.onclick = async () => {
 
 window.currentUserId = userId;
 
-// Перерендер стола при изменении размеров окна
+// При изменении размеров окна — перерендер стола
 window.addEventListener('resize', () => {
   if (window.currentTableState) {
     renderTable(window.currentTableState, userId);
