@@ -7,7 +7,7 @@ const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// Подставьте реальный размер большого блайнда
+// Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2, оставьте 2; иначе поправьте)
 const BIG_BLIND = 2;
 
 // DOM elements
@@ -19,8 +19,8 @@ const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
 let ws;
-// Флаг, чтобы автодействие сработало только один раз на каждый «ход»
-let autoActionSent = false;
+// Флаг, чтобы автодействие не срабатывало до тех пор, пока мы не убедимся в финальном toCall
+let autoActionPending = false;
 
 // Overlay для результата
 const resultOverlayEl = document.createElement('div');
@@ -52,13 +52,13 @@ function safeSend(payload) {
 
 // ======= UI Logic =======
 function updateUI(state) {
-  // Если стадия «result» – показываем оверлей
+  // Если стадия «result» – показываем оверлей и сбрасываем авто-флаг
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
-    autoActionSent = false; // сброс флага
+    autoActionPending = false;
+
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
-
     if (Array.isArray(state.winner)) {
       msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
     } else {
@@ -100,13 +100,13 @@ function updateUI(state) {
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // Если нет игры – «ожидаем»
+  // Если нет игры — “ожидаем” и сбрасываем авто-флаг
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
-    autoActionSent = false;
+    autoActionPending = false;
     return;
   }
 
@@ -117,29 +117,43 @@ function updateUI(state) {
   const toCall = cb - myContrib;
   const myStack = state.stacks?.[userId] ?? 0;
 
-  // Автоклик: если это мой ход и ещё не отправлено авто-действие:
-  if (isMyTurn && !autoActionSent) {
-    // Логика: если есть что коллить, делаем Call; иначе Fold.
-    if (toCall > 0 && myStack >= toCall) {
-      safeSend({ user_id: userId, action: 'call' });
-    } else {
-      safeSend({ user_id: userId, action: 'fold' });
-    }
-    autoActionSent = true;
-  }
-  // Когда ход не мой – сбрасываем флаг, чтобы при следующем моём ходе автоклик сработал
-  if (!isMyTurn) {
-    autoActionSent = false;
+  // Автоклик: если это мой ход и ещё не запланировано авто-действие
+  if (isMyTurn && !autoActionPending) {
+    autoActionPending = true;
+
+    // Ждём 10 мс, чтобы, возможно, успел прилететь новый стейт с более высоким toCall
+    setTimeout(() => {
+      // Берём свежий state из глобальной переменной
+      const freshState = window.currentTableState;
+      const freshContribs = freshState.contributions || {};
+      const freshMyContrib = freshContribs[userId] || 0;
+      const freshCb = freshState.current_bet || 0;
+      const freshToCall = freshCb - freshMyContrib;
+      const freshStack = freshState.stacks?.[userId] ?? 0;
+
+      if (freshState.phase !== 'result' && freshState.started && String(freshState.current_player) === String(userId)) {
+        if (freshToCall > 0 && freshStack >= freshToCall) {
+          safeSend({ user_id: userId, action: 'call' });
+        } else {
+          safeSend({ user_id: userId, action: 'fold' });
+        }
+      }
+      // После отправки авто-действия флаг остаётся true. 
+      // Сбросим его, когда придёт новый стейт, где не мой ход:
+      // это произойдёт дальше в updateUI.
+    }, 10);
   }
 
-  // Если не мой ход – отображаем статус и скрываем кнопки, но они остаются в DOM
+  // Если не мой ход – сбрасываем авто-флаг и рендерим «светлые» кнопки, но disabled
   if (!isMyTurn) {
+    autoActionPending = false;
+
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
     actionsEl.style.display  = 'flex';
-    actionsEl.innerHTML      = ''; // рендерим кнопки, но все disabled ниже
+    actionsEl.innerHTML      = ''; // впоследствии заполним кнопками
   } else {
     statusEl.textContent     = 'Ваш ход';
     potEl.textContent        = `Пот: ${state.pot || 0}`;
@@ -148,7 +162,7 @@ function updateUI(state) {
     actionsEl.innerHTML      = '';
   }
 
-  // Отрисовываем ВСЕГДА четыре кнопки, но делаем disabled, если не мой ход
+  // Рендерим СО ВСЕМИ четырьмя кнопками, но, если не мой ход, просто делаем их disabled.
   const disabledAll = !isMyTurn;
 
   // 1) Fold
@@ -185,14 +199,12 @@ function updateUI(state) {
 
   // 4) Bet / Raise
   const btnBetOrRaise = document.createElement('button');
-  // Определяем, на каком раунде текущая улица
-  const isPostFlop = state.current_round !== 'pre-flop';
-  // На стадии «flop» (ровно три community-карты) тоже пишем «Bet»
+  // Вычисляем, на каком раунде (stadia): если флоп, то force «Bet»
   const communityCards = state.community || [];
   const isFlopStage = communityCards.length >= 3 && state.current_round === 'flop';
-  const forceBet = isFlopStage || isPostFlop;
+  const isPostFlop   = state.current_round !== 'pre-flop';
 
-  if (forceBet) {
+  if (isFlopStage || isPostFlop) {
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
     btnBetOrRaise.disabled    = disabledAll || (myStack <= 0);
@@ -203,6 +215,7 @@ function updateUI(state) {
       }
     };
   } else {
+    // Префлоп: если есть ставка > 0 → «Raise», иначе → «Bet»
     if (cb > 0) {
       btnBetOrRaise.textContent = 'Raise';
       btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
@@ -232,6 +245,7 @@ function updateUI(state) {
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
+  // Сохраняем стейт в глобал, чтобы авто-функция брала обновлённые значения
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
