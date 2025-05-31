@@ -7,6 +7,9 @@ const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
+// Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2, оставьте 2; иначе поправьте)
+const BIG_BLIND = 2;
+
 // DOM elements
 const statusEl     = document.getElementById('status');
 const potEl        = document.getElementById('pot');
@@ -104,7 +107,7 @@ function updateUI(state) {
     return;
   }
 
-  // === Мой ход: рендерим кнопки согласно упрощённым правилам ===
+  // === Мой ход: рендерим ВСЕГДА четыре кнопки: Fold, Call, Check, Bet/​Raise ===
   statusEl.textContent     = 'Ваш ход';
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
@@ -116,9 +119,8 @@ function updateUI(state) {
   const cb         = state.current_bet || 0;
   const toCall     = cb - myContrib;
   const myStack    = state.stacks?.[userId] ?? 0;
-  const BIG_BLIND  = 2; // если ваш big blind = 2; поменяйте при необходимости
 
-  // --- 1) Fold ---
+  // --- 1) Fold (всегда активна) ---
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.className   = 'poker-action-btn poker-action-fold';
@@ -129,8 +131,8 @@ function updateUI(state) {
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   btnCall.className   = 'poker-action-btn poker-action-call';
-  // Если нечего доплачивать, делаем кнопку неактивной
-  btnCall.disabled    = toCall <= 0 || myStack < toCall;
+  // Call активен только если toCall > 0 и у игрока достаточно фишек
+  btnCall.disabled    = !(toCall > 0 && myStack >= toCall);
   btnCall.onclick     = () => {
     if (toCall > 0 && myStack >= toCall) {
       safeSend({ user_id: userId, action: 'call' });
@@ -142,8 +144,8 @@ function updateUI(state) {
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
   btnCheck.className   = 'poker-action-btn poker-action-check';
-  // Можно чекнуть только если вклад уже покрывает текущую ставку
-  btnCheck.disabled    = toCall !== 0;
+  // Check активен только если вклад уже равен текущей ставке (toCall === 0)
+  btnCheck.disabled    = (toCall !== 0);
   btnCheck.onclick     = () => {
     if (toCall === 0) {
       safeSend({ user_id: userId, action: 'check' });
@@ -151,16 +153,17 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCheck);
 
-  // --- 4) Bet or Raise ---
+  // --- 4) Bet / Raise ---
   const btnBetOrRaise = document.createElement('button');
-  // Если текущая ставка ≥ big blind, переименуем в Raise, иначе — Bet
+  // Если текущая ставка ≥ BIG_BLIND, подписываем «Raise», иначе — «Bet»
   if (cb >= BIG_BLIND) {
     btnBetOrRaise.textContent = 'Raise';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
-    // Raise доступен только если вклад уже равен ставке (toCall === 0) и есть чем поднять
+    // Для Raise считается минимальный рейз, например: двойная ставка
     const minRaise = Math.max(cb * 2, cb + 1);
-    btnBetOrRaise.disabled = (toCall !== 0) || ((myContrib + myStack) < minRaise);
-    btnBetOrRaise.onclick  = () => {
+    // Raise активен, только если вклад уже equal+есть чем поднять
+    btnBetOrRaise.disabled    = !((toCall === 0) && ((myContrib + myStack) >= minRaise));
+    btnBetOrRaise.onclick     = () => {
       const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
       if (target >= minRaise && target <= (myContrib + myStack)) {
         safeSend({ user_id: userId, action: 'raise', amount: target });
@@ -169,8 +172,8 @@ function updateUI(state) {
   } else {
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
-    // Bet доступен, если есть хоть одна фишка
-    btnBetOrRaise.disabled    = myStack <= 0;
+    // Bet активен, если у игрока есть хотя бы 1 фишка
+    btnBetOrRaise.disabled    = (myStack <= 0);
     btnBetOrRaise.onclick     = () => {
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
       if (amount > 0 && amount <= myStack) {
