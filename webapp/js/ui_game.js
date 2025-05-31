@@ -7,7 +7,7 @@ const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
-// Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2, оставьте 2; иначе поправьте)
+// Подставьте реальный размер большого блайнда
 const BIG_BLIND = 2;
 
 // DOM elements
@@ -19,6 +19,8 @@ const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
 let ws;
+// Флаг, чтобы автодействие сработало только один раз на каждый «ход»
+let autoActionSent = false;
 
 // Overlay для результата
 const resultOverlayEl = document.createElement('div');
@@ -50,9 +52,10 @@ function safeSend(payload) {
 
 // ======= UI Logic =======
 function updateUI(state) {
-  // 1) Если стадия «result» – показываем оверлей
+  // Если стадия «result» – показываем оверлей
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
+    autoActionSent = false; // сброс флага
     const msg = document.createElement('div');
     msg.style.marginBottom = '20px';
 
@@ -81,78 +84,86 @@ function updateUI(state) {
       resultOverlayEl.appendChild(splitDiv);
     }
 
-    resultOverlayEl.style.display = 'flex';
-    pokerTableEl.style.display    = 'none';
-    actionsEl.style.display       = 'none';
-    statusEl.style.display        = 'none';
-    potEl.style.display           = 'none';
-    currentBetEl.style.display    = 'none';
+    resultOverlayEl.style.display    = 'flex';
+    pokerTableEl.style.display       = 'none';
+    actionsEl.style.display          = 'none';
+    statusEl.style.display           = 'none';
+    potEl.style.display              = 'none';
+    currentBetEl.style.display       = 'none';
     return;
   }
 
-  // 2) Скрываем оверлей
+  // Скрываем оверлей
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // 3) Если нет игры (не началось) – показываем «ожидаем»
+  // Если нет игры – «ожидаем»
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
+    autoActionSent = false;
     return;
   }
 
   const isMyTurn = String(state.current_player) === String(userId);
-  // 4) Если не мой ход – скрываем кнопки и показываем чей сейчас ход
+  const contribs = state.contributions || {};
+  const myContrib = contribs[userId] || 0;
+  const cb = state.current_bet || 0;
+  const toCall = cb - myContrib;
+  const myStack = state.stacks?.[userId] ?? 0;
+
+  // Автоклик: если это мой ход и ещё не отправлено авто-действие:
+  if (isMyTurn && !autoActionSent) {
+    // Логика: если есть что коллить, делаем Call; иначе Fold.
+    if (toCall > 0 && myStack >= toCall) {
+      safeSend({ user_id: userId, action: 'call' });
+    } else {
+      safeSend({ user_id: userId, action: 'fold' });
+    }
+    autoActionSent = true;
+  }
+  // Когда ход не мой – сбрасываем флаг, чтобы при следующем моём ходе автоклик сработал
+  if (!isMyTurn) {
+    autoActionSent = false;
+  }
+
+  // Если не мой ход – отображаем статус и скрываем кнопки, но они остаются в DOM
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-    actionsEl.style.display  = 'none';
+    actionsEl.style.display  = 'flex';
+    actionsEl.innerHTML      = ''; // рендерим кнопки, но все disabled ниже
+  } else {
+    statusEl.textContent     = 'Ваш ход';
+    potEl.textContent        = `Пот: ${state.pot || 0}`;
+    currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+    actionsEl.style.display  = 'flex';
     actionsEl.innerHTML      = '';
-    return;
   }
 
-  // === Мой ход: рендерим ВСЕГДА четыре кнопки: Fold, Call, Check, Bet/​Raise ===
-  statusEl.textContent     = 'Ваш ход';
-  potEl.textContent        = `Пот: ${state.pot || 0}`;
-  currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-  actionsEl.style.display  = 'flex';
-  actionsEl.innerHTML      = '';
+  // Отрисовываем ВСЕГДА четыре кнопки, но делаем disabled, если не мой ход
+  const disabledAll = !isMyTurn;
 
-  const contribs   = state.contributions || {};
-  const myContrib  = contribs[userId] || 0;
-  const cb         = state.current_bet || 0;
-  const toCall     = cb - myContrib;
-  const myStack    = state.stacks?.[userId] ?? 0;
-
-  // Определяем, находится ли стол именно на флопе (разданы 3 community-карты)
-  const communityCards = state.community || [];
-  const isFlopStage = communityCards.length >= 3 && state.current_round === 'flop';
-
-  // Если мы уже на флопе (ровно три карты) – кнопка должна называться «Bet»
-  // даже если в state.current_bet > 0 осталось значение от pre-flop
-  // (то есть игнорируем label «Raise» до тех пор, пока текущая стадия – «flop»)
-  const forceBetOnFlop = isFlopStage;
-
-  // --- 1) Fold (всегда активна) ---
+  // 1) Fold
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.className   = 'poker-action-btn poker-action-fold';
+  btnFold.disabled    = disabledAll;
   btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
   actionsEl.appendChild(btnFold);
 
-  // --- 2) Call ---
+  // 2) Call
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   btnCall.className   = 'poker-action-btn poker-action-call';
-  // Call активен только если toCall > 0 и у игрока хватает фишек
-  btnCall.disabled    = !(toCall > 0 && myStack >= toCall);
+  btnCall.disabled    = disabledAll || !(toCall > 0 && myStack >= toCall);
   btnCall.onclick     = () => {
     if (toCall > 0 && myStack >= toCall) {
       safeSend({ user_id: userId, action: 'call' });
@@ -160,12 +171,11 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCall);
 
-  // --- 3) Check ---
+  // 3) Check
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
   btnCheck.className   = 'poker-action-btn poker-action-check';
-  // Check активен только если toCall == 0
-  btnCheck.disabled    = (toCall !== 0);
+  btnCheck.disabled    = disabledAll || (toCall !== 0);
   btnCheck.onclick     = () => {
     if (toCall === 0) {
       safeSend({ user_id: userId, action: 'check' });
@@ -173,16 +183,19 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCheck);
 
-  // --- 4) Bet / Raise ---
+  // 4) Bet / Raise
   const btnBetOrRaise = document.createElement('button');
+  // Определяем, на каком раунде текущая улица
+  const isPostFlop = state.current_round !== 'pre-flop';
+  // На стадии «flop» (ровно три community-карты) тоже пишем «Bet»
+  const communityCards = state.community || [];
+  const isFlopStage = communityCards.length >= 3 && state.current_round === 'flop';
+  const forceBet = isFlopStage || isPostFlop;
 
-  if (forceBetOnFlop) {
-    // Если это ровно стадия «flop» (три community-карты), то кнопка всегда «Bet»
+  if (forceBet) {
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
-
-    // Bet активен, если у игрока ≥ 1 фишки
-    btnBetOrRaise.disabled    = (myStack <= 0);
+    btnBetOrRaise.disabled    = disabledAll || (myStack <= 0);
     btnBetOrRaise.onclick     = () => {
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
       if (amount > 0 && amount <= myStack) {
@@ -190,17 +203,11 @@ function updateUI(state) {
       }
     };
   } else {
-    // Во всех остальных ситуациях (до флопа и после флопа) – обычная логика:
-    // если current_bet > 0, показываем «Raise», иначе – «Bet».
     if (cb > 0) {
       btnBetOrRaise.textContent = 'Raise';
       btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
-
-      // Минимальный рейз (например, двойная ставка)
       const minRaise = Math.max(cb * 2, cb + 1);
-
-      // Raise активен, если у игрока в сумме (contrib + stack) ≥ minRaise
-      btnBetOrRaise.disabled = !((myContrib + myStack) >= minRaise);
+      btnBetOrRaise.disabled = disabledAll || !((myContrib + myStack) >= minRaise);
       btnBetOrRaise.onclick  = () => {
         const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
         if (target >= minRaise && target <= (myContrib + myStack)) {
@@ -208,12 +215,9 @@ function updateUI(state) {
         }
       };
     } else {
-      // cb == 0 → пишем «Bet»
       btnBetOrRaise.textContent = 'Bet';
       btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
-
-      // Bet активен, если у игрока ≥ 1 фишки
-      btnBetOrRaise.disabled    = (myStack <= 0);
+      btnBetOrRaise.disabled    = disabledAll || (myStack <= 0);
       btnBetOrRaise.onclick     = () => {
         const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
         if (amount > 0 && amount <= myStack) {
@@ -222,7 +226,6 @@ function updateUI(state) {
       };
     }
   }
-
   actionsEl.appendChild(btnBetOrRaise);
 }
 
