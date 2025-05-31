@@ -327,6 +327,15 @@ position: absolute;
   border-color: #b8ffe0;
   box-shadow: 0 0 14px #5ad4fca4;
 }
+.poker-action-btn:disabled {
+  background: #bbb !important;    /* светло-серый фон */
+  color: #666 !important;         /* тёмно-серый текст */
+  border-color: #aaa !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;          /* не делаем полупрозрачными, а именно серыми */
+  box-shadow: none !important;
+}
+
 .poker-action-fold { border-color: #e74a6e; color: #ffb3c2;}
 .poker-action-raise { border-color: #78fcaf; color: #bfffcf;}
 .poker-action-bet { border-color: #ffe05a; color: #fffbdf;}
