@@ -20,10 +20,10 @@ const pokerTableEl   = document.getElementById('poker-table');
 
 let ws;
 
-// Переменные для авто-настроек
+// Авто-настройки
 let autoFoldEnabled = false;
 let autoCallEnabled = false;
-let lastCallAmount = 0;      // хранит значение toCall, при котором включился авто-call
+let lastCallAmount = 0;      // Для отслеживания роста toCall
 let autoActionTimeout = null;
 
 // Overlay для результата
@@ -70,17 +70,16 @@ function scheduleAutoAction() {
     const toCall = cb - myContrib;
     const myStack = state.stacks?.[userId] ?? 0;
 
-    // Если toCall изменился больше, чем lastCallAmount и авто-call был включен — сбрасываем авто-call
+    // Если включён авто-call, но toCall вырос – сбросим авто-call
     if (autoCallEnabled && toCall > lastCallAmount) {
       autoCallEnabled = false;
-      highlightButtons(); // обновляем подсветку
+      highlightButtons();
       return;
     }
 
     if (autoCallEnabled && toCall > 0 && myStack >= toCall) {
       safeSend({ user_id: userId, action: 'call' });
     } else if (autoFoldEnabled && toCall === 0) {
-      // Только когда toCall === 0 (никаких ставок нет), автосброс (fold) допустим
       safeSend({ user_id: userId, action: 'fold' });
     }
     autoActionTimeout = null;
@@ -94,7 +93,7 @@ function clearAutoAction() {
   }
 }
 
-// Обновление подсветки кнопок в зависимости от авто-настроек
+// Обновление подсветки кнопок
 function highlightButtons() {
   const btnFold = document.querySelector('.poker-action-fold');
   const btnCall = document.querySelector('.poker-action-call');
@@ -110,7 +109,7 @@ function highlightButtons() {
 function updateUI(state) {
   window.currentTableState = state;
 
-  // 1) Если стадия «result» – показываем оверлей и сбрасываем авто-таймаут
+  // 1) Если стадия «result» – показываем оверлей и сбрасываем таймаут
   if (state.phase === 'result') {
     clearAutoAction();
     resultOverlayEl.innerHTML = '';
@@ -158,7 +157,7 @@ function updateUI(state) {
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // 3) Если нет игры — «ожидаем» и сбрасываем авто-таймаут
+  // 3) Если нет игры — «ожидаем» и сбрасываем таймаут
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
@@ -175,9 +174,8 @@ function updateUI(state) {
   const toCall = cb - myContrib;
   const myStack = state.stacks?.[userId] ?? 0;
 
-  // Если это мой ход и автоклик выбрал какой-то режим — планируем авто-действие
+  // Если это мой ход и включена любая авто-функция — планируем авто-действие
   if (isMyTurn && (autoCallEnabled || autoFoldEnabled)) {
-    // Обновим lastCallAmount, если включен auto-call
     if (autoCallEnabled) {
       lastCallAmount = toCall;
     }
@@ -186,7 +184,7 @@ function updateUI(state) {
     clearAutoAction();
   }
 
-  // Отображаем статус и рендерим кнопки
+  // Отображаем статус
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
@@ -197,89 +195,56 @@ function updateUI(state) {
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
   }
-  actionsEl.style.display = 'flex';
-  actionsEl.innerHTML     = '';
+  actionsEl.style.display  = 'flex';
+  actionsEl.innerHTML      = '';
 
   const disabledAll = !isMyTurn;
 
-  // 1) Fold + маленький переключатель автоскрола
-  const foldContainer = document.createElement('div');
-  foldContainer.style.display = 'inline-block';
-  foldContainer.style.position = 'relative';
-
+  // 1) Fold — клик по кнопке: если enabled, отправляем fold, иначе переключаем autoFold
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
   btnFold.className   = 'poker-action-btn poker-action-fold';
-  btnFold.disabled    = disabledAll;
+  btnFold.disabled    = disabledAll && !autoFoldEnabled;
+  btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
-    safeSend({ user_id: userId, action: 'fold' });
-  };
-  foldContainer.appendChild(btnFold);
-
-  // Переключатель (checkbox) для авто-fold (маленький кружок справа вверху)
-  const foldToggle = document.createElement('span');
-  foldToggle.style.position = 'absolute';
-  foldToggle.style.top = '-4px';
-  foldToggle.style.right = '-4px';
-  foldToggle.style.width = '12px';
-  foldToggle.style.height = '12px';
-  foldToggle.style.borderRadius = '50%';
-  foldToggle.style.border = '1px solid #000';
-  foldToggle.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '#fff';
-  foldToggle.style.cursor = 'pointer';
-  foldToggle.title = 'Toggle Auto-Fold';
-  foldToggle.onclick = (e) => {
-    e.stopPropagation();
-    autoFoldEnabled = !autoFoldEnabled;
-    // Если включаем авто-fold, выключаем авто-call
-    if (autoFoldEnabled) {
-      autoCallEnabled = false;
+    if (disabledAll) {
+      // не ваш ход, переключаем авто-fold
+      autoFoldEnabled = !autoFoldEnabled;
+      if (autoFoldEnabled) {
+        autoCallEnabled = false;
+      }
+      highlightButtons();
+      clearAutoAction();
+    } else {
+      // ваш ход, просто делаем fold
+      safeSend({ user_id: userId, action: 'fold' });
     }
-    highlightButtons();
-    clearAutoAction();
   };
-  foldContainer.appendChild(foldToggle);
-  actionsEl.appendChild(foldContainer);
+  actionsEl.appendChild(btnFold);
 
-  // 2) Call + маленький переключатель авто-call
-  const callContainer = document.createElement('div');
-  callContainer.style.display = 'inline-block';
-  callContainer.style.position = 'relative';
-
+  // 2) Call — клик по кнопке: если enabled, отправляем call, иначе переключаем autoCall
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   btnCall.className   = 'poker-action-btn poker-action-call';
-  btnCall.disabled    = disabledAll || !(toCall > 0 && myStack >= toCall);
+  btnCall.disabled    = disabledAll && !autoCallEnabled;
+  btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
-    if (toCall > 0 && myStack >= toCall) {
-      safeSend({ user_id: userId, action: 'call' });
+    if (disabledAll) {
+      // не ваш ход, переключаем авто-call
+      autoCallEnabled = !autoCallEnabled;
+      if (autoCallEnabled) {
+        autoFoldEnabled = false;
+      }
+      highlightButtons();
+      clearAutoAction();
+    } else {
+      // ваш ход, делаем call
+      if (toCall > 0 && myStack >= toCall) {
+        safeSend({ user_id: userId, action: 'call' });
+      }
     }
   };
-  callContainer.appendChild(btnCall);
-
-  const callToggle = document.createElement('span');
-  callToggle.style.position = 'absolute';
-  callToggle.style.top = '-4px';
-  callToggle.style.right = '-4px';
-  callToggle.style.width = '12px';
-  callToggle.style.height = '12px';
-  callToggle.style.borderRadius = '50%';
-  callToggle.style.border = '1px solid #000';
-  callToggle.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '#fff';
-  callToggle.style.cursor = 'pointer';
-  callToggle.title = 'Toggle Auto-Call';
-  callToggle.onclick = (e) => {
-    e.stopPropagation();
-    autoCallEnabled = !autoCallEnabled;
-    // Если включаем авто-call, выключаем авто-fold
-    if (autoCallEnabled) {
-      autoFoldEnabled = false;
-    }
-    highlightButtons();
-    clearAutoAction();
-  };
-  callContainer.appendChild(callToggle);
-  actionsEl.appendChild(callContainer);
+  actionsEl.appendChild(btnCall);
 
   // 3) Check
   const btnCheck = document.createElement('button');
@@ -293,7 +258,7 @@ function updateUI(state) {
   };
   actionsEl.appendChild(btnCheck);
 
-  // 4) Bet / Raise
+  // 4) Bet / Raise (восстанавливаем логику появления Raise)
   const btnBetOrRaise = document.createElement('button');
   const communityCards = state.community || [];
   const isFlopStage   = communityCards.length >= 3 && state.current_round === 'flop';
@@ -335,7 +300,7 @@ function updateUI(state) {
   }
   actionsEl.appendChild(btnBetOrRaise);
 
-  // Обновляем подсветку после рендеринга кнопок
+  // Обновляем подсветку (Fold/Call) после отрисовки
   highlightButtons();
 }
 
