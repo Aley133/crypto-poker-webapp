@@ -10,15 +10,7 @@ MAX_PLAYERS = 6
 
 
 def compute_allowed_actions(state, uid: str):
-    """
-    Возвращает список разрешённых действий для игрока uid на основе текущего состояния.
-    Действия: 'fold', 'call', 'check', 'bet', 'raise'.
-    """
     actions = []
-    # Всегда можно сбросить (fold)
-    actions.append('fold')
-
-    # Подготовка параметров
     contribs = state.get('contributions', {})
     stacks  = state.get('stacks', {})
     my_contrib = contribs.get(uid, 0)
@@ -28,26 +20,29 @@ def compute_allowed_actions(state, uid: str):
 
     is_current = str(state.get('current_player')) == str(uid)
 
+    # FOLD — всегда можно на своём ходу
     if is_current:
-        # На своем ходу: call или check
+        actions.append('fold')
+
+        # CALL — если есть что уравнивать
         if to_call > 0 and my_stack >= to_call:
             actions.append('call')
-        elif to_call == 0:
-            actions.append('check')
-        # Bet или Raise
-        if current_bet == 0:
-            if my_stack > 0:
-                actions.append('bet')
-        else:
+            # RAISE — если есть что рейзить (и достаточно денег)
+            min_raise = current_bet + 2  # Можно сделать константой
             if my_stack > to_call:
                 actions.append('raise')
+        # CHECK/BET — если нечего коллить
+        elif to_call == 0:
+            actions.append('check')
+            # BET — если ставок ещё не было
+            if current_bet == 0 and my_stack > 0:
+                actions.append('bet')
     else:
-        # Вне хода: можно заранее call, если есть что коллить
+        # Если ход чужой, но есть что коллить — можем заранее подготовить call
         if to_call > 0 and my_stack >= to_call:
             actions.append('call')
-        # Предварительный check/ bet не доступны вне хода
 
-    # Сохраняем порядок: fold, call, bet, raise, check
+    # Всегда рисуем полный набор, но разрешаем только нужные действия
     ordered = []
     for act in ['fold','call','bet','raise','check']:
         if act in actions:
