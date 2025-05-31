@@ -158,7 +158,6 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     folds = set(state.get("folds", set()))
     cb = state.get("current_bet", 0)
     deadline = state.get("timer_deadline", now)
-    phase_shift = False  # <<< вот так!
 
     if now > deadline:
         action = "fold"
@@ -232,28 +231,13 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         deck = state.get("deck", [])
         idx = ROUNDS.index(rnd)
         if rnd in ["pre-flop", "flop", "turn"]:
-            state["current_bet"]    = 0
-            state["contributions"]  = { u: 0 for u in state.get("players", []) }
             deck.pop()
             cnt = 3 if rnd == "pre-flop" else 1
             state["community"] += [deck.pop() for _ in range(cnt)]
             state["current_round"] = ROUNDS[idx + 1]
-            # === ОТЛАДКА: выводим полный state
-            print(f"[PHASE SHIFT] round={rnd} → {state.get('current_round')}, current_bet={state['current_bet']}, contributions={state['contributions']}, current_player={state.get('current_player')}, phase={state.get('phase')}, players={state.get('players')}")
-            print(f"[PHASE SHIFT STATE] {state}")
         elif rnd == "river":
             state["current_round"] = "showdown"
-# ОТЛАДКА перехода улицы
-    if phase_shift:
-        print(f"[PHASE SHIFT] round={rnd} → {state.get('current_round')}, current_bet={state.get('current_bet')}, contributions={state.get('contributions')}, current_player={state.get('current_player')}, phase={state.get('phase')}, players={state.get('players')}")
-        print(f"[PHASE SHIFT STATE] {state}")
-        # Принудительный broadcast после смены улицы (асинхронно!)
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(broadcast(table_id))
-        except RuntimeError:
-            pass  # если нет loop, ничего не делаем
-            
+
     # Showdown
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
