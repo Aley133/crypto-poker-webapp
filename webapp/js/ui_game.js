@@ -131,7 +131,7 @@ function updateUI(state) {
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
   btnCall.className   = 'poker-action-btn poker-action-call';
-  // Call активен только если toCall > 0 и у игрока достаточно фишек
+  // Call активен только если toCall > 0 и у игрока хватает фишек
   btnCall.disabled    = !(toCall > 0 && myStack >= toCall);
   btnCall.onclick     = () => {
     if (toCall > 0 && myStack >= toCall) {
@@ -144,7 +144,7 @@ function updateUI(state) {
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
   btnCheck.className   = 'poker-action-btn poker-action-check';
-  // Check активен только если вклад уже равен текущей ставке (toCall === 0)
+  // Check активен только если toCall == 0
   btnCheck.disabled    = (toCall !== 0);
   btnCheck.onclick     = () => {
     if (toCall === 0) {
@@ -155,24 +155,29 @@ function updateUI(state) {
 
   // --- 4) Bet / Raise ---
   const btnBetOrRaise = document.createElement('button');
-  // Если текущая ставка ≥ BIG_BLIND, подписываем «Raise», иначе — «Bet»
   if (cb >= BIG_BLIND) {
+    // Если уже есть ставка ≥ big blind, пишем «Raise»
     btnBetOrRaise.textContent = 'Raise';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-raise';
-    // Для Raise считается минимальный рейз, например: двойная ставка
+
+    // Считаем минимальный рейз (например, двойная ставка).
+    // Вы можете подставить свою формулу minRaise.
     const minRaise = Math.max(cb * 2, cb + 1);
-    // Raise активен, только если вклад уже equal+есть чем поднять
-    btnBetOrRaise.disabled    = !((toCall === 0) && ((myContrib + myStack) >= minRaise));
-    btnBetOrRaise.onclick     = () => {
+
+    // Raise должен быть активен, если у игрока в сумме (contrib + stack) ≥ minRaise
+    btnBetOrRaise.disabled = !((myContrib + myStack) >= minRaise);
+    btnBetOrRaise.onclick  = () => {
       const target = parseInt(prompt(`Raise to at least ${minRaise}?`), 10) || 0;
       if (target >= minRaise && target <= (myContrib + myStack)) {
         safeSend({ user_id: userId, action: 'raise', amount: target });
       }
     };
   } else {
+    // Иначе текущая ставка < big blind → пишем «Bet»
     btnBetOrRaise.textContent = 'Bet';
     btnBetOrRaise.className   = 'poker-action-btn poker-action-bet';
-    // Bet активен, если у игрока есть хотя бы 1 фишка
+
+    // Bet активен, если у игрока ≥ 1 фишки
     btnBetOrRaise.disabled    = (myStack <= 0);
     btnBetOrRaise.onclick     = () => {
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
