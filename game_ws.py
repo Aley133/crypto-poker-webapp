@@ -38,6 +38,7 @@ def compute_allowed_actions(state, uid: str):
                 actions.append('raise')
         else:
             actions.append('check')
+            # ВАЖНО! Bet доступен, если на улице нет ставки (current_bet == 0)
             if current_bet == 0 and my_stack > 0:
                 actions.append('bet')
     else:
@@ -48,7 +49,7 @@ def compute_allowed_actions(state, uid: str):
     for act in ['fold','call','bet','raise','check']:
         if act in actions:
             ordered.append(act)
-    print(f"[DEBUG] {uid=}, {phase=}, {current_bet=}, {my_contrib=}, {to_call=}, allowed={ordered}")        
+    print(f"[DEBUG] {uid=}, {phase=}, {current_bet=}, {my_contrib=}, {to_call=}, allowed={ordered}")
     return ordered
 
 
