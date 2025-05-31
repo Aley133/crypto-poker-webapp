@@ -21,7 +21,7 @@ const pokerTableEl   = document.getElementById('poker-table');
 let ws;
 
 // Храним предыдущую улицу, чтобы сбрасывать авто-режимы при смене
-let previousRound = null;
+let lastRound = null;
 
 // Авто-настройки
 let autoFoldEnabled = false;
@@ -66,7 +66,7 @@ function safeSend(payload) {
   }
 }
 
-// Планирование авто-действия (с задержкой, чтобы «догнать» рейзы)
+// Планирование авто-действия (с задержкой, чтобы учесть быстрые рейзы)
 function scheduleAutoAction() {
   clearAutoAction();
   autoActionTimeout = setTimeout(() => {
@@ -89,11 +89,11 @@ function scheduleAutoAction() {
       return;
     }
 
-    // Если авто-call и есть что коллить
+    // Авто-call
     if (autoCallEnabled && toCall > 0 && myStack >= toCall) {
       safeSend({ user_id: userId, action: 'call' });
     }
-    // Если авто-fold и нет ставки (toCall == 0) → фолд
+    // Авто-fold (только если нет открытой ставки)
     else if (autoFoldEnabled && toCall === 0) {
       safeSend({ user_id: userId, action: 'fold' });
     }
@@ -109,7 +109,7 @@ function clearAutoAction() {
   }
 }
 
-// Подсветка кнопок Fold и Call при активном авто-режиме
+// Подсветка кнопок Fold и Call при активных авто-режимах
 function highlightButtons() {
   const btnFold = document.querySelector('.poker-action-fold');
   const btnCall = document.querySelector('.poker-action-call');
@@ -123,18 +123,21 @@ function highlightButtons() {
 
 // ======= UI Logic =======
 function updateUI(state) {
-  // Сбрасываем авто-режимы при старте новой раздачи
-  if (state.started && previousRound === null) {
+  // Сброс авто-режимов при старте новой раздачи:
+  // Если ранее lastRound был null и сейчас started=true → новая раздача
+  if (state.started && lastRound === null) {
     autoFoldEnabled = false;
     autoCallEnabled = false;
   }
 
-  // Сбрасываем авто-режимы при переходе на новую улицу (если round поменялся)
-  if (previousRound !== null && state.current_round !== previousRound) {
+  // Сброс авто-режимов при смене улицы (current_round) — если lastRound отличается
+  if (lastRound !== null && state.current_round !== lastRound) {
     autoFoldEnabled = false;
     autoCallEnabled = false;
   }
-  previousRound = state.current_round;
+
+  // После применения сброса, обновляем lastRound на текущий раунд
+  lastRound = state.current_round;
 
   window.currentTableState = state;
 
@@ -186,15 +189,16 @@ function updateUI(state) {
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // 3) Если раздача не началась, показываем «Ожидаем игроков…» и сбрасываем таймаут
+  // 3) Если раздача не началась, показываем «Ожидаем игроков» и сбрасываем таймаут
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
     clearAutoAction();
-    // Сбрасываем previousRound, чтобы при следующем старте новой раздачи сбросить авто-режимы
-    previousRound = null;
+    // При окончании раздачи сбросим lastRound в null,
+    // чтобы на следующем старте новой раздачи сработал сброс авто-режимов
+    lastRound = null;
     return;
   }
 
@@ -215,7 +219,7 @@ function updateUI(state) {
     clearAutoAction();
   }
 
-  // Отображаем статус: чей ход
+  // Показываем чей сейчас ход
   if (!isMyTurn) {
     const nextName = state.usernames[state.current_player] || state.current_player;
     statusEl.textContent     = `Ход игрока: ${nextName}`;
@@ -226,10 +230,11 @@ function updateUI(state) {
     potEl.textContent        = `Пот: ${state.pot || 0}`;
     currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
   }
+
   actionsEl.style.display = 'flex';
   actionsEl.innerHTML     = '';
 
-  // Добавляем класс «dimmed» ко всем кнопкам, если очередь не ваша
+  // Добавляем «dimmed» ко всем кнопкам, если очередь не ваша
   const dimClass = !isMyTurn ? 'dimmed' : '';
 
   // 1) Fold
@@ -239,13 +244,13 @@ function updateUI(state) {
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (!isMyTurn) {
-      // переключаем авто-fold
+      // Переключаем авто-fold
       autoFoldEnabled = !autoFoldEnabled;
       if (autoFoldEnabled) autoCallEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
-      // если ваш ход, выполняем fold
+      // Ваш ход — выполняем fold
       safeSend({ user_id: userId, action: 'fold' });
     }
   };
@@ -258,13 +263,13 @@ function updateUI(state) {
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (!isMyTurn) {
-      // переключаем авто-call
+      // Переключаем авто-call
       autoCallEnabled = !autoCallEnabled;
       if (autoCallEnabled) autoFoldEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
-      // если ваш ход, выполняем call
+      // Ваш ход — выполняем call
       if (toCall > 0 && myStack >= toCall) {
         safeSend({ user_id: userId, action: 'call' });
       }
@@ -286,7 +291,8 @@ function updateUI(state) {
   // 4) Bet / Raise
   const btnBetOrRaise = document.createElement('button');
   btnBetOrRaise.className = `poker-action-btn ${dimClass}`;
-  // Если есть ставка, показываем «Raise», иначе — «Bet»
+
+  // Если уже есть текущая ставка (cb > 0), показываем «Raise», иначе — «Bet»
   if (cb > 0) {
     btnBetOrRaise.textContent = 'Raise';
     btnBetOrRaise.onclick     = () => {
