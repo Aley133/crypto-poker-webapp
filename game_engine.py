@@ -158,6 +158,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     folds = set(state.get("folds", set()))
     cb = state.get("current_bet", 0)
     deadline = state.get("timer_deadline", now)
+    phase_shift = False  # <<< вот так!
 
     if now > deadline:
         action = "fold"
