@@ -352,8 +352,6 @@ input[type=number] {
 }
 .dimmed {
   opacity: 0.4;
-  pointer-events: none;
-  cursor: not-allowed;
 }
 
 /* Стили для подсветки доступных кнопок */
