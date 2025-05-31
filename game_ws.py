@@ -17,37 +17,46 @@ def compute_allowed_actions(state, uid: str):
     my_stack   = stacks.get(uid, 0)
     current_bet = state.get('current_bet', 0)
     to_call = max(0, current_bet - my_contrib)
-
     is_current = str(state.get('current_player')) == str(uid)
 
-    # FOLD — всегда можно на своём ходу
-    if is_current:
-        actions.append('fold')
-
-        # CALL — если есть что уравнивать
-        if to_call > 0 and my_stack >= to_call:
-            actions.append('call')
-            # RAISE — если есть что рейзить (и достаточно денег)
-            min_raise = current_bet + 2  # Можно сделать константой
-            if my_stack > to_call:
-                actions.append('raise')
-        # CHECK/BET — если нечего коллить
-        elif to_call == 0:
-            actions.append('check')
-            # BET — если ставок ещё не было
-            if current_bet == 0 and my_stack > 0:
-                actions.append('bet')
+    # Для идентификации малый блайнд (первый ход префлопа)
+    is_preflop = state.get("phase") == "pre-flop"
+    players = state.get("players", [])
+    dealer_idx = state.get("dealer_index", -1)
+    if len(players) >= 2:
+        sb_idx = (dealer_idx + 1) % len(players)
+        first_to_act_uid = players[sb_idx]
     else:
-        # Если ход чужой, но есть что коллить — можем заранее подготовить call
+        first_to_act_uid = None
+
+    if is_current:
+        # Малый блайнд, первый ход префлопа
+        if is_preflop and uid == first_to_act_uid:
+            actions.append('fold')
+            if to_call > 0 and my_stack >= to_call:
+                actions.append('call')
+            # Никаких check, bet, raise! Только fold/call.
+        else:
+            actions.append('fold')
+            if to_call > 0 and my_stack >= to_call:
+                actions.append('call')
+                if my_stack > to_call:
+                    actions.append('raise')
+            elif to_call == 0:
+                actions.append('check')
+                if current_bet == 0 and my_stack > 0:
+                    actions.append('bet')
+    else:
         if to_call > 0 and my_stack >= to_call:
             actions.append('call')
 
-    # Всегда рисуем полный набор, но разрешаем только нужные действия
+    # Всегда один и тот же порядок
     ordered = []
     for act in ['fold','call','bet','raise','check']:
         if act in actions:
             ordered.append(act)
     return ordered
+
 
 async def broadcast(table_id: int):
     state = game_states.get(table_id)
