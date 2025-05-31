@@ -1,6 +1,5 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
-import renderActions from './actionsManager.js';
 
 // --- Params ---
 const params   = new URLSearchParams(window.location.search);
@@ -16,62 +15,45 @@ const actionsEl    = document.getElementById('actions');
 const leaveBtn     = document.getElementById('leave-btn');
 const pokerTableEl = document.getElementById('poker-table');
 
-// Ensure .action-buttons-wrapper exists inside #actions
-let wrapperEl = actionsEl.querySelector('.action-buttons-wrapper');
-if (!wrapperEl) {
-  wrapperEl = document.createElement('div');
-  wrapperEl.classList.add('action-buttons-wrapper');
-  actionsEl.appendChild(wrapperEl);
-}
+let ws;
 
-// Overlay for end‐of‐hand result
+// Overlay для результата
 const resultOverlayEl = document.createElement('div');
 resultOverlayEl.id = 'result-overlay';
 Object.assign(resultOverlayEl.style, {
-  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-  background: 'rgba(0,0,0,0.8)', color: '#fff', display: 'none',
+  position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+  background: 'rgba(0, 0, 0, 0.8)', color: '#fff', display: 'none',
   alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
   fontFamily: 'sans-serif', fontSize: '18px', zIndex: '1000'
 });
 document.body.appendChild(resultOverlayEl);
 
-// Placeholder for WebSocket
-let ws;
-
-// Safe WS send helper
+// Безопасная отправка WS
 function safeSend(payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
   }
 }
 
-// Main UI update function
+// ======= UI Logic =======
 function updateUI(state) {
-  // === Result phase ===
   if (state.phase === 'result') {
-    // hide main UI
-    pokerTableEl.style.display    = 'none';
-    actionsEl.style.display       = 'none';
-    statusEl.style.display        = 'none';
-    potEl.style.display           = 'none';
-    currentBetEl.style.display    = 'none';
-    wrapperEl.innerHTML           = '';
-
-    // build overlay
     resultOverlayEl.innerHTML = '';
-    const header = document.createElement('div');
-    header.style.marginBottom = '20px';
-    header.textContent = Array.isArray(state.winner)
-      ? `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`
-      : `Winner: ${state.usernames[state.winner] || state.winner}`;
-    resultOverlayEl.appendChild(header);
+    const msg = document.createElement('div');
+    msg.style.marginBottom = '20px';
+    if (Array.isArray(state.winner)) {
+      msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
+    } else {
+      msg.textContent = `Winner: ${state.usernames[state.winner] || state.winner}`;
+    }
+    resultOverlayEl.appendChild(msg);
 
     const handsDiv = document.createElement('div');
-    Object.entries(state.revealed_hands || {}).forEach(([uid, cards]) => {
+    for (const [uid, cards] of Object.entries(state.revealed_hands || {})) {
       const p = document.createElement('div');
       p.textContent = `${state.usernames[uid] || uid}: ${cards.join(' ')}`;
       handsDiv.appendChild(p);
-    });
+    }
     resultOverlayEl.appendChild(handsDiv);
 
     if (state.split_pots) {
@@ -83,56 +65,103 @@ function updateUI(state) {
           .join(', ');
       resultOverlayEl.appendChild(splitDiv);
     }
+
     resultOverlayEl.style.display = 'flex';
+    pokerTableEl.style.display    = 'none';
+    actionsEl.style.display       = 'none';
+    statusEl.style.display        = 'none';
+    potEl.style.display           = 'none';
+    currentBetEl.style.display    = 'none';
     return;
   }
 
-  // === Show main UI ===
+  // Скрываем оверлей результата
   resultOverlayEl.style.display = 'none';
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
   currentBetEl.style.display    = '';
 
-  // === Before game start ===
   if (!state.started) {
     statusEl.textContent     = `Ожидаем игроков… (${state.players_count || 0}/2)`;
     potEl.textContent        = '';
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
-    wrapperEl.innerHTML      = '';
     return;
   }
 
-  // === During game ===
   const isMyTurn = String(state.current_player) === String(userId);
+  if (!isMyTurn) {
+    const nextName = state.usernames[state.current_player] || state.current_player;
+    statusEl.textContent     = `Ход игрока: ${nextName}`;
+    potEl.textContent        = `Пот: ${state.pot || 0}`;
+    currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+    actionsEl.style.display  = 'none';
+    actionsEl.innerHTML      = '';
+    return;
+  }
 
-  // update status and pot info
-  statusEl.textContent     = isMyTurn
-    ? 'Ваш ход'
-    : `Ход игрока: ${state.usernames[state.current_player] || state.current_player}`;
+  // Мой ход: показываем кнопки
+  statusEl.textContent     = 'Ваш ход';
   potEl.textContent        = `Пот: ${state.pot || 0}`;
   currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
+  actionsEl.style.display  = 'flex';
+  actionsEl.innerHTML      = '';
 
-  // show actions panel
-  actionsEl.style.display = '';
+  const contribs  = state.contributions || {};
+  const myContrib = contribs[userId] || 0;
+  const cb        = state.current_bet || 0;
+  const toCall    = cb - myContrib;
+  const myStack   = state.stacks?.[userId] ?? 0;
 
-  // render action buttons via external manager
-  wrapperEl.innerHTML = '';
-  renderActions(wrapperEl, state, userId, safeSend);
+  const btnFold = document.createElement('button');
+  btnFold.textContent = 'Fold';
+  btnFold.className = 'poker-action-btn poker-action-fold';
+  btnFold.onclick     = () => safeSend({ user_id: userId, action: 'fold' });
+  actionsEl.appendChild(btnFold);
 
-  // finally, draw the table
-  renderTable(state, userId);
+  const btnCheck = document.createElement('button');
+  btnCheck.textContent = 'Check';
+  btnCheck.className = 'poker-action-btn';
+  btnCheck.disabled    = toCall !== 0;
+  btnCheck.onclick     = () => safeSend({ user_id: userId, action: 'check' });
+  actionsEl.appendChild(btnCheck);
+
+  const btnCall = document.createElement('button');
+  btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+  btnCall.className = 'poker-action-btn';
+  btnCall.disabled    = toCall <= 0 || myStack < toCall;
+  btnCall.onclick     = () => safeSend({ user_id: userId, action: 'call' });
+  actionsEl.appendChild(btnCall);
+
+  const btnBet = document.createElement('button');
+  btnBet.textContent = 'Bet';
+  btnBet.className = 'poker-action-btn poker-action-bet';
+  btnBet.onclick     = () => {
+    const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
+    safeSend({ user_id: userId, action: 'bet', amount });
+  };
+  actionsEl.appendChild(btnBet);
+
+  const btnRaise = document.createElement('button');
+  btnRaise.textContent = 'Raise';
+  btnRaise.className = 'poker-action-btn poker-action-raise';
+  btnRaise.disabled    = toCall <= 0;
+  btnRaise.onclick     = () => {
+    const target = parseInt(prompt(`Рейз до суммы > ${cb}?`), 10) || 0;
+    safeSend({ user_id: userId, action: 'raise', amount: target });
+  };
+  actionsEl.appendChild(btnRaise);
 }
 
-// ===== WebSocket setup =====
-ws = createWebSocket(tableId, userId, username, event => {
-  const state = JSON.parse(event.data);
+// ======= WS + Логика =======
+ws = createWebSocket(tableId, userId, username, e => {
+  const state = JSON.parse(e.data);
   window.currentTableState = state;
   updateUI(state);
+  renderTable(state, userId);
 });
 
-// leave button
 leaveBtn.onclick = async () => {
   window.currentTableState = null;
   await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
@@ -141,15 +170,16 @@ leaveBtn.onclick = async () => {
 
 window.currentUserId = userId;
 
-// rerender on resize
+// Перерендер стола при изменении размеров окна
 window.addEventListener('resize', () => {
   if (window.currentTableState) {
     renderTable(window.currentTableState, userId);
-    updateUI(window.currentTableState);
   }
 });
 
-// hotfix extra render
+// Hotfix: повторный рендер через небольшой таймаут
 setTimeout(() => {
-  if (window.currentTableState) updateUI(window.currentTableState);
+  if (window.currentTableState) {
+    renderTable(window.currentTableState, userId);
+  }
 }, 200);
