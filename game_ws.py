@@ -40,7 +40,6 @@ function safeSend(payload) {
 
 // ======= UI Logic =======
 function updateUI(state) {
-  // 1) Если стадия «result» – показываем оверлей
   if (state.phase === 'result') {
     resultOverlayEl.innerHTML = '';
     const msg = document.createElement('div');
