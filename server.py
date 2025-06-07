@@ -14,6 +14,20 @@ from tables import (
 )
 
 app = FastAPI()
+
+@app.on_event("startup")
+def init_db():
+    # Создаём или обновляем схему balances при запуске сервера
+    conn = sqlite3.connect("poker.db")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS balances (
+            user_id TEXT PRIMARY KEY,
+            balance INTEGER NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+    
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
