@@ -1,1 +1,4 @@
-
+CREATE TABLE IF NOT EXISTS balances (
+  user_id TEXT PRIMARY KEY,
+  balance INTEGER NOT NULL
+);
