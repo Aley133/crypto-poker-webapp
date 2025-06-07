@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Query
-from game_ws import router as game_router, broadcast
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import sqlite3
 
-from game_ws import router as game_router
+from game_ws import router as game_router, broadcast
 from tables import (
     list_tables,
     create_table,
@@ -12,6 +12,7 @@ from tables import (
     leave_table,
     get_balance,
 )
+from game_engine import game_states  # Если используешь глобальное состояние
 
 app = FastAPI()
 
@@ -35,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# WebSocket-роутер и HTTP эндпоинт /api/game_state
+# WebSocket-роутер
 app.include_router(game_router)
 
 @app.get("/api/tables")
@@ -54,16 +55,18 @@ def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
     return join_table(table_id, user_id)
 
 @app.post("/api/leave")
-def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок покидает стол"""
-    return leave_table(table_id, user_id)
-    
-@app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок покидает стол — удаляем его и шлём обновление по WS"""
-     result = leave_table(table_id, user_id)
-     await broadcast(table_id)
-     return result
+    """Игрок покидает стол — удаляем его, сохраняем баланс, оповещаем по WS"""
+    result = leave_table(table_id, user_id)
+    # Сохраняем баланс из state (если ещё не был сохранён)
+    state = game_states.get(table_id, {})
+    stack = state.get("stacks", {}).get(user_id)
+    if stack is not None:
+        from db_utils import set_balance_db
+        set_balance_db(user_id, stack)
+    # Оповещаем всех по WebSocket
+    await broadcast(table_id)
+    return result
 
 @app.get("/api/balance")
 def get_balance_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
