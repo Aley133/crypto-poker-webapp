@@ -3,6 +3,22 @@ import sqlite3
 DB_PATH = "poker.db"
 STARTING_STACK = 1000
 
+def ensure_schema():
+    conn = sqlite3.connect("poker.db")
+    conn.execute("""
+      CREATE TABLE IF NOT EXISTS balances (
+        user_id TEXT PRIMARY KEY,
+        balance INTEGER NOT NULL
+      )
+    """)
+    conn.commit()
+    conn.close()
+
+# вызвать в самом начале
+if __name__ == "__main__":
+    ensure_schema()
+    
+
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
