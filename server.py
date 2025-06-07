@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Query
+from game_ws import router as game_router, broadcast
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -42,6 +43,13 @@ def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
 def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
     """Игрок покидает стол"""
     return leave_table(table_id, user_id)
+    
+@app.post("/api/leave")
+async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
+    """Игрок покидает стол — удаляем его и шлём обновление по WS"""
+     result = leave_table(table_id, user_id)
+     await broadcast(table_id)
+     return result
 
 @app.get("/api/balance")
 def get_balance_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
