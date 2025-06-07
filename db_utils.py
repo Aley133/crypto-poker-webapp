@@ -3,21 +3,6 @@ import sqlite3
 DB_PATH = "poker.db"
 STARTING_STACK = 1000
 
-def ensure_schema():
-    conn = sqlite3.connect("poker.db")
-    conn.execute("""
-      CREATE TABLE IF NOT EXISTS balances (
-        user_id TEXT PRIMARY KEY,
-        balance INTEGER NOT NULL
-      )
-    """)
-    conn.commit()
-    conn.close()
-
-# вызвать в самом начале
-if __name__ == "__main__":
-    ensure_schema()
-    
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
@@ -29,8 +14,9 @@ def get_conn():
     """)
     return conn
 
+
 def get_balance_db(user_id: str) -> int:
-    """Вернуть текущий баланс из БД, или STARTING_STACK, если нет записи."""
+    """Возвращает баланс из БД или STARTING_STACK, если записи нет."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT balance FROM balances WHERE user_id = ?", (user_id,))
@@ -47,8 +33,9 @@ def get_balance_db(user_id: str) -> int:
     conn.close()
     return bal
 
+
 def set_balance_db(user_id: str, balance: int):
-    """Записать (или обновить) баланс игрока в БД."""
+    """Записывает или обновляет баланс игрока."""
     conn = get_conn()
     conn.execute(
         "REPLACE INTO balances(user_id, balance) VALUES(?, ?)",
@@ -56,4 +43,3 @@ def set_balance_db(user_id: str, balance: int):
     )
     conn.commit()
     conn.close()
-
