@@ -25,7 +25,7 @@ const currentBetEl   = document.getElementById('current-bet');
 const actionsEl      = document.getElementById('actions');
 const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
-console.log('[ui_game] leaveBtn element:', leaveBtn); // <--- log
+console.log('[ui_game] leaveBtn element:', leaveBtn);
 
 let ws;
 
@@ -133,7 +133,6 @@ function highlightButtons() {
 // ======= UI Logic =======
 function updateUI(state) {
   // Сброс авто-режимов при старте новой раздачи:
-  // Если ранее lastRound был null и сейчас started=true → новая раздача
   if (state.started && lastRound === null) {
     autoFoldEnabled = false;
     autoCallEnabled = false;
@@ -205,8 +204,6 @@ function updateUI(state) {
     currentBetEl.textContent = '';
     actionsEl.style.display  = 'none';
     clearAutoAction();
-    // При окончании раздачи сбросим lastRound в null,
-    // чтобы на следующем старте новой раздачи сработал сброс авто-режимов
     lastRound = null;
     return;
   }
@@ -253,13 +250,11 @@ function updateUI(state) {
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (!isMyTurn) {
-      // Переключаем авто-fold
       autoFoldEnabled = !autoFoldEnabled;
       if (autoFoldEnabled) autoCallEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
-      // Ваш ход — выполняем fold
       safeSend({ user_id: userId, action: 'fold' });
     }
   };
@@ -272,13 +267,11 @@ function updateUI(state) {
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (!isMyTurn) {
-      // Переключаем авто-call
       autoCallEnabled = !autoCallEnabled;
       if (autoCallEnabled) autoFoldEnabled = false;
       highlightButtons();
       clearAutoAction();
     } else {
-      // Ваш ход — выполняем call
       if (toCall > 0 && myStack >= toCall) {
         safeSend({ user_id: userId, action: 'call' });
       }
@@ -301,7 +294,6 @@ function updateUI(state) {
   const btnBetOrRaise = document.createElement('button');
   btnBetOrRaise.className = `poker-action-btn ${dimClass}`;
 
-  // Если уже есть текущая ставка (cb > 0), показываем «Raise», иначе — «Bet»
   if (cb > 0) {
     btnBetOrRaise.textContent = 'Raise';
     btnBetOrRaise.onclick     = () => {
@@ -324,7 +316,6 @@ function updateUI(state) {
   }
   actionsEl.appendChild(btnBetOrRaise);
 
-  // Обновляем подсветку Fold/Call
   highlightButtons();
 }
 
@@ -340,15 +331,17 @@ ws = createWebSocket(tableId, userId, username, e => {
 if (!leaveBtn) {
   console.error('[ui_game] #leave-btn not found');
 } else {
-  console.log('[ui_game] binding click handler to leaveBtn');  // <--- log
+  console.log('[ui_game] binding click handler to leaveBtn');
   leaveBtn.addEventListener('click', async () => {
-    console.log('[ui_game] leaveBtn click event fired');      // <--- log
+    console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
+    // 1) Закрываем WS
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.close();
     }
 
+    // 2) Оповещаем сервер о выходе
     try {
       const res = await fetch(
         `/api/leave?table_id=${tableId}&user_id=${userId}`,
@@ -359,7 +352,21 @@ if (!leaveBtn) {
       console.error('[ui_game] leave fetch error', e);
     }
 
-    window.location.href = '/index.html';
+    // 3) Скрываем UI стола и кнопки
+    if (document.getElementById('game-info'))
+      document.getElementById('game-info').style.display = 'none';
+    if (document.querySelector('.action-buttons-wrapper'))
+      document.querySelector('.action-buttons-wrapper').style.display = 'none';
+    leaveBtn.style.display = 'none';
+    if (pokerTableEl) pokerTableEl.style.display = 'none';
+
+    // 4) Показываем сообщение о выходе
+    const msg = document.createElement('div');
+    msg.textContent = 'Вы покинули стол';
+    msg.style.textAlign = 'center';
+    msg.style.margin = '20px';
+    msg.style.fontSize = '18px';
+    document.body.appendChild(msg);
   });
 }
 
@@ -378,3 +385,4 @@ setTimeout(() => {
     renderTable(window.currentTableState, userId);
   }
 }, 200);
+
