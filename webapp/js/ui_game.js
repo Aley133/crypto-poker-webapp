@@ -272,10 +272,10 @@ function updateUI(state) {
 
   // 4) Bet / Raise
   const btnBetOrRaise = document.createElement('button');
-  btnBetOrRaise.className = `poker-action-btn ${dimClass}`;
 
   if (cb > 0) {
     btnBetOrRaise.textContent = 'Raise';
+    btnBetOrRaise.className   = `poker-action-btn poker-action-raise ${dimClass}`;
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
       const minRaise = Math.max(cb * 2, cb + 1);
@@ -286,6 +286,7 @@ function updateUI(state) {
     };
   } else {
     btnBetOrRaise.textContent = 'Bet';
+    btnBetOrRaise.className   = `poker-action-btn poker-action-bet ${dimClass}`;
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;

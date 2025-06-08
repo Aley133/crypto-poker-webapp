@@ -21,19 +21,25 @@ body::before {
 }
 #leave-btn {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 10px;
+  left: 10px;
+  width: 32px;
+  height: 32px;
   z-index: 9999;         /* поверх всех других элементов */
-  padding: 8px 16px;
-  background: #f44336;
-  color: #fff;
+  padding: 0;
+  background: transparent;
+  background-image: url('https://img.icons8.com/?size=100&id=rupFD7sZ58qx&format=png&color=FFFFFF');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 24px 24px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  overflow: hidden;
+  text-indent: -9999px;
 }
 #leave-btn:hover {
-  background: #d32f2f;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 #background-grid {
@@ -298,12 +304,12 @@ position: absolute;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(20, 24, 40, 0.97);
+  background: rgba(0, 0, 0, 0.6);
   gap: 16px;
   padding: 13px 0 13px 0;
   pointer-events: auto;
   border-radius: 20px 20px 0 0;
-  box-shadow: 0 0 34px #0008;
+  box-shadow: 0 0 20px #0008;
 }
 
 @media (max-width: 600px) {
@@ -323,38 +329,35 @@ position: absolute;
 }
 /* Сделать кнопки крупными и "тапабельными" */
 .poker-action-btn {
-  background: linear-gradient(180deg, #232833 70%, #101217 100%);
+  background: rgba(0, 0, 0, 0.4);
   color: #fff;
-  font-weight: 800;
-  border: 2.6px solid #45caff;
-  border-radius: 18px;
-  box-shadow: 0 2px 14px #0116;
+  font-weight: 600;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   margin: 0 10px 0 0;
-  padding: 13px 38px;
-  font-size: 1.19em;
-  letter-spacing: 0.09em;
+  padding: 10px 24px;
+  font-size: 1.1em;
+  letter-spacing: 0.06em;
   cursor: pointer;
   outline: none;
   transition: background 0.14s, border-color 0.18s, box-shadow 0.16s;
 }
 .poker-action-btn:last-child { margin-right: 0; }
 .poker-action-btn:hover {
-  background: #2cc4fa;
-  border-color: #b8ffe0;
-  box-shadow: 0 0 14px #5ad4fca4;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #fff;
 }
 .poker-action-btn:disabled {
-  background: #bbb !important;
-  color: #666 !important;
-  border-color: #aaa !important;
+  background: #555 !important;
+  color: #999 !important;
+  border-color: #777 !important;
   cursor: not-allowed !important;
   opacity: 1 !important;
 }
 
-.poker-action-fold { border-color: #e74a6e; color: #ffb3c2;}
-.poker-action-btn.raise, .poker-action-btn.bet {
-  background: #66ff66;
-}
+.poker-action-fold { border-color: #ff5555; }
+.poker-action-bet, .poker-action-raise { border-color: #2ecc71; }
 .poker-action-btn:active {
   filter: brightness(0.9);
 }
