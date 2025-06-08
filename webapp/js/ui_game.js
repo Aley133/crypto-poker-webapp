@@ -12,6 +12,9 @@ const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
 
+window.currentTableId = tableId;
+window.currentUserId  = userId;
+
 // Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2)
 const BIG_BLIND = 2;
 
