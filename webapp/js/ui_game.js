@@ -327,20 +327,16 @@ ws = createWebSocket(tableId, userId, username, e => {
   renderTable(state, userId);
 });
 
-// Получаем кнопку
-const leaveBtn = document.getElementById('leave-btn');
+// === Обработчик кнопки «Покинуть стол» ===
 if (!leaveBtn) {
   console.error('Element #leave-btn not found; binding failed');
 } else {
   leaveBtn.addEventListener('click', async () => {
     console.log('Leave button clicked');
-    // Сбрасываем текущее состояние
     window.currentTableState = null;
 
     // Закрываем WebSocket
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.close();
-    }
+    if (ws && ws.readyState === WebSocket.OPEN) ws.close();
 
     // Делаем запрос на выход
     try {
