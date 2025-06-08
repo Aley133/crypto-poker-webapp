@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+from game_ws import broadcast 
 
 from game_ws import router as game_router, broadcast
 from tables import (
