@@ -13,11 +13,10 @@ async def broadcast(table_id: int):
     if not state:
         return
 
-    N = 6
+    N = MAX_PLAYERS
     seats = state.get("seats", [None] * N)
     player_seats = state.get("player_seats", {})
 
-    # Формируем payload игроков: seat обязателен
     players_payload = []
     for seat_idx, uid in enumerate(seats):
         if not uid:
@@ -26,7 +25,6 @@ async def broadcast(table_id: int):
             "user_id": uid,
             "username": state.get("usernames", {}).get(uid, uid),
             "seat": seat_idx,
-            # другие нужные поля (stack, contributions) можно добавить тут
         })
 
     payload = {
@@ -34,7 +32,7 @@ async def broadcast(table_id: int):
         "started": state.get("started", False),
         "players_count": len([u for u in seats if u]),
         "players": players_payload,
-        "seats": seats,  # список user_id либо None — для SIT на фронте
+        "seats": seats,
         "community": state.get("community", []),
         "current_player": state.get("current_player"),
         "pot": state.get("pot", 0),
@@ -78,7 +76,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
     uid = websocket.query_params.get("user_id")
     username = websocket.query_params.get("username", uid)
 
-    N = 6
+    N = MAX_PLAYERS
     conns = connections.setdefault(table_id, [])
     state = game_states.setdefault(table_id, {})
     seats = state.setdefault("seats", [None] * N)
@@ -87,12 +85,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
     players = state.setdefault("players", [])
 
     # Проверяем: уже сидит или нет
-    already_seated = False
-    for s, occupant in enumerate(seats):
-        if occupant == uid:
-            already_seated = True
-            break
-
+    already_seated = any(occupant == uid for occupant in seats)
     # Садим нового игрока, если не сидит
     if not already_seated:
         for s in range(N):
@@ -128,7 +121,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
     try:
         while True:
-            data = await websocket.receive_text()
+            try:
+                data = await websocket.receive_text()
+            except WebSocketDisconnect:
+                break
             msg = json.loads(data)
             pid = str(msg.get("user_id"))
             action = msg.get("action")
@@ -143,8 +139,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
             st = game_states.get(table_id, {})
             if st.get("phase") == "result":
                 asyncio.create_task(_auto_restart(table_id))
+    except WebSocketDisconnect:
+        # Нормальное закрытие клиентом
+        pass
     finally:
-        # Освобождаем место
+        # Освобождаем место и чистим все связи
         if uid in player_seats:
             seat_idx = player_seats[uid]
             if 0 <= seat_idx < N and seats[seat_idx] == uid:
@@ -160,20 +159,3 @@ async def ws_game(websocket: WebSocket, table_id: int):
         await broadcast(table_id)
         if websocket in conns:
             conns.remove(websocket)
-
-    # Чистим после WebSocketDisconnect
-    # (оставим эту секцию для совместимости)
-    try:
-        pass
-    except WebSocketDisconnect:
-        if websocket in conns:
-            conns.remove(websocket)
-        remaining = [ws_.query_params.get("user_id") for ws_ in conns]
-        if remaining:
-            state = game_states.setdefault(table_id, {})
-            state["players"] = remaining
-            if len(remaining) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-                start_hand(table_id)
-            await broadcast(table_id)
-        else:
-            game_states.pop(table_id, None)
