@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Poker — Стол</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/table.css">
+</head>
+<body>
+  <header>
+    <h1>Стол <span id="table-id"></span></h1>
+  </header>
+    <button id="leave-btn" title="Покинуть стол"></button>
+  <div id="game-info">
+    <div id="status"></div>
+    <div id="current-bet"></div>
+    <div id="poker-table-wrapper">
+  <div id="poker-table-border"></div>
+  <div id="poker-table">
+    <div id="community-cards"></div>
+    <div id="pot">Пот: <span id="pot-amount"></span></div>
+    <div id="seats"></div>
+  </div>
+</div>
+    <div id="actions">
+<div class="action-buttons-wrapper"></div>
+</div>
+  </div>
+
+  <script type="module" src="/js/ui_game.js"></script>
+</body>
+</html>
