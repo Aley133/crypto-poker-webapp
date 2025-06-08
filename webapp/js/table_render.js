@@ -25,6 +25,7 @@ function getTableDims() {
 
 // Главная функция рендера стола и мест
 export function renderTable(state, userId) {
+  const state = tableState;
   const pokerTableEl = document.getElementById('poker-table');
   const borderEl     = document.getElementById('poker-table-border');
   const wrapperEl    = document.getElementById('poker-table-wrapper');
