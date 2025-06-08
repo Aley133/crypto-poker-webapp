@@ -1,5 +1,3 @@
-// table_render.js
-
 const N_SEATS = 6;
 
 // Углы для 6 мест (seat 0 внизу по центру)
@@ -64,7 +62,6 @@ export function renderTable(tableState, userId) {
   // Определяем seat дилера (если есть)
   let dealerSeat = null;
   if (typeof state.dealer_index === "number") {
-    // dealer_index = индекс игрока в массиве players — найдём seat:
     const dealerPlayer = players[state.dealer_index];
     if (dealerPlayer && typeof dealerPlayer.seat !== "undefined") {
       dealerSeat = dealerPlayer.seat;
@@ -144,12 +141,14 @@ export function renderTable(tableState, userId) {
   }
 }
 
-// Сажаем игрока на место (реализуй reloadGameState сам)
+// Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
-  fetch(`/api/join-seat?table_id=${tableId}&user_id=${userId}&seat=${seatId}`, { method: 'POST' })
-    .then(() => {
-      reloadGameState();
-    });
+  fetch(
+    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
+    { method: 'POST' }
+  ).then(() => {
+    reloadGameState();
+  });
 }
 
 // На resize — перерисовка
@@ -164,9 +163,4 @@ setTimeout(() => {
     renderTable(window.currentTableState, window.currentUserId);
 }, 200);
 
-function safeRenderTable(state, userId) {
-  setTimeout(() => renderTable(state, userId), 0);
-  // Или requestAnimationFrame
-}
-
-setTimeout(() => renderTable(state, userId), 0);
+// (Все хотфиксы типа safeRenderTable и setTimeout → renderTable(state, userId) — убраны)
