@@ -337,21 +337,31 @@ ws = createWebSocket(tableId, userId, username, e => {
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
-leaveBtn.addEventListener('click', async () => {
-  console.log('[ui_game] Leave clicked');
-  if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-  try {
-    const res = await fetch(
-      `/api/leave?table_id=${tableId}&user_id=${userId}`,
-      { method: 'POST' }
-    );
-    console.log('[ui_game] /api/leave status:', res.status);
-  } catch (e) {
-    console.error('[ui_game] leave fetch error', e);
-  }
-  // Перенаправляем на лобби внутри WebApp
-  window.location.href = `/index.html?user_id=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}`;
-});
+if (!leaveBtn) {
+  console.error('[ui_game] #leave-btn not found');
+} else {
+  console.log('[ui_game] binding click handler to leaveBtn');  // <--- log
+  leaveBtn.addEventListener('click', async () => {
+    console.log('[ui_game] leaveBtn click event fired');      // <--- log
+    window.currentTableState = null;
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.close();
+    }
+
+    try {
+      const res = await fetch(
+        `/api/leave?table_id=${tableId}&user_id=${userId}`,
+        { method: 'POST' }
+      );
+      console.log('[ui_game] /api/leave status:', res.status);
+    } catch (e) {
+      console.error('[ui_game] leave fetch error', e);
+    }
+
+    window.location.href = '/index.html';
+  });
+}
 
 window.currentUserId = userId;
 
