@@ -8,3 +8,7 @@ __pycache__/
 # SQLite database
 poker.db
 
+
+# Node
+node_modules/
+webapp/dist/
