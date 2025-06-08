@@ -18,16 +18,31 @@ app = FastAPI()
 
 @app.on_event("startup")
 def init_db():
-    # Создаём или обновляем схему balances при запуске сервера
-    conn = sqlite3.connect("poker.db")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS balances (
-            user_id TEXT PRIMARY KEY,
-            balance INTEGER NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+    db_path = "poker.db"
+    # Пробуем создать или обновить таблицу balances
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS balances (
+                user_id TEXT PRIMARY KEY,
+                balance INTEGER NOT NULL
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except sqlite3.DatabaseError:
+        # Если файл повреждён (не база), удаляем и создаём заново
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        conn = sqlite3.connect(db_path)
+        conn.execute("""
+            CREATE TABLE balances (
+                user_id TEXT PRIMARY KEY,
+                balance INTEGER NOT NULL
+            )
+        """)
+        conn.commit()
+        conn.close()
     
 app.add_middleware(
     CORSMiddleware,
