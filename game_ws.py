@@ -3,6 +3,7 @@ import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
+from game_data import seat_map
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -101,6 +102,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
     state["seats"] = seats
     state["player_seats"] = player_seats
 
+    # --- Keep seat_map in sync with actual connections ---
+    sm_users = seat_map.setdefault(table_id, [])
+    if uid not in sm_users:
+        sm_users.append(uid)
+
     # Добавляем соединение
     if websocket not in conns:
         conns.append(websocket)
@@ -159,3 +165,12 @@ async def ws_game(websocket: WebSocket, table_id: int):
         await broadcast(table_id)
         if websocket in conns:
             conns.remove(websocket)
+
+        # --- Update seat_map on disconnect ---
+        sm_users = seat_map.get(table_id, [])
+        if uid in sm_users:
+            sm_users.remove(uid)
+        # Cleanup game state if no players left
+        if not state["players"]:
+            game_states.pop(table_id, None)
+            connections.pop(table_id, None)
