@@ -2,7 +2,6 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-import os
 
 from game_ws import router as game_router, broadcast
 from tables import (
@@ -13,7 +12,7 @@ from tables import (
     get_balance,
 )
 from game_engine import game_states
-from db_utils import init_schema, get_balance_db  # <-- только через db_utils
+from db_utils import init_schema, get_balance_db, set_balance_db
 
 app = FastAPI()
 
@@ -51,15 +50,21 @@ def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок покидает стол — удаляем его, сохраняем баланс, оповещаем по WS"""
+    """
+    Игрок покидает стол — удаляем его из памяти,
+    сохраняем его баланс, оповещаем всех по WS.
+    """
+    # 1. Удаляем игрока из состояния
     result = leave_table(table_id, user_id)
-    # Сохраняем баланс из state (если ещё не был сохранён)
-    state = game_states.get(table_id, {})
-    stack = state.get("stacks", {}).get(user_id)
-    if stack is not None:
-        from db_utils import set_balance_db
-        set_balance_db(user_id, stack)
+
+    # 2. Сохраняем баланс уходящего
+    stacks = game_states.get(table_id, {}).get("stacks", {})
+    if user_id in stacks:
+        set_balance_db(user_id, stacks[user_id])
+
+    # 3. Оповещаем всех о смене состава стола
     await broadcast(table_id)
+
     return result
 
 @app.get("/api/balance")
