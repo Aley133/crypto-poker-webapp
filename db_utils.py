@@ -1,45 +1,43 @@
-import sqlite3
+import os
+import psycopg2
 
-DB_PATH = "poker.db"
-STARTING_STACK = 1000
-
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-      CREATE TABLE IF NOT EXISTS balances (
-        user_id TEXT PRIMARY KEY,
-        balance INTEGER NOT NULL
-      )
-    """)
-    return conn
+    return psycopg2.connect(DATABASE_URL)
 
-
-def get_balance_db(user_id: str) -> int:
-    """Возвращает баланс из БД или STARTING_STACK, если записи нет."""
+def init_schema():
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT balance FROM balances WHERE user_id = ?", (user_id,))
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS balances (
+          user_id TEXT PRIMARY KEY,
+          balance INTEGER NOT NULL
+        );
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_balance_db(user_id: str) -> int:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT balance FROM balances WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
     if row:
         bal = row[0]
     else:
-        bal = STARTING_STACK
-        cur.execute(
-            "INSERT INTO balances(user_id, balance) VALUES(?, ?)",
-            (user_id, bal)
-        )
+        bal = 1000
+        cur.execute("INSERT INTO balances(user_id, balance) VALUES(%s,%s)", (user_id, bal))
         conn.commit()
+    cur.close()
     conn.close()
     return bal
 
-
 def set_balance_db(user_id: str, balance: int):
-    """Записывает или обновляет баланс игрока."""
     conn = get_conn()
-    conn.execute(
-        "REPLACE INTO balances(user_id, balance) VALUES(?, ?)",
-        (user_id, balance)
-    )
+    cur = conn.cursor()
+    cur.execute("REPLACE INTO balances(user_id, balance) VALUES(%s,%s)", (user_id, balance))
     conn.commit()
+    cur.close()
     conn.close()
