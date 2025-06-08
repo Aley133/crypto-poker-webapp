@@ -28,7 +28,10 @@ def get_balance_db(user_id: str) -> int:
         bal = row[0]
     else:
         bal = 1000
-        cur.execute("INSERT INTO balances(user_id, balance) VALUES(%s,%s)", (user_id, bal))
+        cur.execute(
+            "INSERT INTO balances(user_id, balance) VALUES(%s, %s)",
+            (user_id, bal)
+        )
         conn.commit()
     cur.close()
     conn.close()
@@ -37,7 +40,16 @@ def get_balance_db(user_id: str) -> int:
 def set_balance_db(user_id: str, balance: int):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("REPLACE INTO balances(user_id, balance) VALUES(%s,%s)", (user_id, balance))
+    # PostgreSQL UPSERT: INSERT ... ON CONFLICT ... DO UPDATE
+    cur.execute(
+        """
+        INSERT INTO balances (user_id, balance)
+        VALUES (%s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET balance = EXCLUDED.balance
+        """,
+        (user_id, balance)
+    )
     conn.commit()
     cur.close()
     conn.close()
