@@ -327,19 +327,36 @@ ws = createWebSocket(tableId, userId, username, e => {
   renderTable(state, userId);
 });
 
-leaveBtn.onclick = async () => {
-  window.currentTableState = null;
-  // Закрываем WebSocket, чтобы не было ошибок при отключении
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.close();
-  }
-  // Сообщаем серверу о выходе
-  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, {
-     method: 'POST'
+// Получаем кнопку
+const leaveBtn = document.getElementById('leave-btn');
+if (!leaveBtn) {
+  console.error('Element #leave-btn not found; binding failed');
+} else {
+  leaveBtn.addEventListener('click', async () => {
+    console.log('Leave button clicked');
+    // Сбрасываем текущее состояние
+    window.currentTableState = null;
+
+    // Закрываем WebSocket
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.close();
+    }
+
+    // Делаем запрос на выход
+    try {
+      const resp = await fetch(
+        `/api/leave?table_id=${tableId}&user_id=${userId}`,
+        { method: 'POST' }
+      );
+      console.log('Leave response status:', resp.status);
+    } catch (err) {
+      console.error('Error sending leave request:', err);
+    }
+
+    // Редирект в лобби
+    window.location.href = '/';
   });
-  // Перенаправляем на лобби
-  window.location.href = '/';
-  };
+}
 
 window.currentUserId = userId;
 
