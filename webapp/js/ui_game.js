@@ -357,7 +357,7 @@ if (!leaveBtn) {
       console.error('[ui_game] leave fetch error', e);
     }
 
-    window.location.href = '/';
+    window.location.href = '/index.html';
   });
 }
 
