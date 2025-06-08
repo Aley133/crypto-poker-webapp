@@ -329,8 +329,16 @@ ws = createWebSocket(tableId, userId, username, e => {
 
 leaveBtn.onclick = async () => {
   window.currentTableState = null;
-  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-  window.location.href = '/index.html';
+  // Закрываем WebSocket, чтобы не было ошибок при отключении
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+  // Сообщаем серверу о выходе
+  await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, {
+     method: 'POST'
+  });
+  // Перенаправляем на лобби
+  window.location.href = '/';
   };
 
 window.currentUserId = userId;
