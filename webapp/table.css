@@ -19,6 +19,22 @@ body::before {
   background-size: 72px 72px, 72px 72px;
   background-repeat: repeat;
 }
+#leave-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;         /* поверх всех других элементов */
+  padding: 8px 16px;
+  background: #f44336;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#leave-btn:hover {
+  background: #d32f2f;
+}
 
 #background-grid {
   position: fixed;
