@@ -13,14 +13,14 @@ from tables import (
     leave_table,
     get_balance,
 )
-from game_engine import game_states  # Если используешь глобальное состояние
+from game_engine import game_states
+from db_utils import get_balance_db  # <-- добавили импорт
 
 app = FastAPI()
 
 @app.on_event("startup")
 def init_db():
     db_path = "poker.db"
-    # Пробуем создать или обновить таблицу balances
     try:
         conn = sqlite3.connect(db_path)
         conn.execute("""
@@ -32,7 +32,6 @@ def init_db():
         conn.commit()
         conn.close()
     except sqlite3.DatabaseError:
-        # Если файл повреждён (не база), удаляем и создаём заново
         if os.path.exists(db_path):
             os.remove(db_path)
         conn = sqlite3.connect(db_path)
@@ -52,7 +51,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# WebSocket-роутер
 app.include_router(game_router)
 
 @app.get("/api/tables")
@@ -80,13 +78,20 @@ async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(
     if stack is not None:
         from db_utils import set_balance_db
         set_balance_db(user_id, stack)
-    # Оповещаем всех по WebSocket
     await broadcast(table_id)
     return result
 
 @app.get("/api/balance")
+async def api_get_balance(user_id: str = Query(...)):
+    """
+    Возвращает текущий баланс игрока из БД.
+    """
+    bal = get_balance_db(user_id)
+    return { "balance": bal }
+
+@app.get("/api/balance_legacy")
 def get_balance_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Получить баланс игрока"""
+    """(Legacy) Получить баланс игрока для старого кода"""
     return get_balance(table_id, user_id)
 
 # Статика фронтенда
