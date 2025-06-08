@@ -18,6 +18,11 @@ from db_utils import get_balance_db  # <-- добавили импорт
 
 app = FastAPI()
 
+from db_utils import init_schema
+@app.on_event("startup")
+def on_startup():
+    init_schema()
+
 @app.on_event("startup")
 def init_db():
     db_path = "poker.db"
