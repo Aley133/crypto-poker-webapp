@@ -3,6 +3,7 @@ import { listTables, joinTable } from './api.js';
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
+const balanceSpan   = document.getElementById('current-balance'); // Для баланса
 
 // Генератор «авто-ID» на случай, если не залогинились через Telegram
 function generateId() {
@@ -42,6 +43,18 @@ function getUserInfo() {
 }
 
 const { uid: userId, uname: username } = getUserInfo();
+
+// ======= Баланс =======
+if (balanceSpan) {
+  fetch(`/api/balance?user_id=${userId}`)
+    .then(res => res.json())
+    .then(data => {
+      balanceSpan.innerText = `${data.balance} USDT`;
+    })
+    .catch(() => {
+      balanceSpan.innerText = 'Ошибка';
+    });
+}
 
 // Загрузка списка столов
 async function loadTables() {
