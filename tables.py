@@ -76,29 +76,9 @@ def leave_table(table_id: int, user_id: str) -> dict:
     if user_id not in users:
         raise HTTPException(status_code=400, detail="User not at table")
     users.remove(user_id)
-
-    # Также убираем из состояния игры, если есть
-    state = game_states.get(table_id, {})
-    seats = state.get("seats", [])
-    player_seats = state.get("player_seats", {})
-    if user_id in player_seats:
-        idx = player_seats.pop(user_id)
-        if 0 <= idx < len(seats) and seats[idx] == user_id:
-            seats[idx] = None
-    players = [u for u in seats if u and u != user_id]
-    state["players"] = players
-    state["seats"] = seats
-    state["player_seats"] = player_seats
-
     # Сбрасываем флаг начала игры, если игроков стало меньше минимума
     if len(users) < MIN_PLAYERS:
-        state.pop("started", None)
-
-    if not players:
-        game_states.pop(table_id, None)
-    else:
-        game_states[table_id] = state
-
+        game_states.get(table_id, {}).pop("started", None)
     return {"status": "ok", "players": users}
 
 
