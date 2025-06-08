@@ -407,6 +407,30 @@ input[type=number] {
 .action-buttons-wrapper .call,
 .action-buttons-wrapper .check { border-color: #ccc; color: #fff; }
 
+/* Подсветка победителя */
+.seat.winner {
+  box-shadow: 0 0 18px #ffd700, 0 0 34px 8px #ffd70088;
+  border: 2.5px solid #ffd700;
+}
+
+#winner-banner {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  transform: translate(-50%, -50%);
+  background: rgba(255,215,0,0.95);
+  color: #000;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 1.2em;
+  opacity: 0;
+  transition: opacity 0.6s;
+  z-index: 2000;
+  pointer-events: none;
+}
+#winner-banner.visible { opacity: 1; }
+
 /* Адаптивность! */
 @media (max-width: 700px) {
   #poker-table, #poker-table-border, #seats {
