@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import sqlite3
+import os
 
 from game_ws import router as game_router, broadcast
 from tables import (
