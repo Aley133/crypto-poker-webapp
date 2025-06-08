@@ -2,7 +2,6 @@ import random
 import time
 from typing import Dict, List, Set, Tuple
 
-# ---------- Импортируем функции работы с БД ----------
 from db_utils import get_balance_db, set_balance_db
 
 # ---------- Хранилища состояний и WS‐соединений ----------
@@ -174,7 +173,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if uid not in stacks or state.get("current_player") != uid:
         return
 
-    # === 1) FOLD: если остался один игрок — ему сразу начисляем весь пот ===
+    # === 1) FOLD: если остался один игрок — начисляем приз и сохраняем ВСЕ стеки ===
     if action == "fold":
         folds.add(uid)
         state["folds"] = folds
@@ -183,10 +182,10 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
         if len(alive) == 1:
             winner = alive[0]
             pot = state.get("pot", 0)
-            # === НАЧИСЛЯЕМ ВЫИГРЫШ В БД ===
             stacks[winner] = stacks.get(winner, 0) + pot
-            set_balance_db(winner, stacks[winner])
-            # Для UI: открываем все hole-карты
+            # --- Сохраняем ВСЕ стеки в БД ---
+            for p, st in stacks.items():
+                set_balance_db(p, st)
             revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
             state.update({
                 "stacks": stacks,
@@ -290,7 +289,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
         state["deck"] = deck
 
-    # === SHOWDOWN: делим пот и сохраняем в БД ===
+    # === SHOWDOWN: делим пот и сохраняем ВСЕ стеки ===
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
 
@@ -313,10 +312,12 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             dealer = players[state["dealer_index"]]
             split[dealer] = split.get(dealer, 0) + rem
 
-        # === НАЧИСЛЯЕМ ВСЕМ ПОБЕДИТЕЛЯМ В БД ===
+        # === НАЧИСЛЯЕМ всем победителям, сохраняем все стеки в БД ===
         for p, amt in split.items():
             stacks[p] = stacks.get(p, 0) + amt
-            set_balance_db(p, stacks[p])
+        # --- Сохраняем ВСЕ финальные стеки ---
+        for p, st in stacks.items():
+            set_balance_db(p, st)
 
         state.update({
             "stacks": stacks,
