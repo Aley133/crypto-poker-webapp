@@ -25,6 +25,7 @@ const currentBetEl   = document.getElementById('current-bet');
 const actionsEl      = document.getElementById('actions');
 const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
+console.log('[ui_game] leaveBtn element:', leaveBtn); // <--- log
 
 let ws;
 
@@ -339,8 +340,9 @@ ws = createWebSocket(tableId, userId, username, e => {
 if (!leaveBtn) {
   console.error('[ui_game] #leave-btn not found');
 } else {
+  console.log('[ui_game] binding click handler to leaveBtn');  // <--- log
   leaveBtn.addEventListener('click', async () => {
-    console.log('[ui_game] Leave clicked');
+    console.log('[ui_game] leaveBtn click event fired');      // <--- log
     window.currentTableState = null;
 
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -376,4 +378,3 @@ setTimeout(() => {
     renderTable(window.currentTableState, userId);
   }
 }, 200);
-
