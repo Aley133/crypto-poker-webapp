@@ -57,6 +57,11 @@ export function renderTable(tableState, userId) {
       seatsMap[p.seat] = p;
   });
 
+  const revealAll = state.phase === 'result';
+  const winners = revealAll && state.winner
+    ? (Array.isArray(state.winner) ? state.winner.map(String) : [String(state.winner)])
+    : [];
+
   const angles = getSeatAngles(N_SEATS);
 
   // Определяем seat дилера (если есть)
@@ -94,6 +99,7 @@ export function renderTable(tableState, userId) {
       // Место занято — игрок
       if (String(player.user_id) === String(userId)) seatDiv.classList.add('my-seat');
       if (String(state.current_player) === String(player.user_id)) seatDiv.classList.add('active');
+      if (winners.includes(String(player.user_id))) seatDiv.classList.add('winner');
 
       // Карты игрока
       const cardsEl = document.createElement('div');
@@ -101,7 +107,7 @@ export function renderTable(tableState, userId) {
       (state.hole_cards?.[player.user_id] || []).forEach(c => {
         const cd = document.createElement('div');
         cd.className = 'card';
-        if (String(player.user_id) === String(userId)) {
+        if (revealAll || String(player.user_id) === String(userId)) {
           const rk = c.slice(0, -1);
           const st = c.slice(-1);
           cd.innerHTML = `<span class="rank">${rk}</span><span class="suit">${st}</span>`;

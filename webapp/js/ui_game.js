@@ -59,6 +59,11 @@ Object.assign(resultOverlayEl.style, {
 });
 document.body.appendChild(resultOverlayEl);
 
+// Баннер победителя
+const winnerBannerEl = document.createElement('div');
+winnerBannerEl.id = 'winner-banner';
+document.body.appendChild(winnerBannerEl);
+
 // Добавляем CSS-класс для «затемнения» кнопок
 const style = document.createElement('style');
 style.textContent = `
@@ -149,49 +154,24 @@ function updateUI(state) {
 
   window.currentTableState = state;
 
-  // 1) Если стадия «result» – показываем оверлей и сбрасываем таймаут
+  // 1) Если стадия «result» – показываем баннер победителя и сбрасываем таймаут
   if (state.phase === 'result') {
     clearAutoAction();
-    resultOverlayEl.innerHTML = '';
-    const msg = document.createElement('div');
-    msg.style.marginBottom = '20px';
-
+    resultOverlayEl.style.display = 'none';
+    winnerBannerEl.classList.remove('visible');
     if (Array.isArray(state.winner)) {
-      msg.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
+      winnerBannerEl.textContent = `Split pot: ${state.winner.map(u => state.usernames[u] || u).join(', ')}`;
     } else {
-      msg.textContent = `Winner: ${state.usernames[state.winner] || state.winner}`;
+      winnerBannerEl.textContent = `Winner: ${state.usernames[state.winner] || state.winner}`;
     }
-    resultOverlayEl.appendChild(msg);
-
-    const handsDiv = document.createElement('div');
-    for (const [uid, cards] of Object.entries(state.revealed_hands || {})) {
-      const p = document.createElement('div');
-      p.textContent = `${state.usernames[uid] || uid}: ${cards.join(' ')}`;
-      handsDiv.appendChild(p);
-    }
-    resultOverlayEl.appendChild(handsDiv);
-
-    if (state.split_pots) {
-      const splitDiv = document.createElement('div');
-      splitDiv.style.marginTop = '20px';
-      splitDiv.textContent = 'Payouts: ' +
-        Object.entries(state.split_pots)
-          .map(([uid, amt]) => `${state.usernames[uid] || uid}: ${amt}`)
-          .join(', ');
-      resultOverlayEl.appendChild(splitDiv);
-    }
-
-    resultOverlayEl.style.display    = 'flex';
-    pokerTableEl.style.display       = 'none';
-    actionsEl.style.display          = 'none';
-    statusEl.style.display           = 'none';
-    potEl.style.display              = 'none';
-    currentBetEl.style.display       = 'none';
+    winnerBannerEl.classList.add('visible');
+    actionsEl.style.display = 'none';
     return;
   }
 
-  // 2) Скрываем оверлей, показываем остальную UI
+  // 2) Скрываем баннер и показываем UI
   resultOverlayEl.style.display = 'none';
+  winnerBannerEl.classList.remove('visible');
   pokerTableEl.style.display    = '';
   statusEl.style.display        = '';
   potEl.style.display           = '';
