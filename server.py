@@ -2,7 +2,6 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-import sqlite3
 import os
 
 from game_ws import router as game_router, broadcast
@@ -14,41 +13,18 @@ from tables import (
     get_balance,
 )
 from game_engine import game_states
-from db_utils import get_balance_db  # <-- добавили импорт
+from db_utils import init_schema, get_balance_db  # <-- только через db_utils
 
 app = FastAPI()
 
-from db_utils import init_schema
 @app.on_event("startup")
 def on_startup():
+    """
+    Инициализируем схему balances через единый init_schema() из db_utils.
+    """
     init_schema()
 
-@app.on_event("startup")
-def init_db():
-    db_path = "poker.db"
-    try:
-        conn = sqlite3.connect(db_path)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS balances (
-                user_id TEXT PRIMARY KEY,
-                balance INTEGER NOT NULL
-            )
-        """)
-        conn.commit()
-        conn.close()
-    except sqlite3.DatabaseError:
-        if os.path.exists(db_path):
-            os.remove(db_path)
-        conn = sqlite3.connect(db_path)
-        conn.execute("""
-            CREATE TABLE balances (
-                user_id TEXT PRIMARY KEY,
-                balance INTEGER NOT NULL
-            )
-        """)
-        conn.commit()
-        conn.close()
-    
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
