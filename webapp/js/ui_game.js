@@ -25,9 +25,20 @@ const currentBetEl   = document.getElementById('current-bet');
 const actionsEl      = document.getElementById('actions');
 const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
+const depositRangeEl = document.getElementById('deposit-range');
 console.log('[ui_game] leaveBtn element:', leaveBtn);
 
 let ws;
+
+// Получаем конфигурацию стола
+window.tableConfig = {};
+fetch(`/api/table_config?table_id=${tableId}`)
+  .then(r => r.json())
+  .then(cfg => {
+    window.tableConfig = cfg;
+    if (depositRangeEl)
+      depositRangeEl.textContent = `Депозит: ${cfg.min_deposit}-${cfg.max_deposit}`;
+  });
 
 // Храним предыдущую улицу, чтобы сбрасывать авто-режимы при смене
 let lastRound = null;

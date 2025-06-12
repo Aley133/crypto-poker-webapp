@@ -86,24 +86,8 @@ async def ws_game(websocket: WebSocket, table_id: int):
     seats = state.setdefault("seats", [None] * N)
     player_seats = state.setdefault("player_seats", {})
     usernames = state.setdefault("usernames", {})
-    players = state.setdefault("players", [])
-
-    # Проверяем: уже сидит или нет
-    already_seated = any(occupant == uid for occupant in seats)
-    # Садим нового игрока, если не сидит
-    if not already_seated:
-        for s in range(N):
-            if seats[s] is None:
-                seats[s] = uid
-                player_seats[uid] = s
-                break
 
     usernames[uid] = username
-    players = [u for u in seats if u]
-    state["players"] = players
-    state["usernames"] = usernames
-    state["seats"] = seats
-    state["player_seats"] = player_seats
 
     # Добавляем соединение
     if websocket not in conns:
@@ -111,10 +95,6 @@ async def ws_game(websocket: WebSocket, table_id: int):
     if len(conns) > N:
         await websocket.close(code=1013)
         return
-
-    # Старт новой раздачи если нужно
-    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-        start_hand(table_id)
 
     await broadcast(table_id)
 
@@ -149,6 +129,8 @@ async def ws_game(websocket: WebSocket, table_id: int):
     finally:
         # Единая логика выхода через TableManager
         if uid and table_id:
-            await TableManager.leave(uid, table_id, via_ws=True)
+            st = game_states.get(table_id)
+            if st and uid in st.get("player_seats", {}):
+                await TableManager.leave(uid, table_id, via_ws=True)
         if websocket in conns:
             conns.remove(websocket)

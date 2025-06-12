@@ -1,4 +1,4 @@
-import { listTables, joinTable } from './api.js';
+import { listTables } from './api.js';
 
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
@@ -71,8 +71,7 @@ async function loadTables() {
         <p>Бай-ин: ${t.buy_in} | Игроки: ${t.players}</p>
         <button class="join-btn">Играть</button>
       `;
-      card.querySelector('.join-btn').addEventListener('click', async () => {
-        await joinTable(t.id, userId);
+      card.querySelector('.join-btn').addEventListener('click', () => {
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
         window.open(
