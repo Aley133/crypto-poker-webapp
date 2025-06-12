@@ -1,5 +1,5 @@
 import { createWebSocket } from './ws.js';
-import { renderTable, confirmSit } from './table_render.js';
+import { renderTable } from './table_render.js';
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
@@ -125,8 +125,8 @@ function clearAutoAction() {
 
 // Подсветка кнопок Fold и Call при активных авто-режимах
 function highlightButtons() {
-  const btnFold = document.querySelector('.btn-fold');
-  const btnCall = document.querySelector('.btn-call');
+  const btnFold = document.querySelector('.poker-action-fold');
+  const btnCall = document.querySelector('.poker-action-call');
   if (btnFold) {
     btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   }
@@ -226,7 +226,7 @@ function updateUI(state) {
   // 1) Fold
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
-  btnFold.className   = `btn btn-fold ${dimClass}`;
+  btnFold.className   = `poker-action-btn poker-action-fold ${dimClass}`;
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (!isMyTurn) {
@@ -243,7 +243,7 @@ function updateUI(state) {
   // 2) Call
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnCall.className   = `btn btn-call ${dimClass}`;
+  btnCall.className   = `poker-action-btn poker-action-call ${dimClass}`;
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (!isMyTurn) {
@@ -262,7 +262,7 @@ function updateUI(state) {
   // 3) Check
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
-  btnCheck.className   = `btn btn-check ${dimClass}`;
+  btnCheck.className   = `poker-action-btn poker-action-check ${dimClass}`;
   btnCheck.onclick     = () => {
     if (isMyTurn && toCall === 0) {
       safeSend({ user_id: userId, action: 'check' });
@@ -275,7 +275,7 @@ function updateUI(state) {
 
   if (cb > 0) {
     btnBetOrRaise.textContent = 'Raise';
-    btnBetOrRaise.className   = `btn btn-bet ${dimClass}`;
+    btnBetOrRaise.className   = `poker-action-btn poker-action-raise ${dimClass}`;
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
       const minRaise = Math.max(cb * 2, cb + 1);
@@ -286,7 +286,7 @@ function updateUI(state) {
     };
   } else {
     btnBetOrRaise.textContent = 'Bet';
-    btnBetOrRaise.className   = `btn btn-bet ${dimClass}`;
+    btnBetOrRaise.className   = `poker-action-btn poker-action-bet ${dimClass}`;
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
@@ -366,25 +366,4 @@ setTimeout(() => {
     renderTable(window.currentTableState, userId);
   }
 }, 200);
-
-// Кнопка подтверждения посадки
-const sitConfirmBtn = document.getElementById('sit-confirm');
-if (sitConfirmBtn) {
-  sitConfirmBtn.addEventListener('click', () => {
-    confirmSit();
-  });
-}
-
-// Socket.IO events for lobby sit/start flow
-if (typeof socket !== 'undefined') {
-  socket.on('waitingForOpponent', data => {
-    if (data?.msg) alert(data.msg);
-  });
-
-  socket.on('gameStarted', data => {
-    if (data?.blinds) {
-      console.log('Game started with blinds', data.blinds);
-    }
-  });
-}
 
