@@ -125,8 +125,8 @@ function clearAutoAction() {
 
 // Подсветка кнопок Fold и Call при активных авто-режимах
 function highlightButtons() {
-  const btnFold = document.querySelector('.poker-action-fold');
-  const btnCall = document.querySelector('.poker-action-call');
+  const btnFold = document.querySelector('.btn-fold');
+  const btnCall = document.querySelector('.btn-call');
   if (btnFold) {
     btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   }
@@ -226,7 +226,7 @@ function updateUI(state) {
   // 1) Fold
   const btnFold = document.createElement('button');
   btnFold.textContent = 'Fold';
-  btnFold.className   = `poker-action-btn poker-action-fold ${dimClass}`;
+  btnFold.className   = `btn btn-fold ${dimClass}`;
   btnFold.style.backgroundColor = autoFoldEnabled ? '#ff4d4d' : '';
   btnFold.onclick     = () => {
     if (!isMyTurn) {
@@ -243,7 +243,7 @@ function updateUI(state) {
   // 2) Call
   const btnCall = document.createElement('button');
   btnCall.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
-  btnCall.className   = `poker-action-btn poker-action-call ${dimClass}`;
+  btnCall.className   = `btn btn-call ${dimClass}`;
   btnCall.style.backgroundColor = autoCallEnabled ? '#ffd24d' : '';
   btnCall.onclick     = () => {
     if (!isMyTurn) {
@@ -262,7 +262,7 @@ function updateUI(state) {
   // 3) Check
   const btnCheck = document.createElement('button');
   btnCheck.textContent = 'Check';
-  btnCheck.className   = `poker-action-btn poker-action-check ${dimClass}`;
+  btnCheck.className   = `btn btn-check ${dimClass}`;
   btnCheck.onclick     = () => {
     if (isMyTurn && toCall === 0) {
       safeSend({ user_id: userId, action: 'check' });
@@ -275,7 +275,7 @@ function updateUI(state) {
 
   if (cb > 0) {
     btnBetOrRaise.textContent = 'Raise';
-    btnBetOrRaise.className   = `poker-action-btn poker-action-raise ${dimClass}`;
+    btnBetOrRaise.className   = `btn btn-bet ${dimClass}`;
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
       const minRaise = Math.max(cb * 2, cb + 1);
@@ -286,7 +286,7 @@ function updateUI(state) {
     };
   } else {
     btnBetOrRaise.textContent = 'Bet';
-    btnBetOrRaise.className   = `poker-action-btn poker-action-bet ${dimClass}`;
+    btnBetOrRaise.className   = `btn btn-bet ${dimClass}`;
     btnBetOrRaise.onclick     = () => {
       if (!isMyTurn) return;
       const amount = parseInt(prompt('Сколько поставить?'), 10) || 0;
