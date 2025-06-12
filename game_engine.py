@@ -115,8 +115,10 @@ def start_hand(table_id: int):
     deck = new_deck()
     hole = {u: [deck.pop(), deck.pop()] for u in players}
 
-    # --- ЗАГРУЖАЕМ БАЛАНС ИЗ БД ---
-    stacks = {u: get_balance_db(u) for u in players}
+    # --- ЗАГРУЖАЕМ СТЕКИ: если игрок выбрал депозит при посадке, используем его,
+    # иначе берём полный баланс из БД ---
+    prev_stacks = state.get("stacks", {})
+    stacks = {u: prev_stacks.get(u, get_balance_db(u)) for u in players}
 
     # Списываем блайнды
     stacks[sb_uid] -= BLIND_SMALL
@@ -186,7 +188,8 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             # --- Сохраняем ВСЕ стеки в БД ---
             for p, st in stacks.items():
                 set_balance_db(p, st)
-            revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
+            # Показываем только карты победителя, сбрасываем остальных
+            revealed = {winner: state["hole_cards"].get(winner, [])}
             state.update({
                 "stacks": stacks,
                 "revealed_hands": revealed,
@@ -293,8 +296,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
 
+        # Считаем комбинации только игроков, которые не сфолдили
         hands = {}
-        for p in state["hole_cards"].keys():
+        for p in alive:
             hole = state["hole_cards"].get(p, [])
             boards = state["community"]
             hands[p] = hole + boards
@@ -321,7 +325,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
         state.update({
             "stacks": stacks,
-            "revealed_hands": hands,
+            "revealed_hands": {p: state["hole_cards"].get(p, []) for p in alive},
             "winner": winners[0] if len(winners) == 1 else winners,
             "split_pots": split,
             "game_over": True,
