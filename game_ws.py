@@ -3,6 +3,7 @@ import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
+from table_manager import TableManager
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -59,6 +60,9 @@ async def broadcast(table_id: int):
             except:
                 pass
             connections.get(table_id, []).remove(ws)
+
+# Alias for backwards compatibility with TableManager
+broadcast_state = broadcast
 
 async def _auto_restart(table_id: int):
     await asyncio.sleep(RESULT_DELAY)
@@ -143,19 +147,8 @@ async def ws_game(websocket: WebSocket, table_id: int):
         # Нормальное закрытие клиентом
         pass
     finally:
-        # Освобождаем место и чистим все связи
-        if uid in player_seats:
-            seat_idx = player_seats[uid]
-            if 0 <= seat_idx < N and seats[seat_idx] == uid:
-                seats[seat_idx] = None
-            del player_seats[uid]
-        usernames.pop(uid, None)
-        if uid in players:
-            players.remove(uid)
-        state["players"] = [u for u in seats if u]
-        state["usernames"] = usernames
-        state["seats"] = seats
-        state["player_seats"] = player_seats
-        await broadcast(table_id)
+        # Единая логика выхода через TableManager
+        if uid and table_id:
+            await TableManager.leave(uid, table_id, via_ws=True)
         if websocket in conns:
             conns.remove(websocket)
