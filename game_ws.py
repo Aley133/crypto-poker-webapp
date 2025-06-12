@@ -4,6 +4,7 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
 from table_manager import TableManager
+import tables
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -31,6 +32,7 @@ async def broadcast(table_id: int):
     payload = {
         "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
+        "config": tables.get_table_config(table_id),
         "players_count": len([u for u in seats if u]),
         "players": players_payload,
         "seats": seats,

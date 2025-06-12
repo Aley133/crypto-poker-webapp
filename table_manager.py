@@ -30,32 +30,32 @@ class TableManager:
 
     @staticmethod
     async def join(player_id: str, table_id: int, deposit: int, seat_idx: int):
-        """Универсальная посадка игрока за стол."""
+        """
+        Универсальный метод посадки на стол.
+        Проверяет депозит, доступность места и регистрирует игрока.
+        """
+        # 0) Получаем конфиг стола: мин и макс депозиты
         cfg = tables.get_table_config(table_id)
         if deposit < cfg["min_deposit"] or deposit > cfg["max_deposit"]:
             from fastapi import HTTPException
             raise HTTPException(
-                status_code=400,
-                detail=f"Deposit {deposit} not in [{cfg['min_deposit']}, {cfg['max_deposit']}] range",
+                400,
+                f"Deposit {deposit} not in [{cfg['min_deposit']}, {cfg['max_deposit']}] range",
             )
-
+        # 1) Добавляем в HTTP-слой (seat_map и БД)
         tables.join_table(player_id, table_id, deposit, seat_idx)
-
+        # 2) Обновляем состояние в game_states
         state = game_engine.game_states.setdefault(
             table_id, game_engine.create_new_state(cfg["max_players"])
         )
-
+        # Проверяем, что место свободно
         if state["seats"][seat_idx] is not None:
             from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail="Seat already taken")
-
+            raise HTTPException(400, "Seat already taken")
         state["seats"][seat_idx] = player_id
         state["player_seats"][player_id] = seat_idx
+        # Инициализируем стек
         state["stacks"][player_id] = deposit
-        state["players"] = [p for p in state["seats"] if p]
-
-        if len(state["players"]) >= game_engine.MIN_PLAYERS and state.get("phase") != "pre-flop":
-            game_engine.start_hand(table_id)
-
+        # 3) Рассылаем обновлённый стейт
         await game_ws.broadcast_state(table_id)
         return {"status": "ok"}
