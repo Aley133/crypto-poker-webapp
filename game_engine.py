@@ -8,6 +8,22 @@ from db_utils import get_balance_db, set_balance_db
 game_states: Dict[int, dict] = {}
 connections: Dict[int, List] = {}
 
+# ---------- Helpers ----------
+def create_new_state(max_players: int) -> dict:
+    """Создаёт и возвращает пустое состояние стола."""
+    return {
+        "seats": [None] * max_players,
+        "player_seats": {},
+        "players": [],
+        "usernames": {},
+        "stacks": {},
+        "contributions": {},
+        "community": [],
+        "hole_cards": {},
+        "phase": "waiting",
+        "player_actions": {},
+    }
+
 # ---------- Константы ----------
 BLIND_SMALL    = 1
 BLIND_BIG      = 2

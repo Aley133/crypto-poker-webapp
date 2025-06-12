@@ -149,11 +149,14 @@ export function renderTable(tableState, userId) {
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
-  fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
-    reloadGameState();
+  const cfg = window.tableConfig || {};
+  const val = prompt(`Deposit (${cfg.min_deposit}-${cfg.max_deposit})`);
+  const dep = parseInt(val, 10);
+  if (!dep || dep < cfg.min_deposit || dep > cfg.max_deposit) return;
+  fetch(`/api/join?table_id=${window.currentTableId}&user_id=${window.currentUserId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deposit: dep, seat_idx: seatId })
   });
 }
 

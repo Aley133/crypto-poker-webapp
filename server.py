@@ -1,11 +1,11 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db_utils import init_schema, get_balance_db
-from tables import list_tables, create_table, join_table, get_balance
+from tables import list_tables, create_table, get_balance, get_table_config
 from game_ws import router as game_router
 from table_manager import TableManager
 from game_engine import game_states
@@ -41,10 +41,22 @@ def create_table_endpoint(level: int = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
+
+@app.get("/api/table_config")
+def table_config_endpoint(table_id: int = Query(...)):
+    """Возвращает конфиг стола для фронтенда."""
+    return get_table_config(table_id)
+
 @app.post("/api/join")
-def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок присоединяется к столу"""
-    return join_table(table_id, user_id)
+async def join_table_endpoint(
+    table_id: int = Query(...),
+    user_id: str = Query(...),
+    payload: dict = Body(...)
+):
+    """Игрок выбирает место и депозит."""
+    deposit = int(payload.get("deposit", 0))
+    seat_idx = int(payload.get("seat_idx", -1))
+    return await TableManager.join(user_id, table_id, deposit, seat_idx)
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
