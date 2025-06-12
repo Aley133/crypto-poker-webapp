@@ -115,10 +115,8 @@ def start_hand(table_id: int):
     deck = new_deck()
     hole = {u: [deck.pop(), deck.pop()] for u in players}
 
-    # --- ЗАГРУЖАЕМ СТЕКИ: если игрок выбрал депозит при посадке, используем его,
-    # иначе берём полный баланс из БД ---
-    prev_stacks = state.get("stacks", {})
-    stacks = {u: prev_stacks.get(u, get_balance_db(u)) for u in players}
+    # --- ЗАГРУЖАЕМ БАЛАНС ИЗ БД ---
+    stacks = {u: get_balance_db(u) for u in players}
 
     # Списываем блайнды
     stacks[sb_uid] -= BLIND_SMALL
@@ -188,8 +186,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             # --- Сохраняем ВСЕ стеки в БД ---
             for p, st in stacks.items():
                 set_balance_db(p, st)
-            # Показываем только карты победителя, сбрасываем остальных
-            revealed = {winner: state["hole_cards"].get(winner, [])}
+            revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
             state.update({
                 "stacks": stacks,
                 "revealed_hands": revealed,
@@ -296,9 +293,8 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
     if state.get("current_round") == "showdown":
         alive = [p for p in players if p not in folds and stacks.get(p, 0) > 0]
 
-        # Считаем комбинации только игроков, которые не сфолдили
         hands = {}
-        for p in alive:
+        for p in state["hole_cards"].keys():
             hole = state["hole_cards"].get(p, [])
             boards = state["community"]
             hands[p] = hole + boards
@@ -325,7 +321,7 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
         state.update({
             "stacks": stacks,
-            "revealed_hands": {p: state["hole_cards"].get(p, []) for p in alive},
+            "revealed_hands": hands,
             "winner": winners[0] if len(winners) == 1 else winners,
             "split_pots": split,
             "game_over": True,
@@ -354,39 +350,3 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
     game_states[table_id] = state
     return {"status": "action applied"}
-
-
-# ---------------------------------------------------------------------------
-# Simple room management for Socket.IO prototype
-# ---------------------------------------------------------------------------
-
-
-class Room:
-    def __init__(self, room_id: str):
-        self.room_id = room_id
-        self.players = {}
-        self.smallBlind = None
-        self.bigBlind = None
-
-    def deal_hole_cards(self):
-        """Placeholder for dealing cards"""
-        pass
-
-    def start_hand(self, blinds: dict):
-        self.smallBlind = blinds['sb']
-        self.bigBlind = blinds['bb']
-        for p in self.players.values():
-            if p.get('status') == 'waiting':
-                p['status'] = 'active'
-        self.deal_hole_cards()
-        self.current_bet = self.smallBlind
-
-
-class RoomManager:
-    def __init__(self):
-        self.rooms = {}
-
-    def get_room(self, room_id: str) -> Room:
-        if room_id not in self.rooms:
-            self.rooms[room_id] = Room(room_id)
-        return self.rooms[room_id]

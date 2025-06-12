@@ -1,16 +1,12 @@
 import os
 import uvicorn
-import socketio
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db_utils import init_schema, get_balance_db, set_balance_db
-from tables import (
-    list_tables, create_table, join_table, leave_table,
-    get_balance, get_deposit_limits
-)
-from game_ws import router as game_router, broadcast, sio
+from tables import list_tables, create_table, join_table, leave_table, get_balance
+from game_ws import router as game_router, broadcast
 from game_engine import game_states
 
 app = FastAPI()
@@ -49,47 +45,6 @@ def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
     """Игрок присоединяется к столу"""
     return join_table(table_id, user_id)
 
-@app.post("/api/join-seat")
-def join_seat_endpoint(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-    seat: int = Query(...),
-    deposit: float = Query(...)
-):
-    """Занять конкретное место за столом с выбором депозита"""
-    state = game_states.setdefault(table_id, {})
-    N = 6
-    seats = state.setdefault("seats", [None] * N)
-    player_seats = state.setdefault("player_seats", {})
-    if seat < 0 or seat >= N or (seats[seat] and seats[seat] != user_id):
-        raise HTTPException(status_code=400, detail="Seat occupied")
-
-    # Проверяем депозит
-    min_dep, max_dep = get_deposit_limits(table_id)
-    if deposit < min_dep or deposit > max_dep:
-        raise HTTPException(status_code=400, detail="Invalid deposit amount")
-
-    bal = get_balance_db(user_id)
-    if bal < deposit:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
-    set_balance_db(user_id, bal - deposit)
-
-    if user_id in player_seats:
-        old = player_seats[user_id]
-        if 0 <= old < N and seats[old] == user_id:
-            seats[old] = None
-    seats[seat] = user_id
-    player_seats[user_id] = seat
-
-    stacks = state.setdefault("stacks", {})
-    stacks[user_id] = deposit
-
-    state["players"] = [u for u in seats if u]
-    state["player_seats"] = player_seats
-    state["stacks"] = stacks
-    game_states[table_id] = state
-    return {"status": "ok", "seat": seat, "deposit": deposit}
-
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
     """
@@ -118,9 +73,6 @@ def get_balance_legacy(table_id: int = Query(...), user_id: str = Query(...)):
 # Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
-# ASGI app combining FastAPI and Socket.IO
-socketio_app = socketio.ASGIApp(sio, other_asgi_app=app)
-
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run(socketio_app, host="0.0.0.0", port=port)
+    uvicorn.run("server:app", host="0.0.0.0", port=port)
