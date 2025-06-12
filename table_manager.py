@@ -1,10 +1,9 @@
 # app/table_manager.py
 # Новый модуль-менеджер для единой логики join/leave и broadcast
 
-from fastapi import WebSocket
-from .tables import leave_table as http_leave_table, seat_map
-from .game_engine import game_states
-from .game_ws import broadcast_state
+import tables
+import game_engine
+import game_ws
 
 class TableManager:
     @staticmethod
