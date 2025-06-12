@@ -12,19 +12,3 @@ header { background:#000; padding:10px; display:flex; align-items:center }
 #actions button, #actions input { margin:5px; }
 #actions button { background:#ff0; border:none; padding:5px 10px; cursor:pointer; }
 
-/* Poker action buttons */
-.btn {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform .1s;
-  margin: 0 8px;
-}
-.btn:hover { transform: scale(1.05); }
-.btn-fold  { background: linear-gradient(135deg, #ff4e4e, #d93535); color:#fff; }
-.btn-call  { background: linear-gradient(135deg, #4ecbff, #3598d9); color:#fff; }
-.btn-bet   { background: linear-gradient(135deg, #ffd24e, #d9b635); color:#333; }
-.btn-check { background: linear-gradient(135deg, #a0ffa0, #70d970); color:#333; }
-
