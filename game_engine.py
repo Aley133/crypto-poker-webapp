@@ -354,3 +354,39 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
 
     game_states[table_id] = state
     return {"status": "action applied"}
+
+
+# ---------------------------------------------------------------------------
+# Simple room management for Socket.IO prototype
+# ---------------------------------------------------------------------------
+
+
+class Room:
+    def __init__(self, room_id: str):
+        self.room_id = room_id
+        self.players = {}
+        self.smallBlind = None
+        self.bigBlind = None
+
+    def deal_hole_cards(self):
+        """Placeholder for dealing cards"""
+        pass
+
+    def start_hand(self, blinds: dict):
+        self.smallBlind = blinds['sb']
+        self.bigBlind = blinds['bb']
+        for p in self.players.values():
+            if p.get('status') == 'waiting':
+                p['status'] = 'active'
+        self.deal_hole_cards()
+        self.current_bet = self.smallBlind
+
+
+class RoomManager:
+    def __init__(self):
+        self.rooms = {}
+
+    def get_room(self, room_id: str) -> Room:
+        if room_id not in self.rooms:
+            self.rooms[room_id] = Room(room_id)
+        return self.rooms[room_id]
