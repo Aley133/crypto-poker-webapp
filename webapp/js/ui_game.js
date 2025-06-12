@@ -303,7 +303,10 @@ function updateUI(state) {
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
-  window.currentTableState = state;
+  // --- Новый код: полностью очищаем все слоты, чтобы убрать старые иконки ---
+  document.querySelectorAll('.seat').forEach(seatEl => {
+    seatEl.innerHTML = '';
+  });
   updateUI(state);
   renderTable(state, userId);
 });
