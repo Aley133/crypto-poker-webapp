@@ -3,3 +3,5 @@ uvicorn[standard]
 python-dotenv
 aiogram
 psycopg2-binary
+flask
+flask_socketio

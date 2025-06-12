@@ -1,5 +1,7 @@
 import { listTables, joinTable } from './api.js';
 
+const socket = io();
+
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
@@ -89,3 +91,33 @@ async function loadTables() {
 
 levelSelect.addEventListener('change', loadTables);
 loadTables();
+
+// ------------------------------------------------------------------
+// Seats rendering and deposit modal for Socket.IO demo
+// ------------------------------------------------------------------
+
+export function renderSeats(seats) {
+  const container = document.getElementById('seat-container');
+  if (!container) return;
+  container.innerHTML = '';
+  seats.forEach((seat, idx) => {
+    const btn = document.createElement('button');
+    btn.textContent = seat.empty ? 'Sit' : seat.name;
+    btn.className = 'sit-btn';
+    btn.disabled = !seat.empty;
+    btn.addEventListener('click', () => {
+      const modal = document.getElementById('depositModal');
+      modal.style.display = 'block';
+      modal.dataset.seat = idx;
+    });
+    container.appendChild(btn);
+  });
+}
+
+document.getElementById('confirmSit')?.addEventListener('click', () => {
+  const modal = document.getElementById('depositModal');
+  const seatIndex = +modal.dataset.seat;
+  const deposit = parseFloat(document.getElementById('depositInput').value);
+  socket.emit('sitAtTable', { seatIndex, deposit });
+  modal.style.display = 'none';
+});

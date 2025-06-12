@@ -2,11 +2,41 @@ import json
 import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
+from flask import request
+from flask_socketio import SocketIO, join_room, leave_room, emit
+from game_engine import RoomManager, game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
 
 router = APIRouter()
+socketio = SocketIO(cors_allowed_origins='*')
+room_manager = RoomManager()
 MIN_PLAYERS = 2
 MAX_PLAYERS = 6
+
+
+@socketio.on('sitAtTable')
+def on_sit(data):
+    """Handle player taking a seat with deposit"""
+    sid = request.sid
+    room_id = data.get('roomId')
+    seat = data['seatIndex']
+    deposit = data['deposit']
+    room = room_manager.get_room(room_id)
+
+    # save player as waiting
+    room.players[seat] = {
+        'sid': sid,
+        'deposit': deposit,
+        'status': 'waiting'
+    }
+    join_room(room_id)
+
+    waiting = [p for p in room.players.values() if p.get('status') == 'waiting']
+    if len(waiting) >= 2:
+        blinds = {'sb': 0.05, 'bb': 0.10}
+        room.start_hand(blinds)
+        emit('gameStarted', {'blinds': blinds}, room=room_id)
+    else:
+        emit('waitingForOpponent', {'msg': 'Ожидание второго игрока...'}, room=sid)
 
 async def broadcast(table_id: int):
     state = game_states.get(table_id)

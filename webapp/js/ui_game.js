@@ -375,3 +375,16 @@ if (sitConfirmBtn) {
   });
 }
 
+// Socket.IO events for lobby sit/start flow
+if (typeof socket !== 'undefined') {
+  socket.on('waitingForOpponent', data => {
+    if (data?.msg) alert(data.msg);
+  });
+
+  socket.on('gameStarted', data => {
+    if (data?.blinds) {
+      console.log('Game started with blinds', data.blinds);
+    }
+  });
+}
+
