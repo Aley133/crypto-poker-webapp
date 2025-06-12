@@ -1,5 +1,11 @@
 const N_SEATS = 6;
 
+const DEPOSIT_LIMITS = {
+  1: { min: 6.5, max: 25 },
+  2: { min: 15,  max: 100 },
+  3: { min: 100, max: 10000 }
+};
+
 // Углы для 6 мест (seat 0 внизу по центру)
 function getSeatAngles(N) {
   if (N === 6) return [90, 150, 210, 270, 330, 30];
@@ -144,7 +150,7 @@ export function renderTable(tableState, userId) {
       const sitBtn = document.createElement('button');
       sitBtn.className = 'sit-btn';
       sitBtn.textContent = 'SIT';
-      sitBtn.onclick = () => joinSeat(seatId);
+      sitBtn.onclick = () => openSitModal(seatId);
       seatDiv.appendChild(sitBtn);
     }
 
@@ -153,13 +159,24 @@ export function renderTable(tableState, userId) {
 }
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
-function joinSeat(seatId) {
-  fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
-    location.reload();
-  });
+function openSitModal(seatId) {
+  const modal = document.getElementById('sit-modal');
+  const input = document.getElementById('deposit-input');
+  const lim = DEPOSIT_LIMITS[window.currentTableId] || {min:1, max:100000};
+  input.min = lim.min;
+  input.max = lim.max;
+  input.value = lim.min;
+  modal.dataset.seat = seatId;
+  modal.style.display = 'block';
+}
+
+export function confirmSit() {
+  const modal = document.getElementById('sit-modal');
+  const seat = modal.dataset.seat;
+  const dep = parseFloat(document.getElementById('deposit-input').value);
+  fetch(`/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seat}&deposit=${dep}`, {method:'POST'})
+    .then(() => location.reload());
+  modal.style.display = 'none';
 }
 
 // На resize — перерисовка

@@ -1,5 +1,5 @@
 import { createWebSocket } from './ws.js';
-import { renderTable } from './table_render.js';
+import { renderTable, confirmSit } from './table_render.js';
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
@@ -366,4 +366,12 @@ setTimeout(() => {
     renderTable(window.currentTableState, userId);
   }
 }, 200);
+
+// Кнопка подтверждения посадки
+const sitConfirmBtn = document.getElementById('sit-confirm');
+if (sitConfirmBtn) {
+  sitConfirmBtn.addEventListener('click', () => {
+    confirmSit();
+  });
+}
 

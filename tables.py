@@ -10,6 +10,17 @@ BLINDS = {
     3: (5, 10, 500),
 }
 
+# Депозитные лимиты для типов столов
+DEPOSIT_LIMITS = {
+    1: (6.5, 25),    # low
+    2: (15, 100),    # mid
+    3: (100, 10000)  # vip
+}
+
+def get_deposit_limits(table_id: int):
+    """Возвращает (min, max) депозит для стола"""
+    return DEPOSIT_LIMITS.get(table_id, (1, 100000))
+
 # Минимальное число игроков для старта
 MIN_PLAYERS = 2
 
@@ -44,6 +55,10 @@ def create_table(level: int) -> dict:
     new_id = max(BLINDS.keys(), default=0) + 1
     sb, bb, bi = BLINDS[level]
     BLINDS[new_id] = (sb, bb, bi)
+    # Копируем депозитные лимиты уровня на новый стол
+    lim = DEPOSIT_LIMITS.get(level)
+    if lim:
+        DEPOSIT_LIMITS[new_id] = lim
     seat_map[new_id] = []
     game_states[new_id] = {}
     return {
