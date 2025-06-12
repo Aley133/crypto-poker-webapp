@@ -38,6 +38,15 @@ def on_sit(data):
     else:
         emit('waitingForOpponent', {'msg': 'Ожидание второго игрока...'}, room=sid)
 
+    seats_state = []
+    for i in range(MAX_PLAYERS):
+        player = room.players.get(i)
+        seats_state.append({
+            'empty': not bool(player),
+            'name': player.get('sid') if player else None
+        })
+    emit('tableState', {'seats': seats_state}, room=room_id)
+
 async def broadcast(table_id: int):
     state = game_states.get(table_id)
     if not state:

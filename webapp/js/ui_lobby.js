@@ -1,6 +1,7 @@
 import { listTables, joinTable } from './api.js';
 
 const socket = io();
+const CURRENT_ROOM_ID = 'room1';
 
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
@@ -118,6 +119,10 @@ document.getElementById('confirmSit')?.addEventListener('click', () => {
   const modal = document.getElementById('depositModal');
   const seatIndex = +modal.dataset.seat;
   const deposit = parseFloat(document.getElementById('depositInput').value);
-  socket.emit('sitAtTable', { seatIndex, deposit });
+  socket.emit('sitAtTable', {
+    roomId: CURRENT_ROOM_ID,
+    seatIndex,
+    deposit
+  });
   modal.style.display = 'none';
 });
