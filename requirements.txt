@@ -5,3 +5,4 @@ aiogram
 psycopg2-binary
 flask
 flask_socketio
+python-socketio

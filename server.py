@@ -1,5 +1,6 @@
 import os
 import uvicorn
+import socketio
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -9,7 +10,7 @@ from tables import (
     list_tables, create_table, join_table, leave_table,
     get_balance, get_deposit_limits
 )
-from game_ws import router as game_router, broadcast
+from game_ws import router as game_router, broadcast, sio
 from game_engine import game_states
 
 app = FastAPI()
@@ -117,6 +118,9 @@ def get_balance_legacy(table_id: int = Query(...), user_id: str = Query(...)):
 # Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
+# ASGI app combining FastAPI and Socket.IO
+socketio_app = socketio.ASGIApp(sio, other_asgi_app=app)
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run("server:app", host="0.0.0.0", port=port)
+    uvicorn.run(socketio_app, host="0.0.0.0", port=port)
