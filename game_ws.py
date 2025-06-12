@@ -16,6 +16,7 @@ async def broadcast(table_id: int):
     N = MAX_PLAYERS
     seats = state.get("seats", [None] * N)
     player_seats = state.get("player_seats", {})
+    statuses = state.get("player_status", {})
 
     players_payload = []
     for seat_idx, uid in enumerate(seats):
@@ -25,6 +26,7 @@ async def broadcast(table_id: int):
             "user_id": uid,
             "username": state.get("usernames", {}).get(uid, uid),
             "seat": seat_idx,
+            "connected": statuses.get(uid, True),
         })
 
     payload = {
@@ -83,16 +85,21 @@ async def ws_game(websocket: WebSocket, table_id: int):
     player_seats = state.setdefault("player_seats", {})
     usernames = state.setdefault("usernames", {})
     players = state.setdefault("players", [])
+    statuses = state.setdefault("player_status", {})
 
     # Проверяем: уже сидит или нет
-    already_seated = any(occupant == uid for occupant in seats)
-    # Садим нового игрока, если не сидит
-    if not already_seated:
+    already_seated = uid in player_seats
+    if already_seated:
+        seat_idx = player_seats[uid]
+        if seats[seat_idx] != uid:
+            seats[seat_idx] = uid
+    else:
         for s in range(N):
             if seats[s] is None:
                 seats[s] = uid
                 player_seats[uid] = s
                 break
+    statuses[uid] = True
 
     usernames[uid] = username
     players = [u for u in seats if u]
@@ -140,22 +147,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
             if st.get("phase") == "result":
                 asyncio.create_task(_auto_restart(table_id))
     except WebSocketDisconnect:
-        # Нормальное закрытие клиентом
         pass
     finally:
-        # Освобождаем место и чистим все связи
-        if uid in player_seats:
-            seat_idx = player_seats[uid]
-            if 0 <= seat_idx < N and seats[seat_idx] == uid:
-                seats[seat_idx] = None
-            del player_seats[uid]
-        usernames.pop(uid, None)
-        if uid in players:
-            players.remove(uid)
-        state["players"] = [u for u in seats if u]
-        state["usernames"] = usernames
-        state["seats"] = seats
-        state["player_seats"] = player_seats
-        await broadcast(table_id)
+        statuses[uid] = False
+        state["player_status"] = statuses
         if websocket in conns:
             conns.remove(websocket)
+        await broadcast(table_id)

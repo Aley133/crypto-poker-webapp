@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -44,6 +44,26 @@ def create_table_endpoint(level: int = Query(...)):
 def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
     """Игрок присоединяется к столу"""
     return join_table(table_id, user_id)
+
+@app.post("/api/join-seat")
+def join_seat_endpoint(table_id: int = Query(...), user_id: str = Query(...), seat: int = Query(...)):
+    """Занять конкретное место за столом"""
+    state = game_states.setdefault(table_id, {})
+    N = 6
+    seats = state.setdefault("seats", [None] * N)
+    player_seats = state.setdefault("player_seats", {})
+    if seat < 0 or seat >= N or (seats[seat] and seats[seat] != user_id):
+        raise HTTPException(status_code=400, detail="Seat occupied")
+    if user_id in player_seats:
+        old = player_seats[user_id]
+        if 0 <= old < N and seats[old] == user_id:
+            seats[old] = None
+    seats[seat] = user_id
+    player_seats[user_id] = seat
+    state["players"] = [u for u in seats if u]
+    state["player_seats"] = player_seats
+    game_states[table_id] = state
+    return {"status": "ok", "seat": seat}
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):

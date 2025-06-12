@@ -57,6 +57,10 @@ export function renderTable(tableState, userId) {
       seatsMap[p.seat] = p;
   });
 
+  // Мой seat для позиционирования
+  const me = players.find(p => String(p.user_id) === String(userId));
+  const mySeat = me && typeof me.seat !== "undefined" ? me.seat : 0;
+
   const revealAll = state.phase === 'result';
   const winners = revealAll && state.winner
     ? (Array.isArray(state.winner) ? state.winner.map(String) : [String(state.winner)])
@@ -75,7 +79,8 @@ export function renderTable(tableState, userId) {
 
   // Рисуем 6 мест
   for (let seatId = 0; seatId < N_SEATS; ++seatId) {
-    const rad = angles[seatId] * Math.PI / 180;
+    const displaySeat = (seatId - mySeat + N_SEATS) % N_SEATS;
+    const rad = angles[displaySeat] * Math.PI / 180;
     const left = cx + rx * Math.cos(rad);
     const top  = cy + ry * Math.sin(rad);
 
@@ -153,7 +158,7 @@ function joinSeat(seatId) {
     `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
     { method: 'POST' }
   ).then(() => {
-    reloadGameState();
+    location.reload();
   });
 }
 
