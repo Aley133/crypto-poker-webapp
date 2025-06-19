@@ -303,9 +303,16 @@ function updateUI(state) {
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
   const state = JSON.parse(e.data);
-  window.currentTableState = state;
-  updateUI(state);
-  renderTable(state, userId);
+
+  if (!window.currentTableState || 
+      window.currentTableState.instance_id !== state.instance_id) {
+    console.log('[ui_game] new instance detected, resetting table');
+    window.currentTableState = state;
+    updateUI(state);
+    renderTable(state, userId);
+  } else {
+    updateUI(state);
+  }
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
