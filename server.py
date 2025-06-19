@@ -1,20 +1,15 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query, Body
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from db_utils import init_schema, get_balance_db
-from tables import list_tables, create_table, get_balance, get_table_config
-from game_ws import router as game_router
-from table_manager import TableManager
+from db_utils import init_schema, get_balance_db, set_balance_db
+from tables import list_tables, create_table, join_table, leave_table, get_balance
+from game_ws import router as game_router, broadcast
 from game_engine import game_states
 
 app = FastAPI()
-
-@app.get("/healthz")
-def healthz():
-    return {"status": "ok"}
 
 @app.on_event("startup")
 def on_startup():
@@ -45,27 +40,24 @@ def create_table_endpoint(level: int = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
-
-@app.get("/api/table_config")
-def table_config_endpoint(table_id: int = Query(...)):
-    """Возвращает конфиг стола для фронтенда."""
-    return get_table_config(table_id)
-
 @app.post("/api/join")
-async def join_table_endpoint(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-    payload: dict = Body(...)
-):
-    """Игрок выбирает место и депозит."""
-    deposit = int(payload.get("deposit", 0))
-    seat_idx = int(payload.get("seat_idx", -1))
-    return await TableManager.join(user_id, table_id, deposit, seat_idx)
+def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
+    """Игрок присоединяется к столу"""
+    return join_table(table_id, user_id)
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок покидает стол. Делегируем TableManager."""
-    return await TableManager.leave(user_id, table_id)
+    """
+    Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
+    """
+    result = leave_table(table_id, user_id)
+    # Сохраняем баланс уходящего
+    stacks = game_states.get(table_id, {}).get("stacks", {})
+    if user_id in stacks:
+        set_balance_db(user_id, stacks[user_id])
+    # Оповещаем всех клиентов
+    await broadcast(table_id)
+    return result
 
 @app.get("/api/balance")
 async def api_get_balance(user_id: str = Query(...)):
