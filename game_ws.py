@@ -94,7 +94,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
                 pass
             conns.remove(ws_existing)
 
-    # === Полностью чистим старые следы игрока (если вкладка "Вы покинули стол" осталась)
+    # === Чистим старые следы игрока (если висящая вкладка осталась)
     if uid in player_seats:
         idx = player_seats.pop(uid)
         if 0 <= idx < len(seats):
@@ -112,6 +112,9 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
     # === Добавляем новое соединение
     conns.append(websocket)
+
+    # === Флаг — был ли leave (используем в finally)
+    cleaned_by_leave = uid not in player_seats
 
     # === Садим игрока (если не сидит)
     if uid not in player_seats:
@@ -165,23 +168,24 @@ async def ws_game(websocket: WebSocket, table_id: int):
         pass
 
     finally:
-        # Освобождаем место и чистим все связи
-        if uid in player_seats:
-            seat_idx = player_seats[uid]
-            if 0 <= seat_idx < N and seats[seat_idx] == uid:
-                seats[seat_idx] = None
-            del player_seats[uid]
+        if not cleaned_by_leave:
+            # Только если игрок не покинул стол вручную — чистим state
+            if uid in player_seats:
+                seat_idx = player_seats[uid]
+                if 0 <= seat_idx < N and seats[seat_idx] == uid:
+                    seats[seat_idx] = None
+                del player_seats[uid]
 
-        usernames.pop(uid, None)
-        if uid in players:
-            players.remove(uid)
+            usernames.pop(uid, None)
+            if uid in players:
+                players.remove(uid)
 
-        state["players"] = [u for u in seats if u]
-        state["usernames"] = usernames
-        state["seats"] = seats
-        state["player_seats"] = player_seats
+            state["players"] = [u for u in seats if u]
+            state["usernames"] = usernames
+            state["seats"] = seats
+            state["player_seats"] = player_seats
 
-        await broadcast(table_id)
+            await broadcast(table_id)
 
         if websocket in conns:
             conns.remove(websocket)
