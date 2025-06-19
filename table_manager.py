@@ -56,6 +56,10 @@ class TableManager:
                         pass
                     conns.remove(ws_existing)
 
+        # === ВСТАВИТЬ ЗДЕСЬ ===
+        import uuid
+        state["instance_id"] = uuid.uuid4().hex
+
         # HTTP-логика: seat_map и БД
         tables.leave_table(table_id, player_id)
 
