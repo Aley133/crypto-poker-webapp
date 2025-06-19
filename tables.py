@@ -9,7 +9,6 @@ BLINDS = {
     2: (2, 4, 200),
     3: (5, 10, 500),
 }
-MAX_PLAYERS = 6
 
 # Минимальное число игроков для старта
 MIN_PLAYERS = 2
@@ -36,18 +35,6 @@ def list_tables() -> list:
     return out
 
 
-def get_table_config(table_id: int) -> dict:
-    """Возвращает конфигурацию стола."""
-    sb, bb, bi = BLINDS.get(table_id, (1, 2, 100))
-    return {
-        "small_blind": sb,
-        "big_blind": bb,
-        "min_deposit": bi,
-        "max_deposit": bi * 10,
-        "max_players": MAX_PLAYERS,
-    }
-
-
 def create_table(level: int) -> dict:
     """
     Создает новый стол по заданному уровню. Возвращает его параметры.
@@ -68,11 +55,16 @@ def create_table(level: int) -> dict:
     }
 
 
-def join_table(user_id: str, table_id: int, deposit: int, seat_idx: int) -> dict:
-    """Регистрирует игрока в seat_map."""
+def join_table(table_id: int, user_id: str) -> dict:
+    """
+    Добавляет пользователя за стол или обновляет его присутствие.
+    Возвращает статус и список игроков.
+    """
     users = seat_map.setdefault(table_id, [])
-    if user_id not in users:
-        users.append(user_id)
+    # Если пользователь уже за столом, удаляем старую запись для переподключения
+    if user_id in users:
+        users.remove(user_id)
+    users.append(user_id)
     return {"status": "ok", "players": users}
 
 
