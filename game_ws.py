@@ -139,7 +139,8 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
     # === Старт новой раздачи если нужно
     if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-        start_hand(table_id)
+        print(f"[ws_game] Scheduling start_hand for table {table_id}")
+        asyncio.create_task(_delayed_start_hand(table_id))
 
     await asyncio.sleep(0.05)  # короткая задержка чтобы state успел обновиться
     await broadcast(table_id)
@@ -196,4 +197,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
         if websocket in conns:
             conns.remove(websocket)
-
+            
+async def _delayed_start_hand(table_id: int):
+    await asyncio.sleep(0.1)  # 100 мс задержка чтобы все WS успели принять state
+    state = game_engine.game_states.get(table_id)
+    if state and len([u for u in state["seats"] if u]) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
+        print(f"[ws_game] Running start_hand for table {table_id}")
+        game_engine.start_hand(table_id)
+        await game_ws.broadcast(table_id)
