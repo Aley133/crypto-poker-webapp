@@ -317,12 +317,7 @@ if (!leaveBtn) {
     console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
-    // 1) Закрываем WS
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.close();
-    }
-
-    // 2) Оповещаем сервер о выходе
+    // 1) Оповещаем сервер о выходе
     try {
       const res = await fetch(
         `/api/leave?table_id=${tableId}&user_id=${userId}`,
@@ -333,7 +328,7 @@ if (!leaveBtn) {
       console.error('[ui_game] leave fetch error', e);
     }
 
-    // 3) Скрываем UI стола и кнопки
+    // 2) Скрываем UI стола и кнопки
     if (document.getElementById('game-info'))
       document.getElementById('game-info').style.display = 'none';
     if (document.querySelector('.action-buttons-wrapper'))
@@ -341,14 +336,14 @@ if (!leaveBtn) {
     leaveBtn.style.display = 'none';
     if (pokerTableEl) pokerTableEl.style.display = 'none';
 
-    // 4) Показываем сообщение о выходе
+    // 3) Показываем сообщение о выходе
     const msg = document.createElement('div');
     msg.textContent = 'Вы покинули стол';
     msg.style.textAlign = 'center';
     msg.style.margin = '20px';
     msg.style.fontSize = '18px';
     document.body.appendChild(msg);
-  });
+});
 }
 
 window.currentUserId = userId;
