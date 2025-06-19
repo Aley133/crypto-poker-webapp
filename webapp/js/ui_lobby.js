@@ -56,6 +56,21 @@ if (balanceSpan) {
     });
 }
 
+function startBalancePolling() {
+  setInterval(() => {
+    fetch(`/api/balance?user_id=${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        balanceSpan.innerText = `${data.balance} USDT`;
+      })
+      .catch(() => {
+        balanceSpan.innerText = 'Ошибка';
+      });
+  }, 3000); // каждые 3 сек
+}
+
+startBalancePolling();
+
 // Загрузка списка столов
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
