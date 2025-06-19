@@ -47,7 +47,7 @@ async def broadcast(table_id: int):
         "revealed_hands": state.get("revealed_hands"),
         "split_pots": state.get("split_pots"),
         "dealer_index": state.get("dealer_index"),
-        "instance_id": state.get("instance_id"), 
+        "instance_id": state.get("instance_id"),
         "player_actions": state.get("player_actions", {}),
     }
 
@@ -117,7 +117,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
     # === Флаг — был ли leave (используем в finally)
     cleaned_by_leave = uid not in player_seats
 
-    # === Если стало < MIN_PLAYERS — сбрасываем phase, чтобы на новом входе не залипало
+    # === Если стало < MIN_PLAYERS — сбрасываем phase
     if len(players) < MIN_PLAYERS:
         state["phase"] = "waiting"
         state["started"] = False
@@ -142,7 +142,6 @@ async def ws_game(websocket: WebSocket, table_id: int):
         print(f"[ws_game] Scheduling start_hand for table {table_id}")
         asyncio.create_task(_delayed_start_hand(table_id))
 
-    await asyncio.sleep(0.05)  # короткая задержка чтобы state успел обновиться
     await broadcast(table_id)
 
     # Авто-ребут если только что result
@@ -197,11 +196,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
         if websocket in conns:
             conns.remove(websocket)
-            
+
 async def _delayed_start_hand(table_id: int):
     await asyncio.sleep(0.1)  # 100 мс задержка чтобы все WS успели принять state
-    state = game_engine.game_states.get(table_id)
+    state = game_states.get(table_id)
     if state and len([u for u in state["seats"] if u]) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
         print(f"[ws_game] Running start_hand for table {table_id}")
-        game_engine.start_hand(table_id)
-        await game_ws.broadcast(table_id)
+        start_hand(table_id)
+        await broadcast(table_id)
