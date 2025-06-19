@@ -3,13 +3,15 @@ import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
+from table_manager import TableManager
 from db_utils import init_schema, get_balance_db, set_balance_db
 from tables import list_tables, create_table, join_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
 
 app = FastAPI()
+
+result = await TableManager.leave(user_id, table_id, via_ws=False)
 
 @app.get("/healthz")
 def healthz():
