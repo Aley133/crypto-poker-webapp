@@ -47,6 +47,7 @@ async def broadcast(table_id: int):
         "revealed_hands": state.get("revealed_hands"),
         "split_pots": state.get("split_pots"),
         "dealer_index": state.get("dealer_index"),
+        "instance_id": state.get("instance_id"), 
         "player_actions": state.get("player_actions", {}),
     }
 
