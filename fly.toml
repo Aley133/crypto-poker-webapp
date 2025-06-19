@@ -4,13 +4,15 @@ primary_region = "ams"
 
 [build]
   python_version = "3.11"
-  build_target = "crypto-poker-webapp-main"
 
 [env]
   PORT = "8080"
 
 [experimental]
   auto_rollback = true
+
+[deploy]
+  release_command = "uvicorn server:app --host 0.0.0.0 --port 8080"
 
 [[services]]
   internal_port = 8080
