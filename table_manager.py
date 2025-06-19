@@ -43,7 +43,7 @@ class TableManager:
             # Если стало меньше MIN_PLAYERS — сбрасываем флаг started
             if len(players) < 2:
                 state["started"] = False
-                 state["phase"] = "waiting"  # <== ДОБАВИТЬ ЭТО
+                state["phase"] = "waiting" 
 
         # HTTP-логика: seat_map и БД
         tables.leave_table(table_id, player_id)
