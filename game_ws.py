@@ -142,7 +142,6 @@ async def ws_game(websocket: WebSocket, table_id: int):
         print(f"[ws_game] Scheduling start_hand for table {table_id}")
         asyncio.create_task(_delayed_start_hand(table_id))
 
-    await broadcast(table_id)
 
     # Авто-ребут если только что result
     st = game_states.get(table_id, {})
