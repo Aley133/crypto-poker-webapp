@@ -28,6 +28,11 @@ class TableManager:
                 players.remove(player_id)
             state["players"] = players
 
+            # Чистим hole_cards, contributions, player_actions
+            state.get("hole_cards", {}).pop(player_id, None)
+            state.get("contributions", {}).pop(player_id, None)
+            state.get("player_actions", {}).pop(player_id, None)
+
             # Сохраняем стек игрока в БД
             stacks = state.get("stacks", {})
             if player_id in stacks:
