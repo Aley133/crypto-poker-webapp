@@ -140,6 +140,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
     if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
         start_hand(table_id)
 
+    await asyncio.sleep(0.05)  # короткая задержка чтобы state успел обновиться
     await broadcast(table_id)
 
     # Авто-ребут если только что result
