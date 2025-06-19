@@ -11,8 +11,6 @@ from game_engine import game_states
 
 app = FastAPI()
 
-result = await TableManager.leave(user_id, table_id, via_ws=False)
-
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
@@ -56,13 +54,7 @@ async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(
     """
     Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
     """
-    result = leave_table(table_id, user_id)
-    # Сохраняем баланс уходящего
-    stacks = game_states.get(table_id, {}).get("stacks", {})
-    if user_id in stacks:
-        set_balance_db(user_id, stacks[user_id])
-    # Оповещаем всех клиентов
-    await broadcast(table_id)
+    result = await TableManager.leave(user_id, table_id, via_ws=False)
     return result
 
 @app.get("/api/balance")
