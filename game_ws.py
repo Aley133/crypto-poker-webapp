@@ -116,6 +116,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
     # === Флаг — был ли leave (используем в finally)
     cleaned_by_leave = uid not in player_seats
 
+    # === Если стало < MIN_PLAYERS — сбрасываем phase, чтобы на новом входе не залипало
+    if len(players) < MIN_PLAYERS:
+        state["phase"] = "waiting"
+        state["started"] = False
+
     # === Садим игрока (если не сидит)
     if uid not in player_seats:
         for s in range(N):
@@ -189,3 +194,4 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
         if websocket in conns:
             conns.remove(websocket)
+
