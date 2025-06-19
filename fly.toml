@@ -4,6 +4,7 @@ primary_region = "ams"
 
 [build]
   python_version = "3.11"
+  build_target = "crypto-poker-webapp-main"
 
 [env]
   PORT = "8080"
