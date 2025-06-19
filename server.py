@@ -12,6 +12,10 @@ from game_engine import game_states
 
 app = FastAPI()
 
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
 @app.on_event("startup")
 def on_startup():
     """
