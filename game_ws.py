@@ -79,6 +79,12 @@ async def ws_game(websocket: WebSocket, table_id: int):
     N = MAX_PLAYERS
     conns = connections.setdefault(table_id, [])
 
+    state = game_states.setdefault(table_id, {})
+    seats = state.setdefault("seats", [None] * N)
+    player_seats = state.setdefault("player_seats", {})
+    usernames = state.setdefault("usernames", {})
+    players = state.setdefault("players", [])
+
     # === Удаляем старые WS от этого user_id ===
     for ws_existing in list(conns):
         if ws_existing.query_params.get("user_id") == uid:
@@ -88,16 +94,26 @@ async def ws_game(websocket: WebSocket, table_id: int):
                 pass
             conns.remove(ws_existing)
 
-    # Добавляем новое соединение
+    # === Полностью чистим старые следы игрока (если вкладка "Вы покинули стол" осталась)
+    if uid in player_seats:
+        idx = player_seats.pop(uid)
+        if 0 <= idx < len(seats):
+            seats[idx] = None
+
+    if uid in players:
+        players.remove(uid)
+
+    if state.get("stacks", {}).get(uid, 0) == 0:
+        state.get("stacks", {}).pop(uid, None)
+
+    state.get("hole_cards", {}).pop(uid, None)
+    state.get("contributions", {}).pop(uid, None)
+    state.get("player_actions", {}).pop(uid, None)
+
+    # === Добавляем новое соединение
     conns.append(websocket)
 
-    state = game_states.setdefault(table_id, {})
-    seats = state.setdefault("seats", [None] * N)
-    player_seats = state.setdefault("player_seats", {})
-    usernames = state.setdefault("usernames", {})
-    players = state.setdefault("players", [])
-
-    # === Гибкое правило: если уже сидит — НЕ сбрасываем seat, просто обновляем WS
+    # === Садим игрока (если не сидит)
     if uid not in player_seats:
         for s in range(N):
             if seats[s] is None:
@@ -112,7 +128,7 @@ async def ws_game(websocket: WebSocket, table_id: int):
     state["seats"] = seats
     state["player_seats"] = player_seats
 
-    # Старт новой раздачи если нужно
+    # === Старт новой раздачи если нужно
     if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
         start_hand(table_id)
 
