@@ -12,8 +12,9 @@ class TableManager:
         """
         Универсальный выход игрока со стола.
         1) Удаляет игрока из game_states
-        2) Вызывает HTTP-логику leave_table для seat_map и сохранения баланса
-        3) Рассылает новое состояние через WebSocket всем подключённым
+        2) Удаляет WS соединение игрока
+        3) Вызывает HTTP-логику leave_table для seat_map и сохранения баланса
+        4) Рассылает новое состояние через WebSocket всем подключённым
         """
         state = game_engine.game_states.get(table_id)
         if state is not None:
@@ -43,7 +44,17 @@ class TableManager:
             # Если стало меньше MIN_PLAYERS — сбрасываем флаг started
             if len(players) < 2:
                 state["started"] = False
-                state["phase"] = "waiting" 
+                state["phase"] = "waiting"
+
+            # Убиваем WS сессии игрока
+            conns = game_engine.connections.get(table_id, [])
+            for ws_existing in list(conns):
+                if ws_existing.query_params.get("user_id") == player_id:
+                    try:
+                        await ws_existing.close()
+                    except:
+                        pass
+                    conns.remove(ws_existing)
 
         # HTTP-логика: seat_map и БД
         tables.leave_table(table_id, player_id)
