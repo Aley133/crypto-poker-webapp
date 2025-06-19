@@ -30,7 +30,7 @@ async def broadcast(table_id: int):
     payload = {
         "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
-        "players_count": len([u for u in seats if u]),
+        "players_count": len(state.get("players", [])),  # <-- исправить вот тут!
         "players": players_payload,
         "seats": seats,
         "community": state.get("community", []),
