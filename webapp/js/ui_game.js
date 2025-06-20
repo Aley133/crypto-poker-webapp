@@ -302,27 +302,10 @@ function updateUI(state) {
 
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
-  const msg = JSON.parse(e.data);
-  if (msg.action === 'table_info') {
-    window.currentTableInfo = msg;
-    return;
-  }
-  if (msg.action === 'sit_ok') {
-    // nothing special, state update will come next
-    return;
-  }
-  if (msg.action === 'leave_ok') {
-    alert(`Returned ${msg.returned_balance}`);
-    return;
-  }
-  const state = msg;
+  const state = JSON.parse(e.data);
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
-});
-window.gameWebSocket = ws;
-ws.addEventListener('open', () => {
-  ws.send(JSON.stringify({ action: 'get_table_info' }));
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
@@ -334,12 +317,23 @@ if (!leaveBtn) {
     console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
+    // 1) Закрываем WS
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ action: 'leave' }));
       ws.close();
     }
 
-    // Скрываем UI стола и кнопки
+    // 2) Оповещаем сервер о выходе
+    try {
+      const res = await fetch(
+        `/api/leave?table_id=${tableId}&user_id=${userId}`,
+        { method: 'POST' }
+      );
+      console.log('[ui_game] /api/leave status:', res.status);
+    } catch (e) {
+      console.error('[ui_game] leave fetch error', e);
+    }
+
+    // 3) Скрываем UI стола и кнопки
     if (document.getElementById('game-info'))
       document.getElementById('game-info').style.display = 'none';
     if (document.querySelector('.action-buttons-wrapper'))
@@ -372,18 +366,4 @@ setTimeout(() => {
     renderTable(window.currentTableState, userId);
   }
 }, 200);
-
-
-// === Buy-in Confirm ===
-document.getElementById('buyin-confirm').addEventListener('click', () => {
-  const buyin = parseFloat(document.getElementById('buyin-input').value);
-  const seat = 0; // по умолчанию seat 0, можно добавить выбор
-  ws.send(JSON.stringify({ action: "sit", seat: seat, buy_in: buyin }));
-  document.getElementById('buyin-dialog').style.display = 'none';
-});
-
-// Показываем buy-in диалог при старте
-ws.addEventListener('open', () => {
-  ws.send(JSON.stringify({ action: "get_table_info" }));
-});
 
