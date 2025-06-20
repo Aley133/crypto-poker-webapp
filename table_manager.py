@@ -44,28 +44,8 @@ class TableManager:
 
             # Если стало меньше MIN_PLAYERS — сбрасываем флаг started + ЧИСТИМ state
             if len(players) < 2:
-                state["started"] = False
-                state["phase"] = "waiting"
-                state["current_player"] = None
-                state["current_bet"] = 0
-                state["pot"] = 0
-                state["contributions"] = {}
-                state["hole_cards"] = {}
-                state["timer_deadline"] = None
-                state["result_delay_deadline"] = None
-                state["winner"] = None
-                state["revealed_hands"] = {}
-                state["split_pots"] = {}
-                state["player_actions"] = {}
-
-                # === Чистим игрока из stacks / seats / usernames
-                idx = state["player_seats"].pop(player_id, None)
-                if idx is not None and 0 <= idx < len(state["seats"]):
-                    state["seats"][idx] = None
-
-                state["stacks"].pop(player_id, None)
-                state["hole_cards"].pop(player_id, None)
-                state["usernames"].pop(player_id, None)
+                state.clear()
+                state.update(game_engine.create_new_state(6))  # или MAX_PLAYERS
 
             # Убиваем WS сессии игрока
             conns = game_engine.connections.get(table_id, [])
@@ -105,9 +85,7 @@ class TableManager:
         tables.join_table(player_id, table_id, deposit, seat_idx)
 
         # Обновляем state
-        state = game_engine.game_states.setdefault(
-            table_id, game_engine.create_new_state(cfg["max_players"])
-        )
+        state = game_engine.game_states.setdefault(table_id, {})
 
         # Проверяем seat
         if state["seats"][seat_idx] is not None:
