@@ -3,8 +3,6 @@ import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
-from db_utils import get_balance_db, update_balance_db
-from tables import get_table_config, leave_table
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -85,14 +83,23 @@ async def ws_game(websocket: WebSocket, table_id: int):
     player_seats = state.setdefault("player_seats", {})
     usernames = state.setdefault("usernames", {})
     players = state.setdefault("players", [])
-    stacks = state.setdefault("stacks", {})
+
+    # Проверяем: уже сидит или нет
+    already_seated = any(occupant == uid for occupant in seats)
+    # Садим нового игрока, если не сидит
+    if not already_seated:
+        for s in range(N):
+            if seats[s] is None:
+                seats[s] = uid
+                player_seats[uid] = s
+                break
 
     usernames[uid] = username
+    players = [u for u in seats if u]
+    state["players"] = players
     state["usernames"] = usernames
     state["seats"] = seats
     state["player_seats"] = player_seats
-    players = [u for u in seats if u]
-    state["players"] = players
 
     # Добавляем соединение
     if websocket not in conns:
@@ -119,89 +126,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
             except WebSocketDisconnect:
                 break
             msg = json.loads(data)
-
-        if msg.get("action") == "get_table_info":
-            table_cfg = get_table_config(table_id)
-            await websocket.send_json({
-                "action": "table_info",
-                "min_buy_in": table_cfg["min_buy_in"],
-                "max_buy_in": table_cfg["max_buy_in"],
-                "small_blind": table_cfg["small_blind"],
-                "big_blind": table_cfg["big_blind"]
-            })
-            continue
-
-        if msg.get("action") == "leave":
-            player = next((p for p in players if p["user_id"] == uid), None)
-            if player:
-                update_balance_db(uid, player["stack"])
-                players.remove(player)
-                await websocket.send_json({ "action": "leave_ok", "returned_balance": player["stack"] })
-            continue
-
+            pid = str(msg.get("user_id"))
             action = msg.get("action")
-
-            if action == "get_table_info":
-                cfg = get_table_config(table_id)
-                await websocket.send_json({
-                    "action": "table_info",
-                    "table_id": table_id,
-                    "min_buy_in": cfg["min_buy_in"],
-                    "max_buy_in": cfg["max_buy_in"],
-                })
-                continue
-
-            if action == "sit":
-                seat = int(msg.get("seat", -1))
-                buy_in = float(msg.get("buy_in", 0))
-                cfg = get_table_config(table_id)
-                if seat < 0 or seat >= N or seats[seat] is not None:
-                    await websocket.send_json({"error": "seat_unavailable"})
-                    continue
-                if not (cfg["min_buy_in"] <= buy_in <= cfg["max_buy_in"]):
-                    await websocket.send_json({"error": "invalid_buy_in"})
-                    continue
-                balance = get_balance_db(uid)
-                if balance < buy_in:
-                    await websocket.send_json({"error": "insufficient_balance"})
-                    continue
-                update_balance_db(uid, -buy_in)
-                seats[seat] = uid
-                player_seats[uid] = seat
-                stacks[uid] = buy_in
-                players = [u for u in seats if u]
-                state["players"] = players
-                state["stacks"] = stacks
-                await websocket.send_json({
-                    "action": "sit_ok",
-                    "seat": seat,
-                    "buy_in": buy_in,
-                    "stack": buy_in,
-                })
-                if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-                    start_hand(table_id)
-                await broadcast(table_id)
-                continue
-
-            if action == "leave":
-                stack = stacks.pop(uid, 0)
-                seat_idx = player_seats.pop(uid, None)
-                if seat_idx is not None and 0 <= seat_idx < N and seats[seat_idx] == uid:
-                    seats[seat_idx] = None
-                players = [u for u in seats if u]
-                state["players"] = players
-                update_balance_db(uid, stack)
-                try:
-                    leave_table(table_id, uid)
-                except Exception:
-                    pass
-                await websocket.send_json({"action": "leave_ok", "returned_balance": stack})
-                await broadcast(table_id)
-                continue
-
-            # Остальные игровые действия
-            pid = str(msg.get("user_id", uid))
             amount = int(msg.get("amount", 0) or 0)
+
             apply_action(table_id, pid, action, amount)
 
             s = game_states[table_id]
@@ -215,24 +143,19 @@ async def ws_game(websocket: WebSocket, table_id: int):
         # Нормальное закрытие клиентом
         pass
     finally:
-        # Освобождаем место и чистим связи, возвращаем стек
-        stack = stacks.pop(uid, 0)
+        # Освобождаем место и чистим все связи
         if uid in player_seats:
-            seat_idx = player_seats.pop(uid)
+            seat_idx = player_seats[uid]
             if 0 <= seat_idx < N and seats[seat_idx] == uid:
                 seats[seat_idx] = None
+            del player_seats[uid]
         usernames.pop(uid, None)
-        players = [u for u in seats if u]
-        state["players"] = players
+        if uid in players:
+            players.remove(uid)
+        state["players"] = [u for u in seats if u]
         state["usernames"] = usernames
         state["seats"] = seats
         state["player_seats"] = player_seats
-        update_balance_db(uid, stack)
-        if stack:
-            try:
-                leave_table(table_id, uid)
-            except Exception:
-                pass
         await broadcast(table_id)
         if websocket in conns:
             conns.remove(websocket)
