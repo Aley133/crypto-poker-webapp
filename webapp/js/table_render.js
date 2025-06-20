@@ -160,16 +160,6 @@ export function renderTable(tableState, userId) {
   }
 }
 
-// Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
-function joinSeat(seatId) {
-  fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
-    reloadGameState();
-  });
-}
-
 // На resize — перерисовка
 window.addEventListener('resize', () => {
   if (window.currentTableState)
