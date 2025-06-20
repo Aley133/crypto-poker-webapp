@@ -5,7 +5,6 @@ import tables
 import game_engine
 import game_ws
 from db_utils import set_balance_db
-import uuid
 
 class TableManager:
     @staticmethod
@@ -42,10 +41,10 @@ class TableManager:
                 stacks.pop(player_id, None)
                 state["stacks"] = stacks
 
-            # Если стало меньше MIN_PLAYERS — сбрасываем флаг started + ЧИСТИМ state
+            # Если стало меньше MIN_PLAYERS — сбрасываем флаг started
             if len(players) < 2:
-                state.clear()
-                state.update(game_engine.create_new_state(6))  # или MAX_PLAYERS
+                state["started"] = False
+                state["phase"] = "waiting"
 
             # Убиваем WS сессии игрока
             conns = game_engine.connections.get(table_id, [])
@@ -57,8 +56,9 @@ class TableManager:
                         pass
                     conns.remove(ws_existing)
 
-            # Обновляем instance_id
-            state["instance_id"] = uuid.uuid4().hex
+        # === ВСТАВИТЬ ЗДЕСЬ ===
+        import uuid
+        state["instance_id"] = uuid.uuid4().hex
 
         # HTTP-логика: seat_map и БД
         tables.leave_table(table_id, player_id)
@@ -85,7 +85,9 @@ class TableManager:
         tables.join_table(player_id, table_id, deposit, seat_idx)
 
         # Обновляем state
-        state = game_engine.game_states.setdefault(table_id, {})
+        state = game_engine.game_states.setdefault(
+            table_id, game_engine.create_new_state(cfg["max_players"])
+        )
 
         # Проверяем seat
         if state["seats"][seat_idx] is not None:

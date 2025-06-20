@@ -137,16 +137,11 @@ async def ws_game(websocket: WebSocket, table_id: int):
     state["seats"] = seats
     state["player_seats"] = player_seats
 
-    if len(players) >= MIN_PLAYERS:
-        print(f"[ws_game] Starting hand at table {table_id} (players={len(players)})")
+    # === Старт новой раздачи если нужно
+    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
+        print(f"[ws_game] Scheduling start_hand for table {table_id}")
+        asyncio.create_task(_delayed_start_hand(table_id))
 
-        # ВСТАВИТЬ ТУТ:
-        for u in players:
-            if u not in state["stacks"] or state["stacks"][u] == 0:
-                state["stacks"][u] = 1000  # TEMP
-
-        start_hand(table_id)
-        await broadcast(table_id)
 
     # Авто-ребут если только что result
     st = game_states.get(table_id, {})
