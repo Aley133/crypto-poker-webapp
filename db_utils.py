@@ -53,3 +53,10 @@ def set_balance_db(user_id: str, balance: int):
     conn.commit()
     cur.close()
     conn.close()
+
+def update_balance_db(user_id: str, delta: float) -> int:
+    """Add delta to user's balance and return new value."""
+    current = get_balance_db(user_id)
+    new_bal = int(current + delta)
+    set_balance_db(user_id, new_bal)
+    return new_bal
