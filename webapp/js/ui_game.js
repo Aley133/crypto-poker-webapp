@@ -373,3 +373,17 @@ setTimeout(() => {
   }
 }, 200);
 
+
+// === Buy-in Confirm ===
+document.getElementById('buyin-confirm').addEventListener('click', () => {
+  const buyin = parseFloat(document.getElementById('buyin-input').value);
+  const seat = 0; // по умолчанию seat 0, можно добавить выбор
+  ws.send(JSON.stringify({ action: "sit", seat: seat, buy_in: buyin }));
+  document.getElementById('buyin-dialog').style.display = 'none';
+});
+
+// Показываем buy-in диалог при старте
+ws.addEventListener('open', () => {
+  ws.send(JSON.stringify({ action: "get_table_info" }));
+});
+
