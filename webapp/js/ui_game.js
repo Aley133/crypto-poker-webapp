@@ -25,6 +25,19 @@ const currentBetEl   = document.getElementById('current-bet');
 const actionsEl      = document.getElementById('actions');
 const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
+const buyinDialog    = document.getElementById('buyin-dialog');
+const buyinInput     = document.getElementById('buyin-input');
+const buyinConfirm   = document.getElementById('buyin-confirm');
+
+if (buyinConfirm) {
+  buyinConfirm.addEventListener('click', () => {
+    const buyin = parseFloat(buyinInput.value);
+    const seat = 0;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'sit', seat, buy_in: buyin }));
+    }
+  });
+}
 console.log('[ui_game] leaveBtn element:', leaveBtn);
 
 let ws;
@@ -302,11 +315,34 @@ function updateUI(state) {
 
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
+  const msg = JSON.parse(e.data);
+  if (msg.action === 'table_info') {
+    buyinInput.min = msg.min_buy_in;
+    buyinInput.max = msg.max_buy_in;
+    buyinInput.value = msg.min_buy_in;
+    buyinDialog.style.display = 'block';
+    return;
+  }
+  if (msg.action === 'sit_ok') {
+    buyinDialog.style.display = 'none';
+    return;
+  }
+  if (msg.action === 'leave_ok') {
+    alert(msg.returned_balance);
+    return;
+  }
+  if (msg.action === 'error') {
+    alert(msg.message);
+    return;
+  }
+  const state = msg;
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
 });
+ws.onopen = () => {
+  ws.send(JSON.stringify({ action: 'get_table_info' }));
+};
 
 // === Обработчик кнопки «Покинуть стол» ===
 if (!leaveBtn) {
@@ -317,20 +353,9 @@ if (!leaveBtn) {
     console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
-    // 1) Закрываем WS
     if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'leave' }));
       ws.close();
-    }
-
-    // 2) Оповещаем сервер о выходе
-    try {
-      const res = await fetch(
-        `/api/leave?table_id=${tableId}&user_id=${userId}`,
-        { method: 'POST' }
-      );
-      console.log('[ui_game] /api/leave status:', res.status);
-    } catch (e) {
-      console.error('[ui_game] leave fetch error', e);
     }
 
     // 3) Скрываем UI стола и кнопки
