@@ -302,12 +302,17 @@ function updateUI(state) {
 
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
-    const state = JSON.parse(e.data);
+  const state = JSON.parse(e.data);
 
-    // ✅ ВСЕГДА обновляем state и ВСЕГДА перерисовываем
+  if (!window.currentTableState || 
+      window.currentTableState.instance_id !== state.instance_id) {
+    console.log('[ui_game] new instance detected, resetting table');
     window.currentTableState = state;
     updateUI(state);
     renderTable(state, userId);
+  } else {
+    updateUI(state);
+  }
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
@@ -319,22 +324,31 @@ if (!leaveBtn) {
     console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
-    // ✅ Закрыть WS
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
+    // 1) Оповещаем сервер о выходе
+    try {
+      const res = await fetch(
+        `/api/leave?table_id=${tableId}&user_id=${userId}`,
+        { method: 'POST' }
+      );
+      console.log('[ui_game] /api/leave status:', res.status);
+    } catch (e) {
+      console.error('[ui_game] leave fetch error', e);
     }
 
-    // Оповещаем сервер
-    const res = await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
-
-    // Скрыть UI
-    document.getElementById('game-info').style.display = 'none';
-    pokerTableEl.style.display = 'none';
+    // 2) Скрываем UI стола и кнопки
+    if (document.getElementById('game-info'))
+      document.getElementById('game-info').style.display = 'none';
+    if (document.querySelector('.action-buttons-wrapper'))
+      document.querySelector('.action-buttons-wrapper').style.display = 'none';
     leaveBtn.style.display = 'none';
+    if (pokerTableEl) pokerTableEl.style.display = 'none';
 
-    // Показать "Вы покинули стол"
+    // 3) Показываем сообщение о выходе
     const msg = document.createElement('div');
     msg.textContent = 'Вы покинули стол';
+    msg.style.textAlign = 'center';
+    msg.style.margin = '20px';
+    msg.style.fontSize = '18px';
     document.body.appendChild(msg);
 });
 }
