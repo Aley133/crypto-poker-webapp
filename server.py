@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from table_manager import TableManager
+
 from db_utils import init_schema, get_balance_db, set_balance_db
 from tables import list_tables, create_table, join_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
@@ -54,7 +54,13 @@ async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(
     """
     Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
     """
-    result = await TableManager.leave(user_id, table_id, via_ws=False)
+    result = leave_table(table_id, user_id)
+    # Сохраняем баланс уходящего
+    stacks = game_states.get(table_id, {}).get("stacks", {})
+    if user_id in stacks:
+        set_balance_db(user_id, stacks[user_id])
+    # Оповещаем всех клиентов
+    await broadcast(table_id)
     return result
 
 @app.get("/api/balance")

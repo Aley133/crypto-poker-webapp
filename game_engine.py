@@ -99,9 +99,7 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
 
 # =========== СТАРТ РАЗДАЧИ: баланс подтягивается из БД ============
 def start_hand(table_id: int):
-    import uuid
     state = game_states.get(table_id)
-    state["instance_id"] = uuid.uuid4().hex
     if not state:
         return
     players = state.get("players", [])

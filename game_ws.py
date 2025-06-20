@@ -30,7 +30,7 @@ async def broadcast(table_id: int):
     payload = {
         "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
-        "players_count": len(state.get("players", [])),  # <-- исправить вот тут!
+        "players_count": len([u for u in seats if u]),
         "players": players_payload,
         "seats": seats,
         "community": state.get("community", []),
@@ -47,7 +47,6 @@ async def broadcast(table_id: int):
         "revealed_hands": state.get("revealed_hands"),
         "split_pots": state.get("split_pots"),
         "dealer_index": state.get("dealer_index"),
-        "instance_id": state.get("instance_id"),
         "player_actions": state.get("player_actions", {}),
     }
 
@@ -79,51 +78,16 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
     N = MAX_PLAYERS
     conns = connections.setdefault(table_id, [])
-
     state = game_states.setdefault(table_id, {})
     seats = state.setdefault("seats", [None] * N)
     player_seats = state.setdefault("player_seats", {})
     usernames = state.setdefault("usernames", {})
     players = state.setdefault("players", [])
 
-    # === Удаляем старые WS от этого user_id ===
-    for ws_existing in list(conns):
-        if ws_existing.query_params.get("user_id") == uid:
-            try:
-                await ws_existing.close()
-            except:
-                pass
-            conns.remove(ws_existing)
-
-    # === Чистим старые следы игрока (если висящая вкладка осталась)
-    if uid in player_seats:
-        idx = player_seats.pop(uid)
-        if 0 <= idx < len(seats):
-            seats[idx] = None
-
-    if uid in players:
-        players.remove(uid)
-
-    if state.get("stacks", {}).get(uid, 0) == 0:
-        state.get("stacks", {}).pop(uid, None)
-
-    state.get("hole_cards", {}).pop(uid, None)
-    state.get("contributions", {}).pop(uid, None)
-    state.get("player_actions", {}).pop(uid, None)
-
-    # === Добавляем новое соединение
-    conns.append(websocket)
-
-    # === Флаг — был ли leave (используем в finally)
-    cleaned_by_leave = uid not in player_seats
-
-    # === Если стало < MIN_PLAYERS — сбрасываем phase
-    if len(players) < MIN_PLAYERS:
-        state["phase"] = "waiting"
-        state["started"] = False
-
-    # === Садим игрока (если не сидит)
-    if uid not in player_seats:
+    # Проверяем: уже сидит или нет
+    already_seated = any(occupant == uid for occupant in seats)
+    # Садим нового игрока, если не сидит
+    if not already_seated:
         for s in range(N):
             if seats[s] is None:
                 seats[s] = uid
@@ -137,11 +101,18 @@ async def ws_game(websocket: WebSocket, table_id: int):
     state["seats"] = seats
     state["player_seats"] = player_seats
 
-    # === Старт новой раздачи если нужно
-    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-        print(f"[ws_game] Scheduling start_hand for table {table_id}")
-        asyncio.create_task(_delayed_start_hand(table_id))
+    # Добавляем соединение
+    if websocket not in conns:
+        conns.append(websocket)
+    if len(conns) > N:
+        await websocket.close(code=1013)
+        return
 
+    # Старт новой раздачи если нужно
+    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
+        start_hand(table_id)
+
+    await broadcast(table_id)
 
     # Авто-ребут если только что result
     st = game_states.get(table_id, {})
@@ -154,7 +125,6 @@ async def ws_game(websocket: WebSocket, table_id: int):
                 data = await websocket.receive_text()
             except WebSocketDisconnect:
                 break
-
             msg = json.loads(data)
             pid = str(msg.get("user_id"))
             action = msg.get("action")
@@ -169,37 +139,23 @@ async def ws_game(websocket: WebSocket, table_id: int):
             st = game_states.get(table_id, {})
             if st.get("phase") == "result":
                 asyncio.create_task(_auto_restart(table_id))
-
     except WebSocketDisconnect:
+        # Нормальное закрытие клиентом
         pass
-
     finally:
-        if not cleaned_by_leave:
-            # Только если игрок не покинул стол вручную — чистим state
-            if uid in player_seats:
-                seat_idx = player_seats[uid]
-                if 0 <= seat_idx < N and seats[seat_idx] == uid:
-                    seats[seat_idx] = None
-                del player_seats[uid]
-
-            usernames.pop(uid, None)
-            if uid in players:
-                players.remove(uid)
-
-            state["players"] = [u for u in seats if u]
-            state["usernames"] = usernames
-            state["seats"] = seats
-            state["player_seats"] = player_seats
-
-            await broadcast(table_id)
-
+        # Освобождаем место и чистим все связи
+        if uid in player_seats:
+            seat_idx = player_seats[uid]
+            if 0 <= seat_idx < N and seats[seat_idx] == uid:
+                seats[seat_idx] = None
+            del player_seats[uid]
+        usernames.pop(uid, None)
+        if uid in players:
+            players.remove(uid)
+        state["players"] = [u for u in seats if u]
+        state["usernames"] = usernames
+        state["seats"] = seats
+        state["player_seats"] = player_seats
+        await broadcast(table_id)
         if websocket in conns:
             conns.remove(websocket)
-
-async def _delayed_start_hand(table_id: int):
-    await asyncio.sleep(0.1)  # 100 мс задержка чтобы все WS успели принять state
-    state = game_states.get(table_id)
-    if state and len([u for u in state["seats"] if u]) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-        print(f"[ws_game] Running start_hand for table {table_id}")
-        start_hand(table_id)
-        await broadcast(table_id)
