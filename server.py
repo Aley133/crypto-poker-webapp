@@ -22,6 +22,10 @@ def on_startup():
     """
     init_schema()
 
+@app.post("/api/join-seat")
+async def join_seat_endpoint(table_id: int = Query(...), user_id: str = Query(...), seat: int = Query(...), deposit: int = Query(...)):
+    return await TableManager.join(user_id, table_id, deposit, seat)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
