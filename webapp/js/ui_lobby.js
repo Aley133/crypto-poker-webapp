@@ -56,21 +56,6 @@ if (balanceSpan) {
     });
 }
 
-function startBalancePolling() {
-  setInterval(() => {
-    fetch(`/api/balance?user_id=${userId}`)
-      .then(res => res.json())
-      .then(data => {
-        balanceSpan.innerText = `${data.balance} USDT`;
-      })
-      .catch(() => {
-        balanceSpan.innerText = 'Ошибка';
-      });
-  }, 3000); // каждые 3 сек
-}
-
-startBalancePolling();
-
 // Загрузка списка столов
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
@@ -87,6 +72,7 @@ async function loadTables() {
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
+        await joinTable(t.id, userId);
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
         window.open(
