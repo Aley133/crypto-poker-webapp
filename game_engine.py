@@ -35,6 +35,33 @@ RANK_ORDER = {r: i for i, r in enumerate(
 SUITS = ['♠','♥','♦','♣']
 
 
+import uuid
+
+def create_new_state(max_players: int = 6):
+    return {
+        "seats": [None] * max_players,
+        "player_seats": {},
+        "usernames": {},
+        "players": [],
+        "stacks": {},
+        "contributions": {},
+        "pot": 0,
+        "current_bet": 0,
+        "hole_cards": {},
+        "community": [],
+        "timer_deadline": None,
+        "phase": "waiting",
+        "started": False,
+        "dealer_index": None,
+        "current_player": None,
+        "player_actions": {},
+        "revealed_hands": {},
+        "split_pots": {},
+        "winner": None,
+        "result_delay_deadline": None,
+        "instance_id": uuid.uuid4().hex,
+    }
+
 def new_deck() -> List[str]:
     ranks = [str(x) for x in range(2, 11)] + list("JQKA")
     deck = [r + s for r in ranks for s in SUITS]
