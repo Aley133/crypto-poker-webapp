@@ -137,9 +137,14 @@ async def ws_game(websocket: WebSocket, table_id: int):
     state["seats"] = seats
     state["player_seats"] = player_seats
 
-    # === Старт новой раздачи если нужно
     if len(players) >= MIN_PLAYERS:
         print(f"[ws_game] Starting hand at table {table_id} (players={len(players)})")
+
+        # ВСТАВИТЬ ТУТ:
+        for u in players:
+            if u not in state["stacks"] or state["stacks"][u] == 0:
+                state["stacks"][u] = 1000  # TEMP
+
         start_hand(table_id)
         await broadcast(table_id)
 
