@@ -5,6 +5,7 @@ import tables
 import game_engine
 import game_ws
 from db_utils import set_balance_db
+import uuid
 
 class TableManager:
     @staticmethod
@@ -41,7 +42,7 @@ class TableManager:
                 stacks.pop(player_id, None)
                 state["stacks"] = stacks
 
-            # Если стало меньше MIN_PLAYERS — сбрасываем флаг started
+            # Если стало меньше MIN_PLAYERS — сбрасываем флаг started + ЧИСТИМ state
             if len(players) < 2:
                 state["started"] = False
                 state["phase"] = "waiting"
@@ -57,6 +58,15 @@ class TableManager:
                 state["split_pots"] = {}
                 state["player_actions"] = {}
 
+                # === Чистим игрока из stacks / seats / usernames
+                idx = state["player_seats"].pop(player_id, None)
+                if idx is not None and 0 <= idx < len(state["seats"]):
+                    state["seats"][idx] = None
+
+                state["stacks"].pop(player_id, None)
+                state["hole_cards"].pop(player_id, None)
+                state["usernames"].pop(player_id, None)
+
             # Убиваем WS сессии игрока
             conns = game_engine.connections.get(table_id, [])
             for ws_existing in list(conns):
@@ -67,9 +77,8 @@ class TableManager:
                         pass
                     conns.remove(ws_existing)
 
-        # === ВСТАВИТЬ ЗДЕСЬ ===
-        import uuid
-        state["instance_id"] = uuid.uuid4().hex
+            # Обновляем instance_id
+            state["instance_id"] = uuid.uuid4().hex
 
         # HTTP-логика: seat_map и БД
         tables.leave_table(table_id, player_id)
