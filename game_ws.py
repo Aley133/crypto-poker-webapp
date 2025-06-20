@@ -119,6 +119,26 @@ async def ws_game(websocket: WebSocket, table_id: int):
             except WebSocketDisconnect:
                 break
             msg = json.loads(data)
+
+        if msg.get("action") == "get_table_info":
+            table_cfg = get_table_config(table_id)
+            await websocket.send_json({
+                "action": "table_info",
+                "min_buy_in": table_cfg["min_buy_in"],
+                "max_buy_in": table_cfg["max_buy_in"],
+                "small_blind": table_cfg["small_blind"],
+                "big_blind": table_cfg["big_blind"]
+            })
+            continue
+
+        if msg.get("action") == "leave":
+            player = next((p for p in players if p["user_id"] == uid), None)
+            if player:
+                update_balance_db(uid, player["stack"])
+                players.remove(player)
+                await websocket.send_json({ "action": "leave_ok", "returned_balance": player["stack"] })
+            continue
+
             action = msg.get("action")
 
             if action == "get_table_info":
