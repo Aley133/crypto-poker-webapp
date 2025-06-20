@@ -149,12 +149,14 @@ export function renderTable(tableState, userId) {
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
-  fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
-    reloadGameState();
-  });
+  const ws = window.gameWebSocket;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const info = window.currentTableInfo || {};
+  const min = info.min_buy_in || 0;
+  const max = info.max_buy_in || 0;
+  const buy = parseFloat(prompt(`Buy-in (${min}-${max})`, String(min))) || 0;
+  if (buy < min || buy > max) return;
+  ws.send(JSON.stringify({ action: 'sit', seat: seatId, buy_in: buy }));
 }
 
 // На resize — перерисовка

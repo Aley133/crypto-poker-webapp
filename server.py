@@ -4,7 +4,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from db_utils import init_schema, get_balance_db, set_balance_db
+from db_utils import init_schema, get_balance_db, update_balance_db
 from tables import list_tables, create_table, join_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
@@ -55,10 +55,11 @@ async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(
     Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
     """
     result = leave_table(table_id, user_id)
-    # Сохраняем баланс уходящего
+    # Сохраняем баланс уходящего (возвращаем остаток стека)
     stacks = game_states.get(table_id, {}).get("stacks", {})
     if user_id in stacks:
-        set_balance_db(user_id, stacks[user_id])
+        update_balance_db(user_id, stacks[user_id])
+        stacks.pop(user_id, None)
     # Оповещаем всех клиентов
     await broadcast(table_id)
     return result
