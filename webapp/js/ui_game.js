@@ -319,31 +319,22 @@ if (!leaveBtn) {
     console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
-    // 1) Оповещаем сервер о выходе
-    try {
-      const res = await fetch(
-        `/api/leave?table_id=${tableId}&user_id=${userId}`,
-        { method: 'POST' }
-      );
-      console.log('[ui_game] /api/leave status:', res.status);
-    } catch (e) {
-      console.error('[ui_game] leave fetch error', e);
+    // ✅ Закрыть WS
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
     }
 
-    // 2) Скрываем UI стола и кнопки
-    if (document.getElementById('game-info'))
-      document.getElementById('game-info').style.display = 'none';
-    if (document.querySelector('.action-buttons-wrapper'))
-      document.querySelector('.action-buttons-wrapper').style.display = 'none';
-    leaveBtn.style.display = 'none';
-    if (pokerTableEl) pokerTableEl.style.display = 'none';
+    // Оповещаем сервер
+    const res = await fetch(`/api/leave?table_id=${tableId}&user_id=${userId}`, { method: 'POST' });
 
-    // 3) Показываем сообщение о выходе
+    // Скрыть UI
+    document.getElementById('game-info').style.display = 'none';
+    pokerTableEl.style.display = 'none';
+    leaveBtn.style.display = 'none';
+
+    // Показать "Вы покинули стол"
     const msg = document.createElement('div');
     msg.textContent = 'Вы покинули стол';
-    msg.style.textAlign = 'center';
-    msg.style.margin = '20px';
-    msg.style.fontSize = '18px';
     document.body.appendChild(msg);
 });
 }
