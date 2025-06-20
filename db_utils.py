@@ -12,14 +12,14 @@ def init_schema():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS balances (
           user_id TEXT PRIMARY KEY,
-          balance INTEGER NOT NULL
+          balance REAL NOT NULL
         );
     """)
     conn.commit()
     cur.close()
     conn.close()
 
-def get_balance_db(user_id: str) -> int:
+def get_balance_db(user_id: str) -> float:
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT balance FROM balances WHERE user_id = %s", (user_id,))
@@ -37,7 +37,7 @@ def get_balance_db(user_id: str) -> int:
     conn.close()
     return bal
 
-def set_balance_db(user_id: str, balance: int):
+def set_balance_db(user_id: str, balance: float):
     conn = get_conn()
     cur = conn.cursor()
     # PostgreSQL UPSERT: INSERT ... ON CONFLICT ... DO UPDATE
@@ -53,3 +53,9 @@ def set_balance_db(user_id: str, balance: int):
     conn.commit()
     cur.close()
     conn.close()
+
+
+def update_balance_db(user_id: str, delta: float):
+    """Прибавляет delta к текущему балансу пользователя."""
+    bal = get_balance_db(user_id)
+    set_balance_db(user_id, bal + delta)

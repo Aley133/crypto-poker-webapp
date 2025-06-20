@@ -68,7 +68,7 @@ async function loadTables() {
       card.innerHTML = `
         <h3>Стол ${t.id}</h3>
         <p>SB/BB: ${t.small_blind}/${t.big_blind}</p>
-        <p>Бай-ин: ${t.buy_in} | Игроки: ${t.players}</p>
+        <p>Buy-in: ${t.min_buy_in} - ${t.max_buy_in} | Игроки: ${t.players}</p>
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {

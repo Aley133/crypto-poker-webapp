@@ -302,10 +302,27 @@ function updateUI(state) {
 
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
+  const msg = JSON.parse(e.data);
+  if (msg.action === 'table_info') {
+    window.currentTableInfo = msg;
+    return;
+  }
+  if (msg.action === 'sit_ok') {
+    // nothing special, state update will come next
+    return;
+  }
+  if (msg.action === 'leave_ok') {
+    alert(`Returned ${msg.returned_balance}`);
+    return;
+  }
+  const state = msg;
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
+});
+window.gameWebSocket = ws;
+ws.addEventListener('open', () => {
+  ws.send(JSON.stringify({ action: 'get_table_info' }));
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
@@ -317,23 +334,12 @@ if (!leaveBtn) {
     console.log('[ui_game] leaveBtn click event fired');
     window.currentTableState = null;
 
-    // 1) Закрываем WS
     if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'leave' }));
       ws.close();
     }
 
-    // 2) Оповещаем сервер о выходе
-    try {
-      const res = await fetch(
-        `/api/leave?table_id=${tableId}&user_id=${userId}`,
-        { method: 'POST' }
-      );
-      console.log('[ui_game] /api/leave status:', res.status);
-    } catch (e) {
-      console.error('[ui_game] leave fetch error', e);
-    }
-
-    // 3) Скрываем UI стола и кнопки
+    // Скрываем UI стола и кнопки
     if (document.getElementById('game-info'))
       document.getElementById('game-info').style.display = 'none';
     if (document.querySelector('.action-buttons-wrapper'))

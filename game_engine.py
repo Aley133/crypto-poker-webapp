@@ -2,7 +2,7 @@ import random
 import time
 from typing import Dict, List, Set, Tuple
 
-from db_utils import get_balance_db, set_balance_db
+
 
 # ---------- Хранилища состояний и WS‐соединений ----------
 game_states: Dict[int, dict] = {}
@@ -97,7 +97,7 @@ def evaluate_hand(cards: List[str]) -> Tuple[int, List[int]]:
 
     return HAND_RANKS[category], tiebreaker
 
-# =========== СТАРТ РАЗДАЧИ: баланс подтягивается из БД ============
+# =========== СТАРТ РАЗДАЧИ: используем текущие стеки игроков ==========
 def start_hand(table_id: int):
     state = game_states.get(table_id)
     if not state:
@@ -115,8 +115,8 @@ def start_hand(table_id: int):
     deck = new_deck()
     hole = {u: [deck.pop(), deck.pop()] for u in players}
 
-    # --- ЗАГРУЖАЕМ БАЛАНС ИЗ БД ---
-    stacks = {u: get_balance_db(u) for u in players}
+    # Стек каждого игрока уже хранится в state["stacks"] при посадке
+    stacks = state.get("stacks", {})
 
     # Списываем блайнды
     stacks[sb_uid] -= BLIND_SMALL
@@ -183,9 +183,6 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             winner = alive[0]
             pot = state.get("pot", 0)
             stacks[winner] = stacks.get(winner, 0) + pot
-            # --- Сохраняем ВСЕ стеки в БД ---
-            for p, st in stacks.items():
-                set_balance_db(p, st)
             revealed = {p: state["hole_cards"].get(p, []) for p in state["hole_cards"].keys()}
             state.update({
                 "stacks": stacks,
@@ -312,12 +309,9 @@ def apply_action(table_id: int, uid: str, action: str, amount: int = 0):
             dealer = players[state["dealer_index"]]
             split[dealer] = split.get(dealer, 0) + rem
 
-        # === НАЧИСЛЯЕМ всем победителям, сохраняем все стеки в БД ===
+        # === НАЧИСЛЯЕМ всем победителям ===
         for p, amt in split.items():
             stacks[p] = stacks.get(p, 0) + amt
-        # --- Сохраняем ВСЕ финальные стеки ---
-        for p, st in stacks.items():
-            set_balance_db(p, st)
 
         state.update({
             "stacks": stacks,
