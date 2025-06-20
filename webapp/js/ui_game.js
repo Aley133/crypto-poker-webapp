@@ -29,13 +29,17 @@ const buyinDialog    = document.getElementById('buyin-dialog');
 const buyinInput     = document.getElementById('buyin-input');
 const buyinConfirm   = document.getElementById('buyin-confirm');
 
+let currentSeatClicked = null;
+let minBuyIn = 0;
+let maxBuyIn = 0;
+
 if (buyinConfirm) {
   buyinConfirm.addEventListener('click', () => {
     const buyin = parseFloat(buyinInput.value);
-    const seat = 0;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ action: 'sit', seat, buy_in: buyin }));
+    if (ws && ws.readyState === WebSocket.OPEN && currentSeatClicked !== null) {
+      ws.send(JSON.stringify({ action: 'sit', seat: currentSeatClicked, buy_in: buyin }));
     }
+    buyinDialog.style.display = 'none';
   });
 }
 console.log('[ui_game] leaveBtn element:', leaveBtn);
@@ -313,18 +317,29 @@ function updateUI(state) {
   highlightButtons();
 }
 
+function bindSeatButtons() {
+  document.querySelectorAll('.seat-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSeatClicked = parseInt(btn.dataset.seat, 10);
+      buyinInput.value = minBuyIn;
+      buyinDialog.style.display = 'block';
+    });
+  });
+}
+
 // ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
   const msg = JSON.parse(e.data);
   if (msg.action === 'table_info') {
-    buyinInput.min = msg.min_buy_in;
-    buyinInput.max = msg.max_buy_in;
-    buyinInput.value = msg.min_buy_in;
-    buyinDialog.style.display = 'block';
+    minBuyIn = msg.min_buy_in;
+    maxBuyIn = msg.max_buy_in;
+    buyinInput.min = minBuyIn;
+    buyinInput.max = maxBuyIn;
     return;
   }
   if (msg.action === 'sit_ok') {
     buyinDialog.style.display = 'none';
+    currentSeatClicked = null;
     return;
   }
   if (msg.action === 'leave_ok') {
@@ -339,6 +354,7 @@ ws = createWebSocket(tableId, userId, username, e => {
   window.currentTableState = state;
   updateUI(state);
   renderTable(state, userId);
+  bindSeatButtons();
 });
 ws.onopen = () => {
   ws.send(JSON.stringify({ action: 'get_table_info' }));
