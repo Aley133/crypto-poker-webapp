@@ -45,6 +45,17 @@ class TableManager:
             if len(players) < 2:
                 state["started"] = False
                 state["phase"] = "waiting"
+                state["current_player"] = None
+                state["current_bet"] = 0
+                state["pot"] = 0
+                state["contributions"] = {}
+                state["hole_cards"] = {}
+                state["timer_deadline"] = None
+                state["result_delay_deadline"] = None
+                state["winner"] = None
+                state["revealed_hands"] = {}
+                state["split_pots"] = {}
+                state["player_actions"] = {}
 
             # Убиваем WS сессии игрока
             conns = game_engine.connections.get(table_id, [])
