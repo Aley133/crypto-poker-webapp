@@ -139,7 +139,20 @@ export function renderTable(tableState, userId) {
       const sitBtn = document.createElement('button');
       sitBtn.className = 'sit-btn';
       sitBtn.textContent = 'SIT';
-      sitBtn.onclick = () => joinSeat(seatId);
+      sitBtn.onclick = async () => {
+        const deposit = parseInt(prompt('Введите депозит (USDT)'), 10);
+        if (!deposit || deposit <= 0) return;
+
+        await fetch(`/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}&deposit=${deposit}`, {
+          method: 'POST'
+        });
+
+        // Перерисовать стол после посадки
+        setTimeout(() => {
+          if (window.currentTableState)
+            renderTable(window.currentTableState, window.currentUserId);
+        }, 200);
+      };
       seatDiv.appendChild(sitBtn);
     }
 
