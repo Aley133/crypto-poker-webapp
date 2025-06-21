@@ -137,9 +137,9 @@ export function renderTable(tableState, userId) {
       // Место пустое — кнопка SIT
       seatDiv.classList.add('empty');
       const sitBtn = document.createElement('button');
-      sitBtn.className = 'seat-button';
-      sitBtn.dataset.seat = seatId;
+      sitBtn.className = 'sit-btn';
       sitBtn.textContent = 'SIT';
+      sitBtn.onclick = () => joinSeat(seatId);
       seatDiv.appendChild(sitBtn);
     }
 
@@ -147,6 +147,15 @@ export function renderTable(tableState, userId) {
   }
 }
 
+// Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
+function joinSeat(seatId) {
+  fetch(
+    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
+    { method: 'POST' }
+  ).then(() => {
+    reloadGameState();
+  });
+}
 
 // На resize — перерисовка
 window.addEventListener('resize', () => {
