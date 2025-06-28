@@ -1,4 +1,4 @@
-import { listTables } from './api.js';
+import { listTables, joinTable } from './api.js';
 
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
@@ -41,7 +41,7 @@ const { userId, username } = getUserInfo();
 
 // Показываем баланс, если элемент есть на странице
 if (balanceSpan) {
-  fetch(`/api/balance?user_id=${encodeURIComponent(userId)}`)
+  fetch(`api/balance?user_id=${encodeURIComponent(userId)}`)
     .then(res => res.json())
     .then(data => {
       balanceSpan.innerText = `${data.balance} USDT`;
@@ -49,6 +49,34 @@ if (balanceSpan) {
     .catch(() => {
       balanceSpan.innerText = 'Ошибка';
     });
+}
+
+// Показ модалки выбора места и депозита перед посадкой
+function showLobbyDepositModal({ table, onConfirm, onCancel }) {
+  // Простой prompt-модал; при необходимости замените на свой UI
+  const maxSeats = table.max_players || table.players || 5; // подставьте реальный max_players
+  const seatInput = prompt(
+    `Стол ${table.id}: выберите номер места (0–${maxSeats - 1}):`,
+    '0'
+  );
+  const seat = parseInt(seatInput, 10);
+  if (isNaN(seat) || seat < 0 || seat >= maxSeats) {
+    onCancel();
+    return;
+  }
+
+  const depositInput = prompt(
+    `Введите сумму депозита (мин. ${table.buy_in}):`,
+    table.buy_in
+  );
+  const deposit = parseFloat(depositInput);
+  if (isNaN(deposit) || deposit < table.buy_in) {
+    alert('Неверная сумма депозита');
+    onCancel();
+    return;
+  }
+
+  onConfirm({ seat, deposit });
 }
 
 // Загрузка и рендер списка столов
@@ -67,15 +95,31 @@ async function loadTables() {
         <p>Бай-ин: ${t.buy_in} USD | Игроки: ${t.players}</p>
         <button class="join-btn">Играть</button>
       `;
+
       card.querySelector('.join-btn').addEventListener('click', () => {
-        // Открываем страницу игры — дальше всё в game.html
-        const uidParam   = encodeURIComponent(userId);
-        const unameParam = encodeURIComponent(username);
-        window.open(
-          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`,
-          '_blank'
-        );
+        // Открываем пустую вкладку сразу (чтобы избежать блокировок)
+        const newTab = window.open('about:blank', '_blank');
+
+        // Показ модалки выбора места и депозита
+        showLobbyDepositModal({
+          table: t,
+          onConfirm: async ({ seat, deposit }) => {
+            try {
+              // Посадка за стол с выбранным местом и депозитом
+              await joinTable(t.id, userId, seat, deposit);
+              // Перенаправление открытой вкладки на страницу игры
+              newTab.location.href = `game.html?table_id=${t.id}&user_id=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}`;
+            } catch (err) {
+              newTab.close();
+              alert('Не удалось зайти за стол: ' + (err.message || err));
+            }
+          },
+          onCancel: () => {
+            newTab.close();
+          }
+        });
       });
+
       infoContainer.appendChild(card);
     });
   } catch (err) {
