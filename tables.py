@@ -2,13 +2,17 @@ from fastapi import HTTPException
 
 from game_data import seat_map
 from game_engine import game_states
+import db_utils
 
-# Глобальный словарь с настройками блайндов по уровням
+# Глобальный словарь: table_id → (small_blind, big_blind, max_buy_in)
 BLINDS = {
     1: (1, 2, 100),
     2: (2, 4, 200),
     3: (5, 10, 500),
 }
+
+# Минимальный бай-ин (можно настроить под каждый стол или вынести в отдельный dict)
+GLOBAL_MIN_BUY_IN = 6.5  
 
 # Минимальное число игроков для старта
 MIN_PLAYERS = 2
@@ -55,17 +59,48 @@ def create_table(level: int) -> dict:
     }
 
 
-def join_table(table_id: int, user_id: str) -> dict:
-    """
-    Добавляет пользователя за стол или обновляет его присутствие.
-    Возвращает статус и список игроков.
-    """
+def join_table(table_id: int, user_id: str, deposit: float) -> dict:
+    # 1) Проверяем, что такой стол существует
+    if table_id not in BLINDS:
+        raise HTTPException(status_code=400, detail="Неверный идентификатор стола")
+
+    sb, bb, max_buy_in = BLINDS[table_id]
+    min_buy_in = GLOBAL_MIN_BUY_IN   # либо вычислять per-table
+
+    # 2) Валидация размера депозита по лимитам стола
+    if not (min_buy_in <= deposit <= max_buy_in):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Депозит должен быть от {min_buy_in:.2f} до {max_buy_in:.2f} USD"
+        )
+
+    # 3) Проверяем баланс пользователя и списываем депозит
+    balance = db_utils.get_balance_db(user_id)
+    if deposit > balance:
+        raise HTTPException(status_code=400, detail="Недостаточно средств на балансе")
+
+    db_utils.set_balance_db(user_id, balance - deposit)
+
+    # 4) «Садим» пользователя за стол
     users = seat_map.setdefault(table_id, [])
-    # Если пользователь уже за столом, удаляем старую запись для переподключения
     if user_id in users:
-        users.remove(user_id)
+        users.remove(user_id)  # на случай переподключения
     users.append(user_id)
-    return {"status": "ok", "players": users}
+
+    # 5) Обновляем его стек в состоянии игры
+    state = game_states.setdefault(table_id, {})
+    stacks = state.setdefault("stacks", {})
+    stacks[user_id] = deposit
+
+    # 6) Если игроков стало меньше минимума — сбрасываем флаг старта
+    if len(users) < MIN_PLAYERS:
+        state.pop("started", None)
+
+    return {
+        "status": "ok",
+        "players": users,
+        "your_stack": deposit
+    }
 
 
 def leave_table(table_id: int, user_id: str) -> dict:
