@@ -29,6 +29,19 @@ console.log('[ui_game] leaveBtn element:', leaveBtn);
 
 let ws;
 
+// Отрисовываем пустой стол до подключения
+window.currentTableState = { players: [], seats: Array(6).fill(null), stacks: {} };
+renderTable(window.currentTableState, userId);
+
+function startWebSocket() {
+  ws = createWebSocket(tableId, userId, username, e => {
+    const state = JSON.parse(e.data);
+    window.currentTableState = state;
+    updateUI(state);
+    renderTable(state, userId);
+  });
+}
+
 // Храним предыдущую улицу, чтобы сбрасывать авто-режимы при смене
 let lastRound = null;
 
@@ -301,12 +314,7 @@ function updateUI(state) {
 }
 
 // ======= WS + Логика =======
-ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
-  window.currentTableState = state;
-  updateUI(state);
-  renderTable(state, userId);
-});
+window.afterJoin = startWebSocket;
 
 // === Обработчик кнопки «Покинуть стол» ===
 if (!leaveBtn) {

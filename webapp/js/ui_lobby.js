@@ -72,7 +72,6 @@ async function loadTables() {
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
-        await joinTable(t.id, userId);
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
         window.open(

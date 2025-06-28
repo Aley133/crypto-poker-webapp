@@ -45,9 +45,13 @@ def create_table_endpoint(level: int = Query(...)):
     return create_table(level)
 
 @app.post("/api/join")
-def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок присоединяется к столу"""
-    return join_table(table_id, user_id)
+def join_table_endpoint(
+    table_id: int = Query(...),
+    user_id: str = Query(...),
+    buy_in: float = Query(...),
+):
+    """Игрок присоединяется к столу с выбранным бай‑ином"""
+    return join_table(table_id, user_id, buy_in)
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):

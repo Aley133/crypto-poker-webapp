@@ -12,3 +12,21 @@ header { background:#000; padding:10px; display:flex; align-items:center }
 #actions button, #actions input { margin:5px; }
 #actions button { background:#ff0; border:none; padding:5px 10px; cursor:pointer; }
 
+/* Простое модальное окно для выбора бай‑ина */
+#buyin-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+#buyin-modal .modal-content {
+  background: #fff;
+  color: #000;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
