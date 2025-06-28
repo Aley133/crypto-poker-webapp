@@ -56,7 +56,7 @@ def get_table_state(table_id: int):
         "stacks":      state.get("stacks", {}),
         "min_deposit": min_buy_in,
         "max_deposit": max_buy_in,
-        **state  # остальные поля (community, pot и т.д.)
+        
     }
 
 # ------- ВНИМАНИЕ! Новый join с seat и deposit -------
