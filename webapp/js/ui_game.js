@@ -330,12 +330,18 @@ function updateUI(state) {
   highlightButtons();
 }
 
-// ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
-  window.currentTableState = state;
-  updateUI(state);
-  renderTable(state, userId);
+  const payload = JSON.parse(e.data);
+  // Сохраняем полный стейт плюс конфиг лимитов
+  window.currentTableState = {
+    ...payload,
+    config: {
+      min_buy_in: payload.min_deposit,
+      max_buy_in: payload.max_deposit
+    }
+  };
+  updateUI(window.currentTableState);
+  renderTable(window.currentTableState, userId);
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
