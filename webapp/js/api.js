@@ -7,7 +7,9 @@ const BASE = '';
 async function request(method, path) {
   const res = await fetch(`${BASE}${path}`, { method });
   let payload = null;
-  try { payload = await res.json(); } catch {}
+  try {
+    payload = await res.json();
+  } catch {}
   if (!res.ok) {
     const errMsg = (payload && (payload.detail || payload.message)) || `${method} ${path} error ${res.status}`;
     throw new Error(errMsg);
@@ -17,14 +19,12 @@ async function request(method, path) {
 
 /** Получить список столов по уровню */
 export async function listTables(level) {
-  const path = `/api/tables?level=${encodeURIComponent(level)}`;
-  return await request('GET', path);
+  return await request('GET', `/api/tables?level=${encodeURIComponent(level)}`);
 }
 
 /** Создать новый стол по уровню */
 export async function createTable(level) {
-  const path = `/api/tables?level=${encodeURIComponent(level)}`;
-  return await request('POST', path);
+  return await request('POST', `/api/tables?level=${encodeURIComponent(level)}`);
 }
 
 /**
@@ -35,27 +35,26 @@ export async function createTable(level) {
  * @param {number} deposit
  */
 export async function joinTable(tableId, userId, seat, deposit) {
-  // Проверяем, что все параметры переданы
   if ([tableId, userId, seat, deposit].some(x => x == null)) {
     throw new Error('joinTable: missing tableId/userId/seat/deposit');
   }
-  // Отправляем данные в теле POST-запроса в формате JSON
-  return await request('POST', `/api/join`, {
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ table_id: tableId, user_id: userId, seat, deposit })
+  const params = new URLSearchParams({
+    table_id: tableId,
+    user_id:  userId,
+    seat:     seat,
+    deposit:  deposit
   });
+  return await request('POST', `/api/join?${params.toString()}`);
 }
 
 /** Получить баланс пользователя */
 export async function getBalance(userId) {
-  const path = `/api/balance?user_id=${encodeURIComponent(userId)}`;
-  return await request('GET', path);
+  return await request('GET', `/api/balance?user_id=${encodeURIComponent(userId)}`);
 }
 
 /** Получить состояние игры по HTTP */
 export async function getGameState(tableId) {
-  const path = `/api/game_state?table_id=${encodeURIComponent(tableId)}`;
-  return await request('GET', path);
+  return await request('GET', `/api/game_state?table_id=${encodeURIComponent(tableId)}`);
 }
 
 export default {
