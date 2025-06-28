@@ -41,7 +41,7 @@ const { userId, username } = getUserInfo();
 
 // Показываем баланс, если элемент есть на странице
 if (balanceSpan) {
-  fetch(`api/balance?user_id=${encodeURIComponent(userId)}`)
+  fetch(`/api/balance?user_id=${encodeURIComponent(userId)}`)
     .then(res => res.json())
     .then(data => {
       balanceSpan.innerText = `${data.balance} USDT`;
@@ -53,8 +53,7 @@ if (balanceSpan) {
 
 // Показ модалки выбора места и депозита перед посадкой
 function showLobbyDepositModal({ table, onConfirm, onCancel }) {
-  // Простой prompt-модал; при необходимости замените на свой UI
-  const maxSeats = table.max_players || table.players || 5; // подставьте реальный max_players
+  const maxSeats = table.max_players || table.players || 5;
   const seatInput = prompt(
     `Стол ${table.id}: выберите номер места (0–${maxSeats - 1}):`,
     '0'
@@ -104,11 +103,15 @@ async function loadTables() {
         showLobbyDepositModal({
           table: t,
           onConfirm: async ({ seat, deposit }) => {
+            // Лог параметров перед запросом
+            console.log('>> going to joinTable:', { tableId: t.id, userId, seat, deposit });
+
             try {
               // Посадка за стол с выбранным местом и депозитом
               await joinTable(t.id, userId, seat, deposit);
               // Перенаправление открытой вкладки на страницу игры
-              newTab.location.href = `game.html?table_id=${t.id}&user_id=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}`;
+              newTab.location.href =
+                `game.html?table_id=${t.id}&user_id=${encodeURIComponent(userId)}&username=${encodeURIComponent(username)}`;
             } catch (err) {
               newTab.close();
               alert('Не удалось зайти за стол: ' + (err.message || err));
