@@ -1,12 +1,14 @@
 // webapp/js/api.js
 const BASE = '';
 
+// Получить список столов
 export async function listTables(level) {
   const res = await fetch(`${BASE}/api/tables?level=${encodeURIComponent(level)}`);
   if (!res.ok) throw new Error(`listTables error ${res.status}`);
   return await res.json();
 }
 
+// Создать новый стол
 export async function createTable(level) {
   const res = await fetch(`${BASE}/api/tables?level=${encodeURIComponent(level)}`, {
     method: 'POST',
@@ -15,34 +17,37 @@ export async function createTable(level) {
   return await res.json();
 }
 
+// Присоединиться к столу: указываем tableId, userId, номер места и сумму депозита
 export async function joinTable(tableId, userId, seat, deposit) {
-  const res = await fetch("/api/join?" + new URLSearchParams({
+  const params = new URLSearchParams({
     table_id: tableId,
-    user_id:  userId,
-    seat:     seat,
-    deposit:  deposit
-  }), { method: "POST" });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Ошибка при подключении");
-  }
-  return res.json();
-}
-
-export async function joinTable(tableId, userId) {
-  const res = await fetch(`${BASE}/api/join?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`, {
+    user_id: userId,
+    seat,
+    deposit,
+  });
+  const res = await fetch(`${BASE}/api/join?${params.toString()}`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error(`joinTable error ${res.status}`);
+  if (!res.ok) {
+    // Попытка вытащить detail из JSON, если есть
+    let errMsg = `joinTable error ${res.status}`;
+    try {
+      const errJson = await res.json();
+      errMsg = errJson.detail || errMsg;
+    } catch {}
+    throw new Error(errMsg);
+  }
   return await res.json();
 }
 
-export async function getBalance(tableId, userId) {
-  const res = await fetch(`${BASE}/api/balance?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`);
+// Получить баланс пользователя
+export async function getBalance(userId) {
+  const res = await fetch(`${BASE}/api/balance?user_id=${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error(`getBalance error ${res.status}`);
   return await res.json();
 }
 
+// Получить состояние игры по HTTP
 export async function getGameState(tableId) {
   const res = await fetch(`${BASE}/api/game_state?table_id=${tableId}`);
   if (!res.ok) throw new Error(`getGameState error ${res.status}`);
@@ -50,5 +55,9 @@ export async function getGameState(tableId) {
 }
 
 export default {
-  listTables, createTable, joinTable, getBalance, getGameState
+  listTables,
+  createTable,
+  joinTable,
+  getBalance,
+  getGameState
 };
