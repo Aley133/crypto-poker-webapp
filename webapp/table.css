@@ -69,7 +69,7 @@ header {
   background: rgba(40,40,60,0.29);
   transition: border 0.17s, background 0.17s;
 }
-.seat-button {
+.sit-btn {
   background: #23243c;
   color: #fff;
   border-radius: 7px;
@@ -83,7 +83,7 @@ header {
   transition: background .13s;
   outline: none;
 }
-.seat-button:hover { background: #3ce0ba; color: #202; }
+.sit-btn:hover { background: #3ce0ba; color: #202; }
 #poker-root, #table-ui {
   width: 100vw; height: 100vh; position: absolute; top: 0; left: 0;
   overflow: hidden;
