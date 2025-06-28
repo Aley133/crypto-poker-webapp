@@ -1,31 +1,5 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
-import * as api from './api.js';
-
-// ==== Deposit Modal Elements ====
-const depositModal    = document.getElementById("deposit-modal");
-const modalMinSpan    = document.getElementById("modal-min");
-const modalMaxSpan    = document.getElementById("modal-max");
-const modalInput      = document.getElementById("modal-deposit-input");
-const modalCancelBtn  = document.getElementById("modal-cancel");
-const modalConfirmBtn = document.getElementById("modal-confirm");
-
-// Контекст для join
-window._joinContext = {};
-
-// Обработчики кнопок модалки
-modalCancelBtn.onclick = () => depositModal.style.display = "none";
-modalConfirmBtn.onclick = async () => {
-  const { tableId, userId, seatIdx } = window._joinContext;
-  const amount = parseFloat(modalInput.value);
-  try {
-    await api.joinTable(tableId, userId, seatIdx, amount);
-    depositModal.style.display = "none";
-    // после успешного join стейт придёт по WS и renderTable его отрисует
-  } catch (e) {
-    alert(e.message || "Не удалось подключиться");
-  }
-};
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
@@ -326,24 +300,12 @@ function updateUI(state) {
   highlightButtons();
 }
 
+// ======= WS + Логика =======
 ws = createWebSocket(tableId, userId, username, e => {
-  // 1) Парсим полученный JSON
-  const payload = JSON.parse(e.data);
-
-  // 2) Собираем полный стейт с конфигом лимитов
-  window.currentTableState = {
-    ...payload,
-    config: {
-      min_buy_in: payload.min_deposit, // минимальный бай-ин
-      max_buy_in: payload.max_deposit  // максимальный бай-ин
-    }
-  };
-
-  // 3) Обновляем UI-логику (таймеры, баннеры и т.п.)
-  updateUI(window.currentTableState);
-
-  // 4) Перерисовываем стол с учётом свежего состояния
-  renderTable(window.currentTableState, userId);
+  const state = JSON.parse(e.data);
+  window.currentTableState = state;
+  updateUI(state);
+  renderTable(state, userId);
 });
 
 // === Обработчик кнопки «Покинуть стол» ===

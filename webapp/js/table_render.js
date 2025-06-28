@@ -1,5 +1,3 @@
-import { depositModal, modalMinSpan, modalMaxSpan, modalInput } from './ui_game.js';
-
 const N_SEATS = 6;
 
 // Углы для 6 мест (seat 0 внизу по центру)
@@ -149,22 +147,14 @@ export function renderTable(tableState, userId) {
   }
 }
 
+// Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
-  // 1) Подготовка контекста
-  window._joinContext = {
-    tableId:  window.currentTableId,
-    userId:   window.currentUserId,
-    seatIdx:  seatId
-  };
-  // 2) Выдергиваем лимиты
-  const { min_buy_in, max_buy_in } = window.currentTableState.config || {};
-  modalMinSpan.textContent = min_buy_in.toFixed(2);
-  modalMaxSpan.textContent = max_buy_in.toFixed(2);
-  modalInput.value = min_buy_in.toFixed(2);
-  modalInput.min   = min_buy_in;
-  modalInput.max   = max_buy_in;
-  // 3) Показываем модалку
-  depositModal.style.display = "flex";
+  fetch(
+    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
+    { method: 'POST' }
+  ).then(() => {
+    reloadGameState();
+  });
 }
 
 // На resize — перерисовка
