@@ -9,8 +9,27 @@ const modalInput      = document.getElementById("modal-deposit-input");
 const modalCancelBtn  = document.getElementById("modal-cancel");
 const modalConfirmBtn = document.getElementById("modal-confirm");
 
-// Для хранения контекста перед подтверждением
-let _currentTableId, _currentUserId, _currentSeatIdx;
+// Временное хранилище для контекста «куда садимся»
+window._joinContext = {
+  tableId: null,
+  userId: null,
+  seatIdx: null
+};
+
+// Обработчики кнопок модалки
+modalCancelBtn.onclick = () => depositModal.style.display = "none";
+modalConfirmBtn.onclick = async () => {
+  const { tableId, userId, seatIdx } = window._joinContext;
+  const amount = parseFloat(modalInput.value);
+  try {
+    await api.joinTable(tableId, userId, seatIdx, amount);
+    depositModal.style.display = "none";
+    // Перерисовать или переподключить WS:
+    reloadGameState();
+  } catch (e) {
+    alert(e.message || "Ошибка при попытке зайти за стол");
+  }
+};
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
