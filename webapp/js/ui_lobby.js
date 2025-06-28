@@ -39,10 +39,10 @@ function getUserInfo() {
   // Отображаем в UI
   usernameEl.textContent = uname;
 
-  return { uid, uname };
+  return { userId: uid, username: uname };
 }
 
-const { uid: userId, uname: username } = getUserInfo();
+const { userId, username } = getUserInfo();
 
 // ======= Баланс =======
 if (balanceSpan) {
@@ -62,6 +62,7 @@ async function loadTables() {
   try {
     const { tables } = await listTables(levelSelect.value);
     infoContainer.innerHTML = '';
+
     tables.forEach(t => {
       const card = document.createElement('div');
       card.className = 'table-card';
@@ -72,7 +73,9 @@ async function loadTables() {
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
-        await joinTable(t.id, userId);
+        // Присоединяемся к столу с дефолтным депозитом (минимальный)
+        await joinTable(t.id, userId, /* seat placeholder */ 0, t.buy_in);
+        // После успешного join открываем окно игры
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
         window.open(
@@ -83,6 +86,7 @@ async function loadTables() {
       infoContainer.appendChild(card);
     });
   } catch (err) {
+    console.error('Error loading tables:', err);
     infoContainer.textContent = 'Ошибка загрузки столов!';
   }
 }
