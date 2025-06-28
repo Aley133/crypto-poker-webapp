@@ -326,16 +326,22 @@ function updateUI(state) {
 }
 
 ws = createWebSocket(tableId, userId, username, e => {
+  // 1) Парсим полученный JSON
   const payload = JSON.parse(e.data);
-  // Сохраняем полный стейт плюс конфиг лимитов
+
+  // 2) Собираем полный стейт с конфигом лимитов
   window.currentTableState = {
     ...payload,
     config: {
-      min_buy_in: payload.min_deposit,
-      max_buy_in: payload.max_deposit
+      min_buy_in: payload.min_deposit, // минимальный бай-ин
+      max_buy_in: payload.max_deposit  // максимальный бай-ин
     }
   };
+
+  // 3) Обновляем UI-логику (таймеры, баннеры и т.п.)
   updateUI(window.currentTableState);
+
+  // 4) Перерисовываем стол с учётом свежего состояния
   renderTable(window.currentTableState, userId);
 });
 
