@@ -1,5 +1,6 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
+import * as api from './api.js';
 
 // ==== Deposit Modal Elements ====
 const depositModal    = document.getElementById("deposit-modal");
