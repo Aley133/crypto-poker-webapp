@@ -1,6 +1,17 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
 
+// ==== Deposit Modal Elements ====
+const depositModal    = document.getElementById("deposit-modal");
+const modalMinSpan    = document.getElementById("modal-min");
+const modalMaxSpan    = document.getElementById("modal-max");
+const modalInput      = document.getElementById("modal-deposit-input");
+const modalCancelBtn  = document.getElementById("modal-cancel");
+const modalConfirmBtn = document.getElementById("modal-confirm");
+
+// Для хранения контекста перед подтверждением
+let _currentTableId, _currentUserId, _currentSeatIdx;
+
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
   userId: new URLSearchParams(window.location.search).get('user_id')
