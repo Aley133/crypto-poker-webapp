@@ -1,21 +1,14 @@
 // webapp/js/api.js
 const BASE = '';
 
-// Универсальная функция запроса
 async function request(path, options = {}) {
-  const url = `${BASE}${path}`;
-  const res = await fetch(url, options);
+  const res = await fetch(`${BASE}${path}`, options);
   let payload = null;
-  try {
-    payload = await res.json();
-  } catch (e) {
-    // Если нет JSON в ответе
-  }
+  try { payload = await res.json(); } catch {}
   if (!res.ok) {
-    const errorMessage =
-      (payload && (payload.detail || payload.message)) ||
-      `${options.method || 'GET'} ${path} error ${res.status}`;
-    throw new Error(errorMessage);
+    const msg = (payload && (payload.detail||payload.message)) 
+      || `${options.method||'GET'} ${path} error ${res.status}`;
+    throw new Error(msg);
   }
   return payload;
 }
@@ -48,13 +41,20 @@ export async function createTable(level) {
  * @param {number} deposit
  * @returns {Promise<Object>} ответ сервера
  */
+/** Присоединиться к столу */
 export async function joinTable(tableId, userId, seat, deposit) {
-  const path = `/api/join`;
-  const body = { table_id: tableId, user_id: userId, seat, deposit };
-  return await request(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+  // убедимся, что все параметры не undefined
+  if ([tableId, userId, seat, deposit].some(x => x == null)) {
+    throw new Error('joinTable: missing tableId/userId/seat/deposit');
+  }
+  const params = new URLSearchParams({
+    table_id: tableId,
+    user_id:   userId,
+    seat:      seat,
+    deposit:   deposit
+  });
+  return await request(`/api/join?${params.toString()}`, {
+    method: 'POST'
   });
 }
 
