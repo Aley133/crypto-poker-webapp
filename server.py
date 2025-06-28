@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
+from table_manager import TableManager
 from db_utils import init_schema, get_balance_db, set_balance_db
 from tables import list_tables, create_table, join_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
@@ -44,10 +44,36 @@ def create_table_endpoint(level: int = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
+@app.get("/api/tables/{table_id}/state")
+def get_table_state(table_id: int):
+    state = game_states.get(table_id, {})
+    sb, bb, max_buy_in = BLINDS[table_id]
+    min_buy_in = GLOBAL_MIN_BUY_IN
+    return {
+        "table_id":    table_id,
+        "seats":       seat_map.get(table_id, []),
+        "stacks":      state.get("stacks", {}),
+        "min_deposit": min_buy_in,
+        "max_deposit": max_buy_in,
+        **state  # остальные поля (community, pot и т.д.)
+    }
+
 @app.post("/api/join")
-def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок присоединяется к столу"""
-    return join_table(table_id, user_id)
+async def join_table_endpoint(
+    table_id:   int     = Query(...),
+    user_id:    str     = Query(...),
+    seat:       int     = Query(...),
+    deposit:    float   = Query(...)
+):
+    """
+    Игрок присоединяется к столу с конкретным депозитом и местом.
+    """
+    return await TableManager.join(
+        player_id= user_id,
+        table_id=  table_id,
+        deposit=   deposit,
+        seat_idx=  seat
+    )
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
