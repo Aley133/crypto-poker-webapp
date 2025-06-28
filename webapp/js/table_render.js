@@ -1,3 +1,5 @@
+import { depositModal, modalMinSpan, modalMaxSpan, modalInput } from './ui_game.js';
+
 const N_SEATS = 6;
 
 // Углы для 6 мест (seat 0 внизу по центру)
@@ -148,25 +150,22 @@ export function renderTable(tableState, userId) {
 }
 
 function joinSeat(seatId) {
-   // 1) Сохраняем контекст для модалки
-   window._joinContext.tableId  = window.currentTableId;
-   window._joinContext.userId   = window.currentUserId;
-   window._joinContext.seatIdx  = seatId;
-
-  // 2) Подставляем лимиты из текущего состояния стола
-   //    (min и max buy-in должны быть частью window.currentTableState)
-   const cfg = window.currentTableState?.config || {};
-   modalMinSpan.textContent = (cfg.min_buy_in || cfg.buy_in || 0).toFixed(2);
-   modalMaxSpan.textContent = (cfg.buy_in || 0).toFixed(2);
-
-   // 3) Инициализируем значение и атрибуты инпута
-   modalInput.value = (cfg.min_buy_in || cfg.buy_in || 0).toFixed(2);
-   modalInput.min   = cfg.min_buy_in || 0;
-   modalInput.max   = cfg.buy_in      || 0;
-
-   // 4) Показываем модалку
-   depositModal.style.display = 'flex';
- }
+  // 1) Подготовка контекста
+  window._joinContext = {
+    tableId:  window.currentTableId,
+    userId:   window.currentUserId,
+    seatIdx:  seatId
+  };
+  // 2) Выдергиваем лимиты
+  const { min_buy_in, max_buy_in } = window.currentTableState.config || {};
+  modalMinSpan.textContent = min_buy_in.toFixed(2);
+  modalMaxSpan.textContent = max_buy_in.toFixed(2);
+  modalInput.value = min_buy_in.toFixed(2);
+  modalInput.min   = min_buy_in;
+  modalInput.max   = max_buy_in;
+  // 3) Показываем модалку
+  depositModal.style.display = "flex";
+}
 
 // На resize — перерисовка
 window.addEventListener('resize', () => {
