@@ -35,16 +35,19 @@ export async function createTable(level) {
  * @param {number} deposit
  */
 export async function joinTable(tableId, userId, seat, deposit) {
+  // Проверяем, что все параметры переданы
   if ([tableId, userId, seat, deposit].some(x => x == null)) {
     throw new Error('joinTable: missing tableId/userId/seat/deposit');
   }
+  // Формируем query-параметры
   const params = new URLSearchParams({
     table_id: tableId,
     user_id:  userId,
     seat:     seat,
     deposit:  deposit
   });
-  return await request('POST', `/api/join?${params.toString()}`);
+  // Отправляем POST-запрос
+  return await request(`/api/join?${params.toString()}`, { method: 'POST' });
 }
 
 /** Получить баланс пользователя */
