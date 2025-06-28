@@ -3,6 +3,7 @@ import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
+from tables import BLINDS, GLOBAL_MIN_BUY_IN
 
 router = APIRouter()
 MIN_PLAYERS = 2
