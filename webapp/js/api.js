@@ -15,6 +15,20 @@ export async function createTable(level) {
   return await res.json();
 }
 
+export async function joinTable(tableId, userId, seat, deposit) {
+  const res = await fetch("/api/join?" + new URLSearchParams({
+    table_id: tableId,
+    user_id:  userId,
+    seat:     seat,
+    deposit:  deposit
+  }), { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Ошибка при подключении");
+  }
+  return res.json();
+}
+
 export async function joinTable(tableId, userId) {
   const res = await fetch(`${BASE}/api/join?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`, {
     method: 'POST',
