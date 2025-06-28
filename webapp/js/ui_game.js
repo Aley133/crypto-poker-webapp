@@ -9,12 +9,8 @@ const modalInput      = document.getElementById("modal-deposit-input");
 const modalCancelBtn  = document.getElementById("modal-cancel");
 const modalConfirmBtn = document.getElementById("modal-confirm");
 
-// Временное хранилище для контекста «куда садимся»
-window._joinContext = {
-  tableId: null,
-  userId: null,
-  seatIdx: null
-};
+// Контекст для join
+window._joinContext = {};
 
 // Обработчики кнопок модалки
 modalCancelBtn.onclick = () => depositModal.style.display = "none";
@@ -24,10 +20,9 @@ modalConfirmBtn.onclick = async () => {
   try {
     await api.joinTable(tableId, userId, seatIdx, amount);
     depositModal.style.display = "none";
-    // Перерисовать или переподключить WS:
-    reloadGameState();
+    // после успешного join стейт придёт по WS и renderTable его отрисует
   } catch (e) {
-    alert(e.message || "Ошибка при попытке зайти за стол");
+    alert(e.message || "Не удалось подключиться");
   }
 };
 
