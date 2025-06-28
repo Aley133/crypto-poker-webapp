@@ -148,8 +148,8 @@ export function renderTable(tableState, userId) {
 }
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
-const MIN_BUY_IN = 3;
-const MAX_BUY_IN = 7;
+let MIN_BUY_IN = 3;
+let MAX_BUY_IN = 7;
 
 function joinSeat(seatId) {
   const modal   = document.getElementById('buyin-modal');
@@ -157,6 +157,11 @@ function joinSeat(seatId) {
   const confirm = document.getElementById('buyin-confirm');
   const cancel  = document.getElementById('buyin-cancel');
   const errorEl = document.getElementById('buyin-error');
+
+  if (window.tableConfig) {
+    MIN_BUY_IN = window.tableConfig.min_buy_in;
+    MAX_BUY_IN = window.tableConfig.max_buy_in;
+  }
 
   input.min = MIN_BUY_IN;
   input.max = MAX_BUY_IN;
@@ -200,7 +205,7 @@ function joinSeat(seatId) {
       }
 
       modal.style.display = 'none';
-      if (window.afterJoin) window.afterJoin();
+      if (window.afterJoin) window.afterJoin('player');
     } catch (e) {
       errorEl.textContent = 'Ошибка соединения';
     }

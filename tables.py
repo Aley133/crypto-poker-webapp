@@ -60,6 +60,24 @@ def create_table(level: int) -> dict:
     }
 
 
+def observe_table(table_id: int, user_id: str) -> dict:
+    """Return basic table info for observer connection."""
+    if table_id not in BLINDS:
+        raise HTTPException(status_code=404, detail="table not found")
+
+    sb, bb, _ = BLINDS[table_id]
+    users = seat_map.get(table_id, [])
+    return {
+        "table_id": table_id,
+        "small_blind": sb,
+        "big_blind": bb,
+        "min_buy_in": MIN_BUY_IN,
+        "max_buy_in": MAX_BUY_IN,
+        "players": users,
+        "ws_token": f"{table_id}:{user_id}",
+    }
+
+
 def join_table(table_id: int, user_id: str, buy_in: float) -> dict:
     """
     Добавляет пользователя за стол или обновляет его присутствие.
@@ -83,7 +101,12 @@ def join_table(table_id: int, user_id: str, buy_in: float) -> dict:
     stacks[user_id] = buy_in
 
     users.append(user_id)
-    return {"status": "ok", "players": users, "buy_in": buy_in}
+    return {
+        "status": "ok",
+        "players": users,
+        "buy_in": buy_in,
+        "stack": stacks[user_id],
+    }
 
 
 def leave_table(table_id: int, user_id: str) -> dict:

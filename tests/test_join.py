@@ -45,3 +45,12 @@ def test_successful_join():
     assert resp.status_code == 200
     data = resp.json()
     assert data["buy_in"] == 5
+    assert data["stack"] == 5
+
+
+def test_observe_endpoint():
+    resp = client.get("/api/observe", params={"table_id": 1, "user_id": "u1"})
+    assert resp.status_code == 200
+    info = resp.json()
+    assert "ws_token" in info
+    assert info["min_buy_in"] == tables.MIN_BUY_IN
