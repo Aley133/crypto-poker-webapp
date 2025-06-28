@@ -27,6 +27,10 @@ async def broadcast(table_id: int):
             "seat": seat_idx,
         })
 
+    # Получаем лимиты стола
+    sb, bb, max_buy_in = BLINDS[table_id]
+    min_buy_in = GLOBAL_MIN_BUY_IN
+
     payload = {
         "phase": state.get("phase", "waiting"),
         "started": state.get("started", False),
@@ -48,6 +52,9 @@ async def broadcast(table_id: int):
         "split_pots": state.get("split_pots"),
         "dealer_index": state.get("dealer_index"),
         "player_actions": state.get("player_actions", {}),
+        # Новые поля (для лимитов депозита)
+        "min_deposit": min_buy_in,
+        "max_deposit": max_buy_in,
     }
 
     for ws in list(connections.get(table_id, [])):
