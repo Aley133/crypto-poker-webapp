@@ -148,13 +148,63 @@ export function renderTable(tableState, userId) {
 }
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
+const MIN_BUY_IN = 3;
+const MAX_BUY_IN = 7;
+
 function joinSeat(seatId) {
-  fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
-    reloadGameState();
-  });
+  const modal   = document.getElementById('buyin-modal');
+  const input   = document.getElementById('buyin-input');
+  const confirm = document.getElementById('buyin-confirm');
+  const cancel  = document.getElementById('buyin-cancel');
+  const errorEl = document.getElementById('buyin-error');
+
+  input.min = MIN_BUY_IN;
+  input.max = MAX_BUY_IN;
+  input.value = MIN_BUY_IN;
+  confirm.disabled = true;
+  errorEl.textContent = '';
+
+  function validate() {
+    const v = parseFloat(input.value);
+    confirm.disabled = isNaN(v) || v < MIN_BUY_IN || v > MAX_BUY_IN;
+  }
+  input.addEventListener('input', validate);
+  validate();
+
+  modal.style.display = 'flex';
+
+  cancel.onclick = () => {
+    modal.style.display = 'none';
+  };
+
+  confirm.onclick = async () => {
+    const buyIn = parseFloat(input.value);
+    validate();
+    if (confirm.disabled) return;
+
+    try {
+      const balRes = await fetch(`/api/balance?user_id=${window.currentUserId}`);
+      const bal = (await balRes.json()).balance;
+      if (bal < buyIn) {
+        errorEl.textContent = 'Недостаточно средств';
+        return;
+      }
+
+      const res = await fetch(
+        `/api/join?table_id=${window.currentTableId}&user_id=${window.currentUserId}&buy_in=${buyIn}`,
+        { method: 'POST' }
+      );
+      if (!res.ok) {
+        errorEl.textContent = 'Ошибка: ' + res.status;
+        return;
+      }
+
+      modal.style.display = 'none';
+      if (window.afterJoin) window.afterJoin();
+    } catch (e) {
+      errorEl.textContent = 'Ошибка соединения';
+    }
+  };
 }
 
 // На resize — перерисовка

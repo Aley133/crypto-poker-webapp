@@ -22,6 +22,16 @@
     <div id="pot">Пот: <span id="pot-amount"></span></div>
     <div id="seats"></div>
   </div>
+
+  <div id="buyin-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <p>Выберите бай-ин</p>
+      <input type="number" id="buyin-input" min="3" max="7" value="3" step="1">
+      <button id="buyin-confirm" disabled>Join</button>
+      <button id="buyin-cancel">Cancel</button>
+      <div id="buyin-error" style="color:red;margin-top:8px;"></div>
+    </div>
+  </div>
 </div>
     <div id="actions">
 <div class="action-buttons-wrapper"></div>
