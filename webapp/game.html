@@ -10,23 +10,62 @@
 <body>
   <header>
     <h1>Стол <span id="table-id"></span></h1>
+    <button id="leave-btn" title="Покинуть стол">✖</button>
   </header>
-    <button id="leave-btn" title="Покинуть стол"></button>
+
   <div id="game-info">
     <div id="status"></div>
     <div id="current-bet"></div>
+
     <div id="poker-table-wrapper">
-  <div id="poker-table-border"></div>
-  <div id="poker-table">
-    <div id="community-cards"></div>
-    <div id="pot">Пот: <span id="pot-amount"></span></div>
-    <div id="seats"></div>
-  </div>
-</div>
+      <div id="poker-table-border"></div>
+      <div id="poker-table">
+        <div id="community-cards"></div>
+        <div id="pot">Пот: <span id="pot-amount"></span></div>
+        <div id="seats"></div>
+      </div>
+    </div>
+
     <div id="actions">
-<div class="action-buttons-wrapper"></div>
-</div>
+      <div class="action-buttons-wrapper"></div>
+    </div>
   </div>
+
+  <!-- ===== Deposit Modal ===== -->
+  <div id="deposit-modal" style="
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+      ">
+    <div style="
+          background: #fff;
+          padding: 20px;
+          border-radius: 8px;
+          width: 300px;
+          text-align: center;
+        ">
+      <h3>Внесите депозит</h3>
+      <p>Лимит: <span id="modal-min">0.00</span> — <span id="modal-max">0.00</span> USD</p>
+      <input type="number"
+             id="modal-deposit-input"
+             step="0.01"
+             style="width: 100%; margin-top: 8px;"
+      />
+      <div style="
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+          ">
+        <button id="modal-cancel" style="margin-right: 8px;">Отмена</button>
+        <button id="modal-confirm">Играть</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== End Deposit Modal ===== -->
 
   <script type="module" src="/js/ui_game.js"></script>
 </body>
