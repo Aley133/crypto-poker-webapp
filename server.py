@@ -5,9 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from table_manager import TableManager
 from db_utils import init_schema, get_balance_db, set_balance_db
-from tables import list_tables, create_table, join_table, leave_table, get_balance
+from tables import list_tables, create_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
+
+# ----- Глобальные константы (добавить или убедиться, что есть) -----
+# Например:
+# BLINDS = {table_id: (sb, bb, max_buy_in), ...}
+# GLOBAL_MIN_BUY_IN = 5.0
+# seat_map = {table_id: [...], ...}
 
 app = FastAPI()
 
@@ -17,12 +23,8 @@ def healthz():
 
 @app.on_event("startup")
 def on_startup():
-    """
-    Инициализируем схему balances через db_utils.
-    """
     init_schema()
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,10 +32,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# WebSocket маршруты
 app.include_router(game_router)
 
-# API для игровых столов
 @app.get("/api/tables")
 def get_tables(level: str = Query(...)):
     """Получить список столов"""
@@ -44,6 +44,7 @@ def create_table_endpoint(level: int = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
+# ------- Новый эндпоинт состояния стола -------
 @app.get("/api/tables/{table_id}/state")
 def get_table_state(table_id: int):
     state = game_states.get(table_id, {})
@@ -58,12 +59,13 @@ def get_table_state(table_id: int):
         **state  # остальные поля (community, pot и т.д.)
     }
 
+# ------- ВНИМАНИЕ! Новый join с seat и deposit -------
 @app.post("/api/join")
 async def join_table_endpoint(
-    table_id:   int     = Query(...),
-    user_id:    str     = Query(...),
-    seat:       int     = Query(...),
-    deposit:    float   = Query(...)
+    table_id:   int   = Query(...),
+    user_id:    str   = Query(...),
+    seat:       int   = Query(...),
+    deposit:    float = Query(...)
 ):
     """
     Игрок присоединяется к столу с конкретным депозитом и местом.
@@ -77,30 +79,22 @@ async def join_table_endpoint(
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """
-    Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
-    """
     result = leave_table(table_id, user_id)
-    # Сохраняем баланс уходящего
     stacks = game_states.get(table_id, {}).get("stacks", {})
     if user_id in stacks:
         set_balance_db(user_id, stacks[user_id])
-    # Оповещаем всех клиентов
     await broadcast(table_id)
     return result
 
 @app.get("/api/balance")
 async def api_get_balance(user_id: str = Query(...)):
-    """Возвращает текущий баланс игрока из БД."""
     bal = get_balance_db(user_id)
     return {"balance": bal}
 
 @app.get("/api/balance_legacy")
 def get_balance_legacy(table_id: int = Query(...), user_id: str = Query(...)):
-    """(Legacy) Получить баланс игрока для старого кода"""
     return get_balance(table_id, user_id)
 
-# Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
 
 if __name__ == "__main__":
