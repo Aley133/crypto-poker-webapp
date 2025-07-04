@@ -71,7 +71,6 @@ async def _auto_restart(table_id: int):
 
 @router.websocket("/ws/game/{table_id}")
 async def ws_game(websocket: WebSocket, table_id: int):
-    role = websocket.query_params.get("role", "observer")
     await websocket.accept()
 
     uid = websocket.query_params.get("user_id")
@@ -85,36 +84,32 @@ async def ws_game(websocket: WebSocket, table_id: int):
     usernames = state.setdefault("usernames", {})
     players = state.setdefault("players", [])
 
-    if role == "player":
-        already_seated = any(occupant == uid for occupant in seats)
-        if not already_seated:
-            seat_found = False
-            for s in range(N):
-                if seats[s] is None:
-                    seats[s] = uid
-                    player_seats[uid] = s
-                    seat_found = True
-                    break
-            if not seat_found:
-                # no free seats
-                await websocket.close(code=1013)
-                return
+    # Проверяем: уже сидит или нет
+    already_seated = any(occupant == uid for occupant in seats)
+    # Садим нового игрока, если не сидит
+    if not already_seated:
+        for s in range(N):
+            if seats[s] is None:
+                seats[s] = uid
+                player_seats[uid] = s
+                break
 
     usernames[uid] = username
-    if role == "player":
-        players = [u for u in seats if u]
-        state["players"] = players
-        state["seats"] = seats
-        state["player_seats"] = player_seats
+    players = [u for u in seats if u]
+    state["players"] = players
     state["usernames"] = usernames
+    state["seats"] = seats
+    state["player_seats"] = player_seats
 
     # Добавляем соединение
     if websocket not in conns:
         conns.append(websocket)
-    websocket.role = role
+    if len(conns) > N:
+        await websocket.close(code=1013)
+        return
 
     # Старт новой раздачи если нужно
-    if role == "player" and len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
+    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
         start_hand(table_id)
 
     await broadcast(table_id)
@@ -149,19 +144,18 @@ async def ws_game(websocket: WebSocket, table_id: int):
         pass
     finally:
         # Освобождаем место и чистим все связи
-        if role == "player":
-            if uid in player_seats:
-                seat_idx = player_seats[uid]
-                if 0 <= seat_idx < N and seats[seat_idx] == uid:
-                    seats[seat_idx] = None
-                del player_seats[uid]
-            usernames.pop(uid, None)
-            if uid in players:
-                players.remove(uid)
-            state["players"] = [u for u in seats if u]
-            state["usernames"] = usernames
-            state["seats"] = seats
-            state["player_seats"] = player_seats
-            await broadcast(table_id)
+        if uid in player_seats:
+            seat_idx = player_seats[uid]
+            if 0 <= seat_idx < N and seats[seat_idx] == uid:
+                seats[seat_idx] = None
+            del player_seats[uid]
+        usernames.pop(uid, None)
+        if uid in players:
+            players.remove(uid)
+        state["players"] = [u for u in seats if u]
+        state["usernames"] = usernames
+        state["seats"] = seats
+        state["player_seats"] = player_seats
+        await broadcast(table_id)
         if websocket in conns:
             conns.remove(websocket)

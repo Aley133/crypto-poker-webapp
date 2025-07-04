@@ -5,14 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db_utils import init_schema, get_balance_db, set_balance_db
-from tables import (
-    list_tables,
-    create_table,
-    join_table,
-    leave_table,
-    get_balance,
-    observe_table,
-)
+from tables import list_tables, create_table, join_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
 
@@ -51,23 +44,10 @@ def create_table_endpoint(level: int = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
-
-@app.get("/api/observe")
-def observe_table_endpoint(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-):
-    """Позволяет подключиться как наблюдатель и получить базовую информацию."""
-    return observe_table(table_id, user_id)
-
 @app.post("/api/join")
-def join_table_endpoint(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-    buy_in: float = Query(...),
-):
-    """Игрок присоединяется к столу с выбранным бай‑ином"""
-    return join_table(table_id, user_id, buy_in)
+def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
+    """Игрок присоединяется к столу"""
+    return join_table(table_id, user_id)
 
 @app.post("/api/leave")
 async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):

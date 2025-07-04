@@ -2,7 +2,6 @@ from fastapi import HTTPException
 
 from game_data import seat_map
 from game_engine import game_states
-from db_utils import get_balance_db, set_balance_db
 
 # Глобальный словарь с настройками блайндов по уровням
 BLINDS = {
@@ -10,10 +9,6 @@ BLINDS = {
     2: (2, 4, 200),
     3: (5, 10, 500),
 }
-
-# Диапазон возможного бай‑ина
-MIN_BUY_IN = 3
-MAX_BUY_IN = 7
 
 # Минимальное число игроков для старта
 MIN_PLAYERS = 2
@@ -60,53 +55,17 @@ def create_table(level: int) -> dict:
     }
 
 
-def observe_table(table_id: int, user_id: str) -> dict:
-    """Return basic table info for observer connection."""
-    if table_id not in BLINDS:
-        raise HTTPException(status_code=404, detail="table not found")
-
-    sb, bb, _ = BLINDS[table_id]
-    users = seat_map.get(table_id, [])
-    return {
-        "table_id": table_id,
-        "small_blind": sb,
-        "big_blind": bb,
-        "min_buy_in": MIN_BUY_IN,
-        "max_buy_in": MAX_BUY_IN,
-        "players": users,
-        "ws_token": f"{table_id}:{user_id}",
-    }
-
-
-def join_table(table_id: int, user_id: str, buy_in: float) -> dict:
+def join_table(table_id: int, user_id: str) -> dict:
     """
     Добавляет пользователя за стол или обновляет его присутствие.
     Возвращает статус и список игроков.
     """
-    if buy_in < MIN_BUY_IN or buy_in > MAX_BUY_IN:
-        raise HTTPException(status_code=400, detail="buy_in out of range")
-
     users = seat_map.setdefault(table_id, [])
+    # Если пользователь уже за столом, удаляем старую запись для переподключения
     if user_id in users:
         users.remove(user_id)
-
-    balance = get_balance_db(user_id)
-    if balance < buy_in:
-        raise HTTPException(status_code=400, detail="insufficient funds")
-
-    set_balance_db(user_id, balance - int(buy_in))
-
-    state = game_states.setdefault(table_id, {})
-    stacks = state.setdefault("stacks", {})
-    stacks[user_id] = buy_in
-
     users.append(user_id)
-    return {
-        "status": "ok",
-        "players": users,
-        "buy_in": buy_in,
-        "stack": stacks[user_id],
-    }
+    return {"status": "ok", "players": users}
 
 
 def leave_table(table_id: int, user_id: str) -> dict:

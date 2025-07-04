@@ -4,5 +4,3 @@ python-dotenv
 
 aiogram
 psycopg2-binary
-pytest
-httpx
