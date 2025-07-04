@@ -1,6 +1,5 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
-import { observeTable } from './api.js';
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
@@ -29,22 +28,6 @@ const pokerTableEl   = document.getElementById('poker-table');
 console.log('[ui_game] leaveBtn element:', leaveBtn);
 
 let ws;
-
-// Отрисовываем пустой стол до подключения
-window.currentTableState = { players: [], seats: Array(6).fill(null), stacks: {} };
-renderTable(window.currentTableState, userId);
-
-function startWebSocket(role = 'observer') {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.close();
-  }
-  ws = createWebSocket(tableId, userId, username, role, e => {
-    const state = JSON.parse(e.data);
-    window.currentTableState = state;
-    updateUI(state);
-    renderTable(state, userId);
-  });
-}
 
 // Храним предыдущую улицу, чтобы сбрасывать авто-режимы при смене
 let lastRound = null;
@@ -205,15 +188,6 @@ function updateUI(state) {
     return;
   }
 
-  const isPlayer = state.stacks && Object.prototype.hasOwnProperty.call(state.stacks, userId);
-  if (!isPlayer) {
-    statusEl.textContent     = 'Observer mode';
-    potEl.textContent        = `Пот: ${state.pot || 0}`;
-    currentBetEl.textContent = `Текущая ставка: ${state.current_bet || 0}`;
-    actionsEl.style.display  = 'none';
-    return;
-  }
-
   const isMyTurn = String(state.current_player) === String(userId);
   const contribs = state.contributions || {};
   const myContrib = contribs[userId] || 0;
@@ -327,7 +301,12 @@ function updateUI(state) {
 }
 
 // ======= WS + Логика =======
-window.afterJoin = role => startWebSocket(role);
+ws = createWebSocket(tableId, userId, username, e => {
+  const state = JSON.parse(e.data);
+  window.currentTableState = state;
+  updateUI(state);
+  renderTable(state, userId);
+});
 
 // === Обработчик кнопки «Покинуть стол» ===
 if (!leaveBtn) {
@@ -387,15 +366,4 @@ setTimeout(() => {
     renderTable(window.currentTableState, userId);
   }
 }, 200);
-
-// Initial observer connection
-(async () => {
-  try {
-    const info = await observeTable(tableId, userId);
-    window.tableConfig = info;
-    startWebSocket('observer');
-  } catch (e) {
-    console.error('observe error', e);
-  }
-})();
 

@@ -15,22 +15,16 @@ export async function createTable(level) {
   return await res.json();
 }
 
-export async function joinTable(tableId, userId, buyIn) {
-  const res = await fetch(`${BASE}/api/join?table_id=${tableId}&user_id=${encodeURIComponent(userId)}&buy_in=${buyIn}`, {
+export async function joinTable(tableId, userId) {
+  const res = await fetch(`${BASE}/api/join?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`, {
     method: 'POST',
   });
   if (!res.ok) throw new Error(`joinTable error ${res.status}`);
   return await res.json();
 }
 
-export async function observeTable(tableId, userId) {
-  const res = await fetch(`${BASE}/api/observe?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`);
-  if (!res.ok) throw new Error(`observeTable error ${res.status}`);
-  return await res.json();
-}
-
-export async function getBalance(userId) {
-  const res = await fetch(`${BASE}/api/balance?user_id=${encodeURIComponent(userId)}`);
+export async function getBalance(tableId, userId) {
+  const res = await fetch(`${BASE}/api/balance?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error(`getBalance error ${res.status}`);
   return await res.json();
 }
@@ -42,10 +36,5 @@ export async function getGameState(tableId) {
 }
 
 export default {
-  listTables,
-  createTable,
-  joinTable,
-  observeTable,
-  getBalance,
-  getGameState,
+  listTables, createTable, joinTable, getBalance, getGameState
 };
