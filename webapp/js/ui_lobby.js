@@ -1,11 +1,12 @@
 // Этот модуль использует только fetch
-import { initTelegramData, getUserInfo } from './user.js';
-
-// Инициализируем initData сразу, чтобы все запросы содержали подпись
-initTelegramData();
+import { getUserInfo } from './user.js';
 
 // Основной блок инициализации выполняем после полной загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
+  window.initData = window.Telegram?.WebApp?.initData || '';
+  if (window.Telegram?.WebApp?.ready) {
+    window.Telegram.WebApp.ready();
+  }
   const infoContainer = document.getElementById('info');
   const levelSelect   = document.getElementById('level-select');
   const usernameEl    = document.getElementById('username');

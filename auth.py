@@ -21,7 +21,9 @@ def validate_telegram_init_data(init_data: str) -> bool:
     data.sort()
     data_check_string = "\n".join(data)
     secret_key = hashlib.sha256(token.encode()).digest()
-    calculated = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    calculated = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256
+    ).hexdigest()
     return hmac.compare_digest(calculated, hash_received)
 
 
@@ -29,4 +31,3 @@ def require_auth(authorization: Optional[str] = Header(None, alias="Authorizatio
     # если заголовок пришёл — проверяем подпись, иначе пропускаем
     if authorization is not None and not validate_telegram_init_data(authorization):
         raise HTTPException(401, "Unauthorized")
-

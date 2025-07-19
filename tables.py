@@ -6,9 +6,9 @@ from db_utils import set_balance_db
 
 # Конфигурация уровней столов
 TABLE_LEVELS = {
-    "low":  {"sb": 0.02, "bb": 0.05, "min_deposit": 2.5, "max_deposit": 25},
-    "mid":  {"sb": 0.25, "bb": 0.50, "min_deposit": 12.5, "max_deposit": 125},
-    "vip":  {"sb": 2.00, "bb": 5.00, "min_deposit": 250, "max_deposit": 1250},
+    "low": {"sb": 0.02, "bb": 0.05, "min_deposit": 2.5, "max_deposit": 25},
+    "mid": {"sb": 0.25, "bb": 0.50, "min_deposit": 12.5, "max_deposit": 125},
+    "vip": {"sb": 2.00, "bb": 5.00, "min_deposit": 250, "max_deposit": 1250},
 }
 
 # Перечень созданных столов: id -> {level:str}
@@ -33,15 +33,17 @@ def list_tables() -> list:
     for tid, meta in TABLES.items():
         level = meta["level"]
         cfg = TABLE_LEVELS[level]
-        out.append({
-            "id": tid,
-            "level": level,
-            "sb": cfg["sb"],
-            "bb": cfg["bb"],
-            "min_deposit": cfg["min_deposit"],
-            "max_deposit": cfg["max_deposit"],
-            "players": len(seat_map.get(tid, [])),
-        })
+        out.append(
+            {
+                "id": tid,
+                "level": level,
+                "sb": cfg["sb"],
+                "bb": cfg["bb"],
+                "min_deposit": cfg["min_deposit"],
+                "max_deposit": cfg["max_deposit"],
+                "players": len(seat_map.get(tid, [])),
+            }
+        )
     return out
 
 

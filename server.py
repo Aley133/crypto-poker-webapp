@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query, Depends, HTTPException, Header
+from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -17,13 +17,15 @@ from tables import (
 from table_manager import TableManager
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
-from auth import require_auth, validate_telegram_init_data
+from auth import require_auth
 
 app = FastAPI()
+
 
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
+
 
 @app.on_event("startup")
 def on_startup():
@@ -31,6 +33,7 @@ def on_startup():
     Инициализируем схему balances через db_utils.
     """
     init_schema()
+
 
 # CORS
 app.add_middleware(
@@ -43,22 +46,20 @@ app.add_middleware(
 # WebSocket маршруты
 app.include_router(game_router)
 
+
 # API для игровых столов
 @app.get("/api/tables")
-def get_tables(
-    level: str = Query(...),
-    authorization: str = Header(..., alias="Authorization"),
-):
+def get_tables(level: str = Query(...), auth=Depends(require_auth)):
     """Получить список столов указанного уровня"""
-    if not validate_telegram_init_data(authorization):
-        raise HTTPException(status_code=401, detail="Unauthorized")
     all_tables = list_tables()
     return {"tables": [t for t in all_tables if t["level"] == level]}
+
 
 @app.post("/api/tables")
 def create_table_endpoint(level: str = Query(...)):
     """Создать новый стол"""
     return create_table(level)
+
 
 @app.post("/api/join")
 async def join(
@@ -73,6 +74,7 @@ async def join(
         raise HTTPException(400, "Deposit out of range")
     await TableManager.join(user_id, table_id, deposit, seat)
     return {"status": "ok", "players": get_players(table_id)}
+
 
 @app.post("/api/leave")
 async def leave_table_endpoint(
@@ -92,21 +94,19 @@ async def leave_table_endpoint(
     await broadcast(table_id)
     return result
 
+
 @app.get("/api/balance")
-async def api_get_balance(
-    user_id: str = Query(...),
-    authorization: str = Header(..., alias="Authorization"),
-):
+async def api_get_balance(user_id: str = Query(...), auth=Depends(require_auth)):
     """Возвращает текущий баланс игрока из БД."""
-    if not validate_telegram_init_data(authorization):
-        raise HTTPException(status_code=401, detail="Unauthorized")
     bal = get_balance_db(user_id)
     return {"balance": bal}
+
 
 @app.get("/api/balance_legacy")
 def get_balance_legacy(table_id: int = Query(...), user_id: str = Query(...)):
     """(Legacy) Получить баланс игрока для старого кода"""
     return get_balance(table_id, user_id)
+
 
 # Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
