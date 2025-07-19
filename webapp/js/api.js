@@ -15,20 +15,11 @@ export async function createTable(level) {
   return await res.json();
 }
 
-/**
- * @param {string} initData  HMAC-подпись от Telegram.WebApp.initData
- * @param {number} tableId
- * @param {number} deposit  сумма бай-ина
- */
-export async function joinTable(initData, tableId, deposit) {
-  const res = await fetch(`${BASE}/api/join`, {
+export async function joinTable(tableId, userId) {
+  const res = await fetch(`${BASE}/api/join?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData, table_id: tableId, deposit })
   });
-  if (!res.ok) {
-    throw new Error(`joinTable error ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`joinTable error ${res.status}`);
   return await res.json();
 }
 
