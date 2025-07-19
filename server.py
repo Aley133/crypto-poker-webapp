@@ -44,7 +44,7 @@ app.include_router(game_router)
 @app.get("/api/tables")
 def get_tables(level: str = Query(...), auth: None = Depends(require_auth)):
     """Получить список столов"""
-    return {"tables": list_tables()}
+    return {"tables": [t for t in list_tables() if t["level"] == level]}
 
 @app.post("/api/tables")
 def create_table_endpoint(level: str = Query(...), auth: None = Depends(require_auth)):
@@ -99,6 +99,14 @@ def get_balance_legacy(
 ):
     """(Legacy) Получить баланс игрока для старого кода"""
     return get_balance(table_id, user_id)
+
+
+@app.get("/api/game_state")
+def api_game_state(table_id: int = Query(...), auth: None = Depends(require_auth)):
+    state = game_states.get(table_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="No game state")
+    return state
 
 # Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")

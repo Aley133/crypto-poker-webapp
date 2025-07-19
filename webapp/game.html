@@ -28,6 +28,12 @@
 </div>
   </div>
 
+  <script>
+    window.initData = window.Telegram?.WebApp?.initData || '';
+    if (window.Telegram?.WebApp?.ready) {
+      window.Telegram.WebApp.ready();
+    }
+  </script>
   <script type="module" src="/js/ui_game.js"></script>
 </body>
 </html>
