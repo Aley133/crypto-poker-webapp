@@ -12,9 +12,9 @@ class TelegramUser(TypedDict, total=False):
     username: str
 
 def validate_telegram_init_data(init_data: str) -> TelegramUser:
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    bot_token = os.getenv("BOT_TOKEN")
     if not bot_token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN env not set")
+        raise RuntimeError("BOT_TOKEN env not set")
     secret_key = hashlib.sha256(bot_token.encode()).digest()
     data = {}
     for pair in init_data.split("&"):
