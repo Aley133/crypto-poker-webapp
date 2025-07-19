@@ -25,7 +25,7 @@ class TableManager:
         tables.leave_table(table_id, player_id)
 
         # 3) Broadcast через WS
-        await game_ws.broadcast_state(table_id)
+        await game_ws.broadcast(table_id)
         return {"status": "ok"}
 
     @staticmethod
@@ -46,7 +46,13 @@ class TableManager:
         tables.join_table(player_id, table_id, deposit, seat_idx)
         # 2) Обновляем состояние в game_states
         state = game_engine.game_states.setdefault(
-            table_id, game_engine.create_new_state(cfg["max_players"])
+            table_id,
+            {
+                "seats": [None] * cfg.get("max_players", 6),
+                "player_seats": {},
+                "players": [],
+                "stacks": {},
+            },
         )
         # Проверяем, что место свободно
         if state["seats"][seat_idx] is not None:
@@ -57,5 +63,5 @@ class TableManager:
         # Инициализируем стек
         state["stacks"][player_id] = deposit
         # 3) Рассылаем обновлённый стейт
-        await game_ws.broadcast_state(table_id)
+        await game_ws.broadcast(table_id)
         return {"status": "ok"}

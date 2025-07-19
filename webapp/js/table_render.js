@@ -149,12 +149,28 @@ export function renderTable(tableState, userId) {
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
+  const min = window.tableMin;
+  const max = window.tableMax;
+  const dep = parseFloat(prompt(`Ваш депозит [${min}\u2013${max}]`));
+  if (!dep || dep < min || dep > max) {
+    alert('Неверный депозит');
+    return;
+  }
   fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
-    reloadGameState();
-  });
+    `/api/join?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}&deposit=${dep}`,
+    { method: 'POST', headers: { Authorization: window.initData } }
+  )
+    .then(res => {
+      if (res.ok) {
+        connectWs(seatId);
+      } else {
+        res.text().then(t => alert(t));
+      }
+    })
+    .catch(err => {
+      alert('Ошибка подключения');
+      console.error(err);
+    });
 }
 
 // На resize — перерисовка

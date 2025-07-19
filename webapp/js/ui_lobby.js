@@ -1,4 +1,9 @@
-import { listTables, joinTable } from './api.js';
+// Этот модуль использует только fetch
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.initData = window.Telegram?.WebApp?.initData || '';
+  Telegram.WebApp?.ready();
+});
 
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
@@ -60,29 +65,39 @@ if (balanceSpan) {
 async function loadTables() {
   infoContainer.textContent = 'Загрузка…';
   try {
-    const { tables } = await listTables(levelSelect.value);
+    const res = await fetch(`/api/tables?level=${levelSelect.value}`, {
+      headers: { Authorization: window.initData },
+    });
+    if (!res.ok) throw new Error('fetch tables');
+    const { tables } = await res.json();
     infoContainer.innerHTML = '';
+    if (!tables.length) {
+      infoContainer.textContent = 'Нет доступных столов';
+      return;
+    }
     tables.forEach(t => {
       const card = document.createElement('div');
       card.className = 'table-card';
       card.innerHTML = `
         <h3>Стол ${t.id}</h3>
-        <p>SB/BB: ${t.small_blind}/${t.big_blind}</p>
-        <p>Бай-ин: ${t.buy_in} | Игроки: ${t.players}</p>
+        <p>SB/BB: ${t.sb}/${t.bb}</p>
+        <p>Депозит: [${t.min_deposit} – ${t.max_deposit}] | Игроки: ${t.players}</p>
         <button class="join-btn">Играть</button>
       `;
-      card.querySelector('.join-btn').addEventListener('click', async () => {
-        await joinTable(t.id, userId);
+      card.querySelector('.join-btn').addEventListener('click', () => {
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
         window.open(
-          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`,
+          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}` +
+          `&min=${t.min_deposit}&max=${t.max_deposit}`,
           '_blank'
         );
       });
       infoContainer.appendChild(card);
     });
   } catch (err) {
+    alert('Ошибка загрузки столов');
+    console.error(err);
     infoContainer.textContent = 'Ошибка загрузки столов!';
   }
 }

@@ -8,11 +8,12 @@ import { getGameState } from './api.js';
  * @param {function(MessageEvent):void} onMessage
  * @returns {WebSocket}
  */
-export function createWebSocket(tableId, userId, username, onMessage) {
+export function createWebSocket(tableId, userId, seat, onMessage) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
-              `?user_id=${encodeURIComponent(userId)}` +
-              `&username=${encodeURIComponent(username)}`;
+  const url =
+    `${protocol}://${window.location.host}` +
+    `/ws/game/${tableId}/${encodeURIComponent(userId)}/${seat}` +
+    `?initData=${encodeURIComponent(window.initData)}`;
 
   const ws = new WebSocket(url);
 

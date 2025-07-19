@@ -1,13 +1,23 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db_utils import init_schema, get_balance_db, set_balance_db
-from tables import list_tables, create_table, join_table, leave_table, get_balance
+from tables import (
+    list_tables,
+    create_table,
+    join_table,
+    leave_table,
+    get_balance,
+    get_table_config,
+    get_players,
+)
+from table_manager import TableManager
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
+from auth import require_auth
 
 app = FastAPI()
 
@@ -35,22 +45,36 @@ app.include_router(game_router)
 
 # API для игровых столов
 @app.get("/api/tables")
-def get_tables(level: str = Query(...)):
-    """Получить список столов"""
-    return {"tables": list_tables()}
+def get_tables(level: str = Query(...), auth=Depends(require_auth)):
+    """Получить список столов указанного уровня"""
+    all_tables = list_tables()
+    return {"tables": [t for t in all_tables if t["level"] == level]}
 
 @app.post("/api/tables")
-def create_table_endpoint(level: int = Query(...)):
+def create_table_endpoint(level: str = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
 @app.post("/api/join")
-def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
-    """Игрок присоединяется к столу"""
-    return join_table(table_id, user_id)
+async def join(
+    table_id: int = Query(...),
+    user_id: str = Query(...),
+    seat: int = Query(...),
+    deposit: float = Query(...),
+    auth=Depends(require_auth),
+):
+    cfg = get_table_config(table_id)
+    if deposit < cfg["min_deposit"] or deposit > cfg["max_deposit"]:
+        raise HTTPException(400, "Deposit out of range")
+    await TableManager.join(user_id, table_id, deposit, seat)
+    return {"status": "ok", "players": get_players(table_id)}
 
 @app.post("/api/leave")
-async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
+async def leave_table_endpoint(
+    table_id: int = Query(...),
+    user_id: str = Query(...),
+    auth=Depends(require_auth),
+):
     """
     Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
     """
@@ -64,7 +88,7 @@ async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(
     return result
 
 @app.get("/api/balance")
-async def api_get_balance(user_id: str = Query(...)):
+async def api_get_balance(user_id: str = Query(...), auth=Depends(require_auth)):
     """Возвращает текущий баланс игрока из БД."""
     bal = get_balance_db(user_id)
     return {"balance": bal}
