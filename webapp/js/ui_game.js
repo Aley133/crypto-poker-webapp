@@ -1,21 +1,18 @@
 import { createWebSocket, startPolling } from './ws.js';
 import { renderTable, setJoinHandler } from './table_render.js';
 import { getGameState } from './api.js';
+import { getUserInfo, initTelegramData } from './user.js';
 
-window.initData = window.Telegram?.WebApp?.initData || '';
+initTelegramData();
 
-console.log('[ui_game] loaded, params:', {
-  tableId: new URLSearchParams(window.location.search).get('table_id'),
-  userId: new URLSearchParams(window.location.search).get('user_id')
-});
+console.log('[ui_game] loaded');
 
 // --- Params ---
-const params   = new URLSearchParams(window.location.search);
-const tableId  = params.get('table_id');
-const userId   = params.get('user_id');
-const username = params.get('username') || userId;
-const minDeposit = parseFloat(params.get('min')) || 0;
-const maxDeposit = parseFloat(params.get('max')) || 0;
+const params      = new URLSearchParams(window.location.search);
+const tableId     = params.get('table_id');
+const { userId, username } = getUserInfo();
+const minDeposit  = parseFloat(params.get('min')) || 0;
+const maxDeposit  = parseFloat(params.get('max')) || 0;
 
 window.currentTableId = tableId;
 window.currentUserId  = userId;

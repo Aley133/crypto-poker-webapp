@@ -1,27 +1,16 @@
 // webapp/js/app.js
 import * as api from './api.js';
-import { loadLobby } from './ui_lobby.js';
 import { initGameUI } from './ui_game.js';
+import { getUserInfo, initTelegramData } from './user.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const tg = window.Telegram?.WebApp;
-  window.initData = tg?.initData || '';
-  if (tg) tg.ready();
-
-  // 1) Получаем userId из Telegram-WebApp
-  let userId;
-  if (tg?.initDataUnsafe?.user?.id) {
-    userId = tg.initDataUnsafe.user.id;
-  } else {
-    const p = new URLSearchParams(location.search);
-    userId = p.get('user_id') || 'guest_' + Date.now();
-    console.warn('Тестовый userId:', userId);
-  }
+  initTelegramData();
+  const { userId, username } = getUserInfo();
 
   // 2) Отобразить в шапке
   const nameEl = document.getElementById('username');
-  if (nameEl) nameEl.textContent = userId;
-  api.getBalance(0, userId)
+  if (nameEl) nameEl.textContent = username;
+  api.getBalance(userId)
     .then(d => {
       const b = document.getElementById('current-balance');
       if (b) b.textContent = d.balance + ' USDT';
@@ -37,13 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initGameUI({ tableId, userId });
   } else {
     // — Лобби
-    const infoEl = document.getElementById('info');
-    const levelSelect = document.getElementById('level-select');
     document.querySelectorAll('.tab').forEach(tab => {
       tab.onclick = () => {
         document.querySelectorAll('.tab')
           .forEach(t => t.classList.toggle('active', t === tab));
-        loadLobby(levelSelect, infoEl, userId);
+        // ui_lobby.js self-initializes on DOMContentLoaded
       };
     });
     // Авто-клик на первую вкладку
