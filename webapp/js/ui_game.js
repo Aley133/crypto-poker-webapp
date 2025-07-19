@@ -1,9 +1,12 @@
 import { createWebSocket } from './ws.js';
-import { renderTable } from './table_render.js';
-import { initTelegramData } from './user.js';
+import { renderTable, setJoinHandler } from './table_render.js';
 
-// Инициализируем initData сразу
-initTelegramData();
+document.addEventListener('DOMContentLoaded', () => {
+  window.initData = window.Telegram?.WebApp?.initData || '';
+  if (window.Telegram?.WebApp?.ready) {
+    window.Telegram.WebApp.ready();
+  }
+});
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
@@ -23,6 +26,29 @@ window.tableMax = tableMax;
 
 window.currentTableId = tableId;
 window.currentUserId  = userId;
+
+setJoinHandler(async seat => {
+  const dep = parseFloat(prompt(`Ваш депозит [${tableMin}\u2013${tableMax}]`, tableMin));
+  if (!dep || dep < tableMin || dep > tableMax) {
+    alert('Неверный депозит');
+    return;
+  }
+  try {
+    const res = await fetch(
+      `/api/join?table_id=${tableId}&user_id=${userId}&seat=${seat}&deposit=${dep}`,
+      { method: 'POST', headers: { Authorization: window.initData } }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      alert(text);
+      return;
+    }
+    connectWs(seat);
+  } catch (e) {
+    alert('Ошибка подключения');
+    console.error(e);
+  }
+});
 
 // Подставьте реальный размер большого блайнда (если у вас BIG_BLIND = 2)
 const BIG_BLIND = 2;

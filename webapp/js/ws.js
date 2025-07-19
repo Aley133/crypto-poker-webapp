@@ -1,5 +1,12 @@
 import { getGameState } from './api.js';
 
+document.addEventListener('DOMContentLoaded', () => {
+  window.initData = window.Telegram?.WebApp?.initData || '';
+  if (window.Telegram?.WebApp?.ready) {
+    window.Telegram.WebApp.ready();
+  }
+});
+
 /**
  * Создаёт и настраивает WebSocket для игры
  * @param {string} tableId

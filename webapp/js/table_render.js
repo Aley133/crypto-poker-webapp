@@ -1,5 +1,10 @@
 const N_SEATS = 6;
 
+let customJoinHandler = null;
+export function setJoinHandler(fn) {
+  customJoinHandler = fn;
+}
+
 // Углы для 6 мест (seat 0 внизу по центру)
 function getSeatAngles(N) {
   if (N === 6) return [90, 150, 210, 270, 330, 30];
@@ -149,6 +154,10 @@ export function renderTable(tableState, userId) {
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
+  if (typeof customJoinHandler === 'function') {
+    customJoinHandler(seatId);
+    return;
+  }
   const min = window.tableMin;
   const max = window.tableMax;
   const dep = parseFloat(prompt(`Ваш депозит [${min}\u2013${max}]`));
