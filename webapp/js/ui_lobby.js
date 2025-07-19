@@ -5,6 +5,15 @@ const levelSelect   = document.getElementById('level-select');
 const usernameEl    = document.getElementById('username');
 const balanceSpan   = document.getElementById('current-balance'); // Для баланса
 
+// Диапазоны бай-ина для трёх уровней столов
+const DEPOSIT_RANGES = {
+  1: [2.5, 25],
+  2: [12.5, 125],
+  3: [250, 1250],
+};
+
+const initData = window.Telegram.WebApp.initData;
+
 // Генератор «авто-ID» на случай, если не залогинились через Telegram
 function generateId() {
   return 'user_' + [...crypto.getRandomValues(new Uint8Array(4))]
@@ -72,20 +81,25 @@ async function loadTables() {
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
-        await joinTable(t.id, userId);
-        const uidParam = encodeURIComponent(userId);
-        const unameParam = encodeURIComponent(username);
-        window.open(
-          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`,
-          '_blank'
-        );
-      });
-      infoContainer.appendChild(card);
-    });
-  } catch (err) {
-    infoContainer.textContent = 'Ошибка загрузки столов!';
+  const [minD, maxD] = DEPOSIT_RANGES[t.id] || [t.buy_in, t.buy_in];
+  const input = prompt(`Введите бай-ин от ${minD} до ${maxD}`, `${t.buy_in}`);
+  const deposit = parseFloat(input);
+  if (isNaN(deposit) || deposit < minD || deposit > maxD) {
+    alert(`Некорректный бай-ин: от ${minD} до ${maxD}`);
+    return;
   }
-}
+
+  try {
+    await joinTable(initData, t.id, deposit);
+    window.open(
+      `/game.html?table_id=${t.id}&initData=${encodeURIComponent(initData)}`,
+      '_blank'
+    );
+  } catch (err) {
+    console.error(err);
+    alert(`Ошибка при входе за стол: ${err.message}`);
+  }
+});
 
 levelSelect.addEventListener('change', loadTables);
 loadTables();
