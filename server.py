@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query, Depends, Header, HTTPException
+from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -45,7 +45,7 @@ app.include_router(game_router)
 
 # API для игровых столов
 @app.get("/api/tables")
-def get_tables(level: str = Query(...), auth=Depends(require_auth)):
+def get_tables(level: str = Query(...)):
     """Получить список столов указанного уровня"""
     all_tables = list_tables()
     return {"tables": [t for t in all_tables if t["level"] == level]}
@@ -88,7 +88,7 @@ async def leave_table_endpoint(
     return result
 
 @app.get("/api/balance")
-async def api_get_balance(user_id: str = Query(...), auth=Depends(require_auth)):
+async def api_get_balance(user_id: str = Query(...)):
     """Возвращает текущий баланс игрока из БД."""
     bal = get_balance_db(user_id)
     return {"balance": bal}
