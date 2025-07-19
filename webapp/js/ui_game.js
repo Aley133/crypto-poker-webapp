@@ -1,6 +1,11 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
 
+document.addEventListener('DOMContentLoaded', () => {
+  window.initData = window.Telegram?.WebApp?.initData || '';
+  Telegram.WebApp?.ready();
+});
+
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
   userId: new URLSearchParams(window.location.search).get('user_id')
@@ -11,6 +16,11 @@ const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
+const tableMin = parseFloat(params.get('min') || '0');
+const tableMax = parseFloat(params.get('max') || '0');
+
+window.tableMin = tableMin;
+window.tableMax = tableMax;
 
 window.currentTableId = tableId;
 window.currentUserId  = userId;
@@ -28,6 +38,8 @@ const pokerTableEl   = document.getElementById('poker-table');
 console.log('[ui_game] leaveBtn element:', leaveBtn);
 
 let ws;
+
+renderTable({ players: [] }, userId);
 
 // Храним предыдущую улицу, чтобы сбрасывать авто-режимы при смене
 let lastRound = null;
@@ -300,13 +312,14 @@ function updateUI(state) {
   highlightButtons();
 }
 
-// ======= WS + Логика =======
-ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
-  window.currentTableState = state;
-  updateUI(state);
-  renderTable(state, userId);
-});
+function connectWs(seat) {
+  ws = createWebSocket(tableId, userId, seat, e => {
+    const state = JSON.parse(e.data);
+    window.currentTableState = state;
+    updateUI(state);
+    renderTable(state, userId);
+  });
+}
 
 // === Обработчик кнопки «Покинуть стол» ===
 if (!leaveBtn) {
@@ -326,10 +339,11 @@ if (!leaveBtn) {
     try {
       const res = await fetch(
         `/api/leave?table_id=${tableId}&user_id=${userId}`,
-        { method: 'POST' }
+        { method: 'POST', headers: { Authorization: window.initData } }
       );
       console.log('[ui_game] /api/leave status:', res.status);
     } catch (e) {
+      alert('Ошибка выхода');
       console.error('[ui_game] leave fetch error', e);
     }
 

@@ -3,6 +3,7 @@ import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
+from auth import validate_telegram_init_data
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -69,12 +70,15 @@ async def _auto_restart(table_id: int):
         state["timer_deadline"] = time.time() + DECISION_TIME
         await broadcast(table_id)
 
-@router.websocket("/ws/game/{table_id}")
-async def ws_game(websocket: WebSocket, table_id: int):
+@router.websocket("/ws/game/{table_id}/{user_id}/{seat}")
+async def ws_game(websocket: WebSocket, table_id: int, user_id: str, seat: int):
+    init_data = websocket.query_params.get("initData", "")
+    if not validate_telegram_init_data(init_data):
+        await websocket.close(code=4401)
+        return
     await websocket.accept()
-
-    uid = websocket.query_params.get("user_id")
-    username = websocket.query_params.get("username", uid)
+    uid = str(user_id)
+    username = uid
 
     N = MAX_PLAYERS
     conns = connections.setdefault(table_id, [])
@@ -84,15 +88,10 @@ async def ws_game(websocket: WebSocket, table_id: int):
     usernames = state.setdefault("usernames", {})
     players = state.setdefault("players", [])
 
-    # Проверяем: уже сидит или нет
-    already_seated = any(occupant == uid for occupant in seats)
-    # Садим нового игрока, если не сидит
-    if not already_seated:
-        for s in range(N):
-            if seats[s] is None:
-                seats[s] = uid
-                player_seats[uid] = s
-                break
+    # Игрок должен быть зарегистрирован через HTTP /api/join
+    if player_seats.get(uid) != seat:
+        await websocket.close(code=4400)
+        return
 
     usernames[uid] = username
     players = [u for u in seats if u]
