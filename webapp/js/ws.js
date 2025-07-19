@@ -10,9 +10,9 @@ import { getGameState } from './api.js';
  */
 export function createWebSocket(tableId, userId, username, onMessage) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const initData = window.Telegram.WebApp.initData;
   const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
-              `?user_id=${encodeURIComponent(userId)}` +
-              `&username=${encodeURIComponent(username)}`;
+              `?initData=${encodeURIComponent(initData)}`;
 
   const ws = new WebSocket(url);
 
