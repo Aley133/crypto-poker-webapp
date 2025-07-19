@@ -1,22 +1,13 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query, Header, HTTPException, Depends
-from typing import Optional
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db_utils import init_schema, get_balance_db, set_balance_db
-from tables import list_tables, create_table, leave_table, get_balance, get_table_config, get_players
+from tables import list_tables, create_table, join_table, leave_table, get_balance
 from game_ws import router as game_router, broadcast
-from table_manager import TableManager
-from auth import validate_telegram_init_data
 from game_engine import game_states
-
-
-def require_auth(authorization: Optional[str] = Header(None, alias="Authorization")):
-    # если заголовок пришёл — проверяем подпись, иначе пропускаем
-    if authorization is not None and not validate_telegram_init_data(authorization):
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
 app = FastAPI()
 
@@ -44,46 +35,22 @@ app.include_router(game_router)
 
 # API для игровых столов
 @app.get("/api/tables")
-def get_tables(
-    level: str = Query(...),
-    authorization: str = Header(..., alias="Authorization"),
-):
+def get_tables(level: str = Query(...)):
     """Получить список столов"""
-    if not validate_telegram_init_data(authorization):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    all_tables = list_tables()
-    filtered = [t for t in all_tables if t["level"] == level]
-    return {"tables": filtered}
+    return {"tables": list_tables()}
 
 @app.post("/api/tables")
-def create_table_endpoint(level: str = Query(...), auth: None = Depends(require_auth)):
+def create_table_endpoint(level: int = Query(...)):
     """Создать новый стол"""
     return create_table(level)
 
 @app.post("/api/join")
-async def join_table_endpoint(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-    seat: int = Query(...),
-    deposit: float = Query(...),
-    init_data: str = Header(..., alias="Authorization"),
-):
-    if not validate_telegram_init_data(init_data):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    cfg = get_table_config(table_id)
-    if deposit < cfg["min_deposit"] or deposit > cfg["max_deposit"]:
-        raise HTTPException(status_code=400, detail="Deposit out of range")
-    await TableManager.join(user_id, table_id, deposit, seat)
-    return {"status": "ok", "players": get_players(table_id)}
+def join_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
+    """Игрок присоединяется к столу"""
+    return join_table(table_id, user_id)
 
 @app.post("/api/leave")
-async def leave_table_endpoint(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-    init_data: str = Header(..., alias="Authorization"),
-):
-    if not validate_telegram_init_data(init_data):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+async def leave_table_endpoint(table_id: int = Query(...), user_id: str = Query(...)):
     """
     Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
     """
@@ -97,32 +64,15 @@ async def leave_table_endpoint(
     return result
 
 @app.get("/api/balance")
-async def api_get_balance(
-    user_id: str = Query(...),
-    authorization: str = Header(..., alias="Authorization"),
-):
+async def api_get_balance(user_id: str = Query(...)):
     """Возвращает текущий баланс игрока из БД."""
-    if not validate_telegram_init_data(authorization):
-        raise HTTPException(status_code=401, detail="Unauthorized")
     bal = get_balance_db(user_id)
     return {"balance": bal}
 
 @app.get("/api/balance_legacy")
-def get_balance_legacy(
-    table_id: int = Query(...),
-    user_id: str = Query(...),
-    auth: None = Depends(require_auth),
-):
+def get_balance_legacy(table_id: int = Query(...), user_id: str = Query(...)):
     """(Legacy) Получить баланс игрока для старого кода"""
     return get_balance(table_id, user_id)
-
-
-@app.get("/api/game_state")
-def api_game_state(table_id: int = Query(...), auth: None = Depends(require_auth)):
-    state = game_states.get(table_id)
-    if state is None:
-        raise HTTPException(status_code=404, detail="No game state")
-    return state
 
 # Статика фронтенда
 app.mount("/", StaticFiles(directory="webapp", html=True), name="webapp")
