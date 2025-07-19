@@ -1,10 +1,9 @@
 import { createWebSocket } from './ws.js';
 import { renderTable } from './table_render.js';
+import { initTelegramData } from './user.js';
 
-document.addEventListener('DOMContentLoaded', () => {
-  window.initData = window.Telegram?.WebApp?.initData || '';
-  Telegram.WebApp?.ready();
-});
+// Инициализируем initData сразу
+initTelegramData();
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
