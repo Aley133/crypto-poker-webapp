@@ -6,11 +6,13 @@ console.log('[ui_game] loaded, params:', {
   userId: new URLSearchParams(window.location.search).get('user_id')
 });
 
-// --- Params ---
 const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
-const userId   = params.get('user_id');
-const username = params.get('username') || userId;
+const initData = params.get('initData');
+
+const tgUnsafe = window.Telegram.WebApp.initDataUnsafe.user || {};
+const userId   = tgUnsafe.id;
+const username = tgUnsafe.username || tgUnsafe.first_name || userId;
 
 window.currentTableId = tableId;
 window.currentUserId  = userId;
@@ -300,12 +302,10 @@ function updateUI(state) {
   highlightButtons();
 }
 
-// ======= WS + Логика =======
-ws = createWebSocket(tableId, userId, username, e => {
+ws = createWebSocket(tableId, e => {
   const state = JSON.parse(e.data);
   window.currentTableState = state;
   updateUI(state);
-  renderTable(state, userId);
 });
 
 // === Обработчик кнопки «Покинуть стол» ===
