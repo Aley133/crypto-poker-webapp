@@ -46,7 +46,14 @@ class TableManager:
         tables.join_table(player_id, table_id, deposit, seat_idx)
         # 2) Обновляем состояние в game_states
         state = game_engine.game_states.setdefault(
-            table_id, game_engine.create_new_state(cfg["max_players"])
+            table_id,
+            {
+                "seats": [None] * cfg["max_players"],
+                "player_seats": {},
+                "players": [],
+                "usernames": {},
+                "stacks": {},
+            },
         )
         # Проверяем, что место свободно
         if state["seats"][seat_idx] is not None:

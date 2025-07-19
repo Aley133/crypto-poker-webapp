@@ -2,7 +2,15 @@ import json
 import time
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from game_engine import game_states, connections, start_hand, apply_action, DECISION_TIME, RESULT_DELAY
+from game_engine import (
+    game_states,
+    connections,
+    start_hand,
+    apply_action,
+    DECISION_TIME,
+    RESULT_DELAY,
+)
+from auth import validate_telegram_init_data
 
 router = APIRouter()
 MIN_PLAYERS = 2
@@ -60,6 +68,10 @@ async def broadcast(table_id: int):
                 pass
             connections.get(table_id, []).remove(ws)
 
+async def broadcast_state(table_id: int):
+    """Alias used by TableManager"""
+    await broadcast(table_id)
+
 async def _auto_restart(table_id: int):
     await asyncio.sleep(RESULT_DELAY)
     state = game_states.get(table_id)
@@ -69,54 +81,36 @@ async def _auto_restart(table_id: int):
         state["timer_deadline"] = time.time() + DECISION_TIME
         await broadcast(table_id)
 
-@router.websocket("/ws/game/{table_id}")
-async def ws_game(websocket: WebSocket, table_id: int):
+@router.websocket("/ws/game/{table_id}/{user_id}/{seat}")
+async def ws_game(websocket: WebSocket, table_id: int, user_id: str, seat: int):
+    init_data = websocket.query_params.get("initData")
+    if not init_data or not validate_telegram_init_data(init_data):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
 
-    uid = websocket.query_params.get("user_id")
-    username = websocket.query_params.get("username", uid)
-
     N = MAX_PLAYERS
-    conns = connections.setdefault(table_id, [])
-    state = game_states.setdefault(table_id, {})
-    seats = state.setdefault("seats", [None] * N)
-    player_seats = state.setdefault("player_seats", {})
-    usernames = state.setdefault("usernames", {})
-    players = state.setdefault("players", [])
+    state = game_states.setdefault(
+        table_id,
+        {
+            "seats": [None] * N,
+            "player_seats": {},
+            "players": [],
+            "usernames": {},
+            "stacks": {},
+        },
+    )
 
-    # Проверяем: уже сидит или нет
-    already_seated = any(occupant == uid for occupant in seats)
-    # Садим нового игрока, если не сидит
-    if not already_seated:
-        for s in range(N):
-            if seats[s] is None:
-                seats[s] = uid
-                player_seats[uid] = s
-                break
-
-    usernames[uid] = username
-    players = [u for u in seats if u]
-    state["players"] = players
-    state["usernames"] = usernames
-    state["seats"] = seats
-    state["player_seats"] = player_seats
-
-    # Добавляем соединение
-    if websocket not in conns:
-        conns.append(websocket)
-    if len(conns) > N:
-        await websocket.close(code=1013)
+    if seat >= N or state["seats"][seat] != user_id:
+        await websocket.close(code=1008)
         return
 
-    # Старт новой раздачи если нужно
-    if len(players) >= MIN_PLAYERS and state.get("phase") != "pre-flop":
-        start_hand(table_id)
-
+    conns = connections.setdefault(table_id, [])
+    if websocket not in conns:
+        conns.append(websocket)
     await broadcast(table_id)
 
-    # Авто-ребут если только что result
-    st = game_states.get(table_id, {})
-    if st.get("phase") == "result":
+    if state.get("phase") == "result":
         asyncio.create_task(_auto_restart(table_id))
 
     try:
@@ -132,30 +126,13 @@ async def ws_game(websocket: WebSocket, table_id: int):
 
             apply_action(table_id, pid, action, amount)
 
-            s = game_states[table_id]
-            s["players"] = [u for u in s.get("seats", [None] * N) if u]
             await broadcast(table_id)
 
             st = game_states.get(table_id, {})
             if st.get("phase") == "result":
                 asyncio.create_task(_auto_restart(table_id))
     except WebSocketDisconnect:
-        # Нормальное закрытие клиентом
         pass
     finally:
-        # Освобождаем место и чистим все связи
-        if uid in player_seats:
-            seat_idx = player_seats[uid]
-            if 0 <= seat_idx < N and seats[seat_idx] == uid:
-                seats[seat_idx] = None
-            del player_seats[uid]
-        usernames.pop(uid, None)
-        if uid in players:
-            players.remove(uid)
-        state["players"] = [u for u in seats if u]
-        state["usernames"] = usernames
-        state["seats"] = seats
-        state["player_seats"] = player_seats
-        await broadcast(table_id)
         if websocket in conns:
             conns.remove(websocket)

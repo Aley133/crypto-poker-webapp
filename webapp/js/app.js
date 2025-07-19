@@ -1,13 +1,17 @@
 // webapp/js/app.js
-import { api }       from './api.js';
+import * as api from './api.js';
 import { loadLobby } from './ui_lobby.js';
 import { initGameUI } from './ui_game.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  const tg = window.Telegram?.WebApp;
+  window.initData = tg?.initData || '';
+  if (tg) tg.ready();
+
   // 1) Получаем userId из Telegram-WebApp
   let userId;
-  if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
-    userId = Telegram.WebApp.initDataUnsafe.user.id;
+  if (tg?.initDataUnsafe?.user?.id) {
+    userId = tg.initDataUnsafe.user.id;
   } else {
     const p = new URLSearchParams(location.search);
     userId = p.get('user_id') || 'guest_' + Date.now();
@@ -17,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 2) Отобразить в шапке
   const nameEl = document.getElementById('username');
   if (nameEl) nameEl.textContent = userId;
-  api('/api/balance', { table_id: 0, user_id: userId })
+  api.getBalance(0, userId)
     .then(d => {
       const b = document.getElementById('current-balance');
       if (b) b.textContent = d.balance + ' USDT';
