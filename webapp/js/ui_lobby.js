@@ -48,7 +48,8 @@ const { uid: userId, uname: username } = getUserInfo();
 
 // ======= Баланс =======
 if (balanceSpan) {
-  fetch(`/api/balance?user_id=${userId}`, { headers: { 'Authorization': window.initData || '' } })
+  const url = `/api/balance?user_id=${userId}`;
+  fetch(url, { headers: { Authorization: window.initData } })
     .then(res => res.json())
     .then(data => {
       balanceSpan.innerText = `${data.balance} USDT`;

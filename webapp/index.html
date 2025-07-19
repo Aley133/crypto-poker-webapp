@@ -64,6 +64,12 @@
     });
   </script>
 
+  <script>
+    // подписанные данные из Telegram WebApp или пустая строка
+    window.initData = window.Telegram?.WebApp?.initData || '';
+    // оповестить WebApp, что мы готовы к работе
+    window.Telegram?.WebApp?.ready();
+  </script>
   <script type="module" src="js/ui_lobby.js"></script>
 </body>
 </html>
