@@ -1,5 +1,7 @@
 import { createWebSocket } from './ws.js';
-import { renderTable } from './table_render.js';
+import { renderTable, setJoinHandler } from './table_render.js';
+
+window.initData = window.Telegram?.WebApp?.initData || '';
 
 console.log('[ui_game] loaded, params:', {
   tableId: new URLSearchParams(window.location.search).get('table_id'),
@@ -11,6 +13,8 @@ const params   = new URLSearchParams(window.location.search);
 const tableId  = params.get('table_id');
 const userId   = params.get('user_id');
 const username = params.get('username') || userId;
+const minDeposit = parseFloat(params.get('min')) || 0;
+const maxDeposit = parseFloat(params.get('max')) || 0;
 
 window.currentTableId = tableId;
 window.currentUserId  = userId;
@@ -26,6 +30,30 @@ const actionsEl      = document.getElementById('actions');
 const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
 console.log('[ui_game] leaveBtn element:', leaveBtn);
+
+setJoinHandler(async seatId => {
+  const amount = parseFloat(prompt(`Deposit [${minDeposit}-${maxDeposit}]`, minDeposit)) || 0;
+  if (amount < minDeposit || amount > maxDeposit) {
+    alert('Deposit must be within range');
+    return;
+  }
+  try {
+    const res = await fetch(
+      `/api/join?table_id=${tableId}&user_id=${userId}&seat=${seatId}&deposit=${amount}`,
+      { method: 'POST', headers: { 'Authorization': window.initData || '' } }
+    );
+    if (!res.ok) {
+      alert('Seat taken or unauthorized');
+      return;
+    }
+    connectWs(seatId);
+  } catch (e) {
+    alert('Error joining');
+  }
+});
+
+// Initial empty table render
+renderTable({ players: [] }, userId);
 
 let ws;
 
@@ -300,13 +328,14 @@ function updateUI(state) {
   highlightButtons();
 }
 
-// ======= WS + Логика =======
-ws = createWebSocket(tableId, userId, username, e => {
-  const state = JSON.parse(e.data);
-  window.currentTableState = state;
-  updateUI(state);
-  renderTable(state, userId);
-});
+function connectWs(seatIdx) {
+  ws = createWebSocket(tableId, userId, seatIdx, e => {
+    const state = JSON.parse(e.data);
+    window.currentTableState = state;
+    updateUI(state);
+    renderTable(state, userId);
+  });
+}
 
 // === Обработчик кнопки «Покинуть стол» ===
 if (!leaveBtn) {
@@ -326,7 +355,7 @@ if (!leaveBtn) {
     try {
       const res = await fetch(
         `/api/leave?table_id=${tableId}&user_id=${userId}`,
-        { method: 'POST' }
+        { method: 'POST', headers: { 'Authorization': window.initData || '' } }
       );
       console.log('[ui_game] /api/leave status:', res.status);
     } catch (e) {

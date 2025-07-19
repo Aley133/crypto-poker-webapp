@@ -1,4 +1,6 @@
-import { listTables, joinTable } from './api.js';
+import { listTables } from './api.js';
+
+window.initData = window.Telegram?.WebApp?.initData || '';
 
 const infoContainer = document.getElementById('info');
 const levelSelect   = document.getElementById('level-select');
@@ -46,7 +48,7 @@ const { uid: userId, uname: username } = getUserInfo();
 
 // ======= Баланс =======
 if (balanceSpan) {
-  fetch(`/api/balance?user_id=${userId}`)
+  fetch(`/api/balance?user_id=${userId}`, { headers: { 'Authorization': window.initData || '' } })
     .then(res => res.json())
     .then(data => {
       balanceSpan.innerText = `${data.balance} USDT`;
@@ -72,11 +74,10 @@ async function loadTables() {
         <button class="join-btn">Играть</button>
       `;
       card.querySelector('.join-btn').addEventListener('click', async () => {
-        await joinTable(t.id, userId);
         const uidParam = encodeURIComponent(userId);
         const unameParam = encodeURIComponent(username);
         window.open(
-          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}`,
+          `/game.html?table_id=${t.id}&user_id=${uidParam}&username=${unameParam}&min=${t.min_deposit}&max=${t.max_deposit}`,
           '_blank'
         );
       });
