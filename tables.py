@@ -10,6 +10,13 @@ BLINDS = {
     3: (5, 10, 500),
 }
 
+DEPOSIT_RANGES = {
+    # table_id: (min_deposit, max_deposit)
+    1: (2.5, 25),
+    2: (12.5, 125),
+    3: (250, 1250),
+}
+
 # Минимальное число игроков для старта
 MIN_PLAYERS = 2
 
