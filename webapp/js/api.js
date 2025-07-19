@@ -36,8 +36,8 @@ export async function joinTable(tableId, userId, seat, deposit) {
   return await res.json();
 }
 
-export async function getBalance(tableId, userId) {
-  const url = `${BASE}/api/balance?table_id=${tableId}&user_id=${encodeURIComponent(userId)}`;
+export async function getBalance(userId) {
+  const url = `${BASE}/api/balance?user_id=${encodeURIComponent(userId)}`;
   const res = await fetch(url, {
     headers: {
       Authorization: window.initData,
