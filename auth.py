@@ -1,4 +1,5 @@
 import os, hashlib, hmac, urllib.parse
+from typing import Optional
 from fastapi import Header, HTTPException
 
 
@@ -24,7 +25,8 @@ def validate_telegram_init_data(init_data: str) -> bool:
     return hmac.compare_digest(calculated, hash_received)
 
 
-def require_auth(authorization: str = Header(..., alias="Authorization")):
-    if not validate_telegram_init_data(authorization):
+def require_auth(authorization: Optional[str] = Header(None, alias="Authorization")):
+    # если заголовок пришёл — проверяем подпись, иначе пропускаем
+    if authorization is not None and not validate_telegram_init_data(authorization):
         raise HTTPException(401, "Unauthorized")
 
