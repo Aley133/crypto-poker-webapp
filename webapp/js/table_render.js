@@ -1,6 +1,4 @@
 const N_SEATS = 6;
-let customJoinHandler = null;
-export function setJoinHandler(fn) { customJoinHandler = fn; }
 
 // Углы для 6 мест (seat 0 внизу по центру)
 function getSeatAngles(N) {
@@ -151,16 +149,11 @@ export function renderTable(tableState, userId) {
 
 // Сажаем игрока на место (используем глобальные window.currentTableId/ currentUserId)
 function joinSeat(seatId) {
-  if (typeof customJoinHandler === 'function') {
-    customJoinHandler(seatId);
-    return;
-  }
-  const url = `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`;
-  fetch(url, {
-    method: 'POST',
-    headers: { Authorization: window.initData }
-  }).then(() => {
-    reloadGameState && reloadGameState();
+  fetch(
+    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
+    { method: 'POST' }
+  ).then(() => {
+    reloadGameState();
   });
 }
 

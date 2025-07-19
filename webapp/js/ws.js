@@ -8,10 +8,11 @@ import { getGameState } from './api.js';
  * @param {function(MessageEvent):void} onMessage
  * @returns {WebSocket}
  */
-export function createWebSocket(tableId, userId, seat, onMessage) {
+export function createWebSocket(tableId, userId, username, onMessage) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${protocol}://${window.location.host}/ws/game/${tableId}/${encodeURIComponent(userId)}/${seat}` +
-              `?initData=${encodeURIComponent(window.initData || '')}`;
+  const url = `${protocol}://${window.location.host}/ws/game/${tableId}` +
+              `?user_id=${encodeURIComponent(userId)}` +
+              `&username=${encodeURIComponent(username)}`;
 
   const ws = new WebSocket(url);
 
@@ -25,9 +26,7 @@ export function createWebSocket(tableId, userId, seat, onMessage) {
 
 // Fallback-поллинг через HTTP: обновление состояния каждые 2 секунды
 export function startPolling(tableId, userId, onState) {
-  let stopped = false;
   async function poll() {
-    if (stopped) return;
     try {
       const state = await getGameState(tableId);
       onState({ data: JSON.stringify(state) });
@@ -37,5 +36,4 @@ export function startPolling(tableId, userId, onState) {
     setTimeout(poll, 2000);
   }
   poll();
-  return () => { stopped = true; };
 }
