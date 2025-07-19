@@ -1,5 +1,6 @@
-import { createWebSocket } from './ws.js';
+import { createWebSocket, startPolling } from './ws.js';
 import { renderTable, setJoinHandler } from './table_render.js';
+import { getGameState } from './api.js';
 
 window.initData = window.Telegram?.WebApp?.initData || '';
 
@@ -31,6 +32,28 @@ const leaveBtn       = document.getElementById('leave-btn');
 const pokerTableEl   = document.getElementById('poker-table');
 console.log('[ui_game] leaveBtn element:', leaveBtn);
 
+let stopPolling = null;
+
+async function loadInitialState() {
+  try {
+    const state = await getGameState(tableId);
+    window.currentTableState = state;
+    renderTable(state, userId);
+    updateUI(state);
+    stopPolling = startPolling(tableId, userId, e => {
+      const st = JSON.parse(e.data);
+      window.currentTableState = st;
+      renderTable(st, userId);
+      updateUI(st);
+    });
+  } catch (e) {
+    console.warn('No initial state', e);
+    renderTable({ players: [] }, userId);
+  }
+}
+
+loadInitialState();
+
 setJoinHandler(async seatId => {
   const amount = parseFloat(prompt(`Deposit [${minDeposit}-${maxDeposit}]`, minDeposit)) || 0;
   if (amount < minDeposit || amount > maxDeposit) {
@@ -46,14 +69,15 @@ setJoinHandler(async seatId => {
       alert('Seat taken or unauthorized');
       return;
     }
+    if (stopPolling) {
+      stopPolling();
+      stopPolling = null;
+    }
     connectWs(seatId);
   } catch (e) {
     alert('Error joining');
   }
 });
-
-// Initial empty table render
-renderTable({ players: [] }, userId);
 
 let ws;
 

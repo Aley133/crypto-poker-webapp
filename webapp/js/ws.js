@@ -25,7 +25,9 @@ export function createWebSocket(tableId, userId, seat, onMessage) {
 
 // Fallback-поллинг через HTTP: обновление состояния каждые 2 секунды
 export function startPolling(tableId, userId, onState) {
+  let stopped = false;
   async function poll() {
+    if (stopped) return;
     try {
       const state = await getGameState(tableId);
       onState({ data: JSON.stringify(state) });
@@ -35,4 +37,5 @@ export function startPolling(tableId, userId, onState) {
     setTimeout(poll, 2000);
   }
   poll();
+  return () => { stopped = true; };
 }
