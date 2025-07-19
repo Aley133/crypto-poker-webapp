@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Query, Depends, HTTPException
+from fastapi import FastAPI, Query, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -17,7 +17,7 @@ from tables import (
 from table_manager import TableManager
 from game_ws import router as game_router, broadcast
 from game_engine import game_states
-from auth import require_auth
+from auth import require_auth, validate_telegram_init_data
 
 app = FastAPI()
 
@@ -45,8 +45,13 @@ app.include_router(game_router)
 
 # API для игровых столов
 @app.get("/api/tables")
-def get_tables(level: str = Query(...)):
+def get_tables(
+    level: str = Query(...),
+    authorization: str = Header(..., alias="Authorization"),
+):
     """Получить список столов указанного уровня"""
+    if not validate_telegram_init_data(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     all_tables = list_tables()
     return {"tables": [t for t in all_tables if t["level"] == level]}
 
@@ -88,8 +93,13 @@ async def leave_table_endpoint(
     return result
 
 @app.get("/api/balance")
-async def api_get_balance(user_id: str = Query(...)):
+async def api_get_balance(
+    user_id: str = Query(...),
+    authorization: str = Header(..., alias="Authorization"),
+):
     """Возвращает текущий баланс игрока из БД."""
+    if not validate_telegram_init_data(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     bal = get_balance_db(user_id)
     return {"balance": bal}
 
