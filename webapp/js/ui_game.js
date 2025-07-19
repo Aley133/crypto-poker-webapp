@@ -61,10 +61,11 @@ setJoinHandler(async seatId => {
     return;
   }
   try {
-    const res = await fetch(
-      `/api/join?table_id=${tableId}&user_id=${userId}&seat=${seatId}&deposit=${amount}`,
-      { method: 'POST', headers: { 'Authorization': window.initData || '' } }
-    );
+    const url = `/api/join?table_id=${tableId}&user_id=${userId}&seat=${seatId}&deposit=${amount}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: window.initData }
+    });
     if (!res.ok) {
       alert('Seat taken or unauthorized');
       return;
@@ -377,10 +378,11 @@ if (!leaveBtn) {
 
     // 2) Оповещаем сервер о выходе
     try {
-      const res = await fetch(
-        `/api/leave?table_id=${tableId}&user_id=${userId}`,
-        { method: 'POST', headers: { 'Authorization': window.initData || '' } }
-      );
+      const url = `/api/leave?table_id=${tableId}&user_id=${userId}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: window.initData }
+      });
       console.log('[ui_game] /api/leave status:', res.status);
     } catch (e) {
       console.error('[ui_game] leave fetch error', e);

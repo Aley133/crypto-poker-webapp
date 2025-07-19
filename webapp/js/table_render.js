@@ -155,10 +155,11 @@ function joinSeat(seatId) {
     customJoinHandler(seatId);
     return;
   }
-  fetch(
-    `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`,
-    { method: 'POST' }
-  ).then(() => {
+  const url = `/api/join-seat?table_id=${window.currentTableId}&user_id=${window.currentUserId}&seat=${seatId}`;
+  fetch(url, {
+    method: 'POST',
+    headers: { Authorization: window.initData }
+  }).then(() => {
     reloadGameState && reloadGameState();
   });
 }

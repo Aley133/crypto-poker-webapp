@@ -2,10 +2,11 @@ import { listTables } from './api.js';
 
 window.initData = window.Telegram?.WebApp?.initData || '';
 
-const infoContainer = document.getElementById('info');
-const levelSelect   = document.getElementById('level-select');
-const usernameEl    = document.getElementById('username');
-const balanceSpan   = document.getElementById('current-balance'); // Для баланса
+document.addEventListener('DOMContentLoaded', () => {
+  const infoContainer = document.getElementById('info');
+  const levelSelect   = document.getElementById('level-select');
+  const usernameEl    = document.getElementById('username');
+  const balanceSpan   = document.getElementById('current-balance'); // Для баланса
 
 // Генератор «авто-ID» на случай, если не залогинились через Telegram
 function generateId() {
@@ -48,7 +49,8 @@ const { uid: userId, uname: username } = getUserInfo();
 
 // ======= Баланс =======
 if (balanceSpan) {
-  fetch(`/api/balance?user_id=${userId}`, { headers: { 'Authorization': window.initData || '' } })
+  const url = `/api/balance?user_id=${userId}`;
+  fetch(url, { headers: { Authorization: window.initData } })
     .then(res => res.json())
     .then(data => {
       balanceSpan.innerText = `${data.balance} USDT`;
@@ -59,12 +61,16 @@ if (balanceSpan) {
 }
 
 // Загрузка списка столов
-async function loadTables() {
-  infoContainer.textContent = 'Загрузка…';
-  try {
-    const { tables } = await listTables(levelSelect.value);
-    infoContainer.innerHTML = '';
-    tables.forEach(t => {
+  async function loadTables() {
+    infoContainer.textContent = 'Загрузка…';
+    try {
+      const { tables } = await listTables(levelSelect.value);
+      infoContainer.innerHTML = '';
+      if (!Array.isArray(tables) || tables.length === 0) {
+        infoContainer.textContent = 'Столы не найдены';
+        return;
+      }
+      tables.forEach(t => {
       const card = document.createElement('div');
       card.className = 'table-card';
       card.innerHTML = `
@@ -83,10 +89,12 @@ async function loadTables() {
       });
       infoContainer.appendChild(card);
     });
-  } catch (err) {
-    infoContainer.textContent = 'Ошибка загрузки столов!';
+    } catch (err) {
+      console.error('loadTables error', err);
+      infoContainer.textContent = 'Ошибка загрузки столов!';
+    }
   }
-}
 
-levelSelect.addEventListener('change', loadTables);
-loadTables();
+  levelSelect.addEventListener('change', loadTables);
+  loadTables();
+});
