@@ -13,6 +13,7 @@ from game_engine import game_states
 
 
 def require_auth(authorization: str = Header(..., alias="Authorization")):
+    """Dependency that validates Telegram init data."""
     if not validate_telegram_init_data(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -42,9 +43,16 @@ app.include_router(game_router)
 
 # API для игровых столов
 @app.get("/api/tables")
-def get_tables(level: str = Query(...), auth: None = Depends(require_auth)):
-    """Получить список столов"""
-    return {"tables": [t for t in list_tables() if t["level"] == level]}
+def get_tables(
+    level: str = Query(...),
+    authorization: str = Header(..., alias="Authorization"),
+):
+    """Получить список столов, проверяя подпись Telegram."""
+    if not validate_telegram_init_data(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    all_tables = list_tables()
+    filtered = [t for t in all_tables if t["level"] == level]
+    return {"tables": filtered}
 
 @app.post("/api/tables")
 def create_table_endpoint(level: str = Query(...), auth: None = Depends(require_auth)):
@@ -71,8 +79,10 @@ async def join_table_endpoint(
 async def leave_table_endpoint(
     table_id: int = Query(...),
     user_id: str = Query(...),
-    auth: None = Depends(require_auth),
+    init_data: str = Header(..., alias="Authorization"),
 ):
+    if not validate_telegram_init_data(init_data):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     """
     Игрок покидает стол — удаляем из памяти, сохраняем баланс, оповещаем WS.
     """
@@ -86,8 +96,13 @@ async def leave_table_endpoint(
     return result
 
 @app.get("/api/balance")
-async def api_get_balance(user_id: str = Query(...), auth: None = Depends(require_auth)):
+async def api_get_balance(
+    user_id: str = Query(...),
+    authorization: str = Header(..., alias="Authorization"),
+):
     """Возвращает текущий баланс игрока из БД."""
+    if not validate_telegram_init_data(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     bal = get_balance_db(user_id)
     return {"balance": bal}
 
